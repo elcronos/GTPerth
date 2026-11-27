@@ -157,16 +157,19 @@ export function nearRoad(x, z) {
   return i >= 0 && j >= 0 && i < RG.n && j < RG.n && RGRID[j * RG.n + i] === 1;
 }
 // a point offset inland from the shoreline polyline, for promenade furniture
-export function alongShore(P, x0, x1, step, inset, filter) {
+export function alongShore(P, x0, x1, step, inset, filter, phase = 0) {
   const out = [];
+  let carry = phase;   // spacing runs continuously along the polyline (not restarted at every vertex)
   for (let i = 0; i < P.length - 1; i++) {
-    const [ax, az] = P[i], [bx, bz] = P[i + 1], L = Math.hypot(bx - ax, bz - az); if (L < 0.5) continue;
-    for (let d = 0; d < L; d += step) {
+    const [ax, az] = P[i], [bx, bz] = P[i + 1], L = Math.hypot(bx - ax, bz - az); if (L < 0.5) { carry = Math.max(0, carry - L); continue; }
+    let d = carry;
+    for (; d < L; d += step) {
       const x = ax + ((bx - ax) * d) / L, z = az + ((bz - az) * d) / L; if (x < x0 || x > x1) continue;
       let nx = (bz - az) / L, nz = -(bx - ax) / L; if (!isLand(x + nx * 3, z + nz * 3)) { nx = -nx; nz = -nz; }
       const p = [x + nx * inset, z + nz * inset, Math.atan2(bx - ax, bz - az), nx, nz];
       if (!filter || filter(p[0], p[1])) out.push(p);
     }
+    carry = d - L;
   }
   return out;
 }

@@ -58,7 +58,7 @@ async function main() {
       last.copy(c);
       const r = G.shadowRadius || 120;
       box.min.set(c.x - r, -2, c.z - r); box.max.set(c.x + r, 60, c.z + r);
-      fitSunShadow(G, box, G.quality.settings.shadow, { margin: 4, maxShadowLen: 160 });
+      fitSunShadow(G, box, G.quality.settings.shadow, { margin: 4, maxShadowLen: G.quality.tier === 'low' ? 70 : 160 });
       S.invalidate?.(2);
     };
     fit(true);

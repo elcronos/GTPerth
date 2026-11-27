@@ -181,6 +181,13 @@ vec4 gW; vec2 gXZ; float gRock;
 }`)
       .replace('#include <roughnessmap_fragment>', `float roughnessFactor = roughness * (texture2D(tPO, gXZ * uSc.x).g * gW.x + 0.9 * gW.y + 0.93 * gW.z + 0.88 * gW.w);
 roughnessFactor = mix(roughnessFactor, 0.85, gRock);`)
+      .replace('#include <aomap_fragment>', `
+  { // street-lamp light map (props.js): albedo-lit warm pools at night
+    vec2 luv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
+    float lamp = texture2D(uLampMap, luv).r * step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
+    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 2.8 + 0.03) * uNight;
+  }
+#include <aomap_fragment>`)
       .replace('#include <normal_fragment_maps>', `{
   vec3 nP = texture2D(tPN, gXZ * uSc.x).xyz * 2.0 - 1.0, nL = texture2D(tLN, gXZ * uSc.y).xyz * 2.0 - 1.0;
   vec3 nB = texture2D(tBN, gXZ * uSc.z).xyz * 2.0 - 1.0;

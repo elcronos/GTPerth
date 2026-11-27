@@ -36,14 +36,15 @@ export async function create(G, { input, world, fx, quality }) {
   dockFerry();
   // a few parked cars at the kerbs near the Quay (easy to steal)
   const parked = [];
-  { const want = [[60, -200, 6], [-200, 1380, 1]];
+  { const hiP = G.quality.tier === 'high' || G.quality.tier === 'ultra';
+    const want = hiP ? [[60, -200, 8], [100, -450, 6], [-200, 1380, 2]] : [[60, -200, 6], [-200, 1380, 1]];
     for (const [cx, cz, n] of want) {
       let got = 0;
-      for (const r of ROADS) { if (got >= n) break; if (r.cls !== 's' && r.cls !== 'm') continue;
+      for (const r of ROADS) { if (got >= n) break; if (r.cls !== 's' && r.cls !== 'm' && !(hiP && r.cls === 'p')) continue;
         for (let i = 0; i < r.pts.length - 1 && got < n; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], L = Math.hypot(bx - ax, bz - az); if (L < 20) continue;
           const mx = (ax + bx) / 2, mz = (az + bz) / 2, d = Math.hypot(mx - cx, mz - cz); if (d < 40 || d > 240) continue;
           const tx = (bx - ax) / L, tz = (bz - az) / L, off = r.w / 2 - 1.3; // left kerb (left-hand traffic)
-          const x = mx + tz * off, z = mz - tx * off; if (!isLand(x, z) || parked.some((p) => Math.hypot(p[0] - x, p[1] - z) < 30)) continue;
+          const x = mx + tz * off, z = mz - tx * off; if (!isLand(x, z) || parked.some((p) => Math.hypot(p[0] - x, p[1] - z) < (hiP ? 16 : 30))) continue;
           parked.push([x, z, Math.atan2(tz, tx)]); got++; } } } }
   for (const [x, z, h] of parked) { const c = traffic.spawnAt(['sedan', 'ute', 'suv', 'hatch'][(Math.random() * 4) | 0], x, z, h, CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0]); c.parked = true; }
 
@@ -254,8 +255,9 @@ export async function create(G, { input, world, fx, quality }) {
     // camera
     const mode = player.vehicle ? 'vehicle' : 'foot';
     if (!G.camLocked) player.updateCamera(rawDt, mode);
-    tmpFocus.set(player.vehicle ? player.vehicle.x : player.x, 0, player.vehicle ? player.vehicle.z : player.z);
-    G.focus = tmpFocus; G.shadowRadius = player.vehicle === ferry ? 170 : 120;
+    if (G.camLocked) { G.camera.getWorldDirection(_b); tmpFocus.set(G.camera.position.x + _b.x * 45, 0, G.camera.position.z + _b.z * 45); }   // photo/fly cams: shadows + traffic follow the view
+    else tmpFocus.set(player.vehicle ? player.vehicle.x : player.x, 0, player.vehicle ? player.vehicle.z : player.z);
+    G.focus = tmpFocus; G.shadowRadius = (player.vehicle === ferry ? 170 : 120) * (G.quality.tier === 'low' ? 0.42 : 1);
     // prompts
     let p3 = null;
     if (!player.vehicle && state.mode === 'playing') {

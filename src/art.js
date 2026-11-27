@@ -10,7 +10,7 @@ export const ART = {
   vol:   { density: 0.010, g: 0.65, steps: 20, strength: 1.0 },
   ambient: { skyIntensity: 1.0, envIntensity: 0.80 },
   grade: { exposure: 1.0, agxMix: 0.25, lookPower: 1.15, sat: 1.30, contrast: 0.24,
-           splitShadow: [0.92, 1.0, 1.08], splitHigh: [1.12, 1.01, 0.84], vignette: 0.28,
+           splitShadow: [0.87, 0.98, 1.13], splitHigh: [1.12, 1.01, 0.84], vignette: 0.28,
            bloom: 0.07, bloomThreshold: 1.25, lensDirt: 0.25, chroma: 0.0012, grain: 0.018, sharpen: 0.28,
            adaptMin: 0.55, adaptMax: 1.5, adaptTau: 1.2 },
   surface: { wet: 0.0, dust: 0.05, snow: 0.0, macroVar: 0.28 },

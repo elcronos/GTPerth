@@ -29,7 +29,8 @@ export function facadeMaterial(name = 'facade') {
 varying vec4 vFac; varying vec3 vGlass; varying vec2 vFUv;
 float fcGlass; float fcRough; float fcMetal; vec3 fcEmit; vec2 fcTilt; float fcFoot;
 float fcH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x); }
+// centred AA ramp that preserves coverage: a sub-pixel mullion fades out instead of growing to a full pixel
+float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa, w + 0.5 * aa, x)) * min(1.0, 2.0 * w / (aa + 2.0 * w)); }
 `)
       
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -48,7 +49,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   vec2 cell = floor(q), f = fract(q);
   vec2 fw = fwidth(q);
   fcFoot = max(fw.x, fw.y);                         // cells per pixel
-  float far = smoothstep(0.15, 0.5, fcFoot);         // 1 = cells smaller than ~2 px: use averages
+  float far = smoothstep(0.08, 0.30, fcFoot);         // 1 = cells smaller than ~2 px: use averages
   float farRoom = smoothstep(0.06, 0.25, fcFoot);    // room interiors fade to their average much earlier (no TV static)
   vec2 dE = min(f, 1.0 - f) * cellSz;                // metres to the cell edges
   vec2 aa = fw * cellSz * 1.2 + 0.004;
@@ -65,7 +66,17 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     vec2 w = vec2(0.14, 0.16);
     float inX = smoothstep(w.x - aa.x / pw, w.x, f.x) * (1.0 - smoothstep(1.0 - w.x, 1.0 - w.x + aa.x / pw, f.x));
     float inY = smoothstep(w.y - aa.y / fh, w.y, f.y) * (1.0 - smoothstep(0.90, 0.90 + aa.y / fh, f.y));
-    glass = inX * inY;
+    // 20 cm deep reveal: the glass sits back in the opening (parallax), the exposed reveal is shaded
+    vec3 Vr = normalize(vWthPos - cameraPosition); vec3 Nr = normalize(vWthN);
+    vec3 Tr = normalize(cross(vec3(0.0, 1.0, 0.0), Nr) + vec3(1e-4, 0.0, 0.0));
+    vec3 dr = vec3(dot(Vr, Tr), Vr.y, max(-dot(Vr, Nr), 0.25));
+    vec2 g2 = f + dr.xy / dr.z * 0.20 / cellSz * (1.0 - far);
+    float gX = smoothstep(w.x - aa.x / pw, w.x, g2.x) * (1.0 - smoothstep(1.0 - w.x, 1.0 - w.x + aa.x / pw, g2.x));
+    float gY = smoothstep(w.y - aa.y / fh, w.y, g2.y) * (1.0 - smoothstep(0.90, 0.90 + aa.y / fh, g2.y));
+    float open = inX * inY;
+    glass = open * gX * gY;
+    frame = mix(frame, frame * 0.55, open * (1.0 - gX * gY));
+    frame *= 1.0 - 0.25 * (1.0 - smoothstep(0.0, 0.06, f.y - 0.90)) * step(0.90, f.y) * (1.0 - far);   // sill shadow
   } else if (style < 2.5) {                           // ribbon windows
     float band = smoothstep(0.42, 0.42 + aa.y / fh, f.y) * (1.0 - smoothstep(0.93, 0.93 + aa.y / fh, f.y));
     glass = band * (1.0 - fcBand(dE.x, 0.035, aa.x));
@@ -96,6 +107,14 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   } else {                                            // roof
     vec2 g = vWthPos.xz * 0.5; float n = fcH(floor(g)) * 0.15;
     frame *= 0.85 + n;
+  }
+  // towers: a dark louvred plant floor every 18 storeys (vertical rhythm, as on real CBD towers)
+  if ((style < 0.5 || (style > 1.5 && style < 3.5)) && vFUv.y > 30.0 && shop < 0.5) {
+    float fl = floor(vFUv.y / fh);
+    float mech = 1.0 - step(0.5, mod(fl + seed * 7.0, 18.0));
+    float slat = mix(0.6 + 0.4 * step(0.5, fract(vFUv.y * 6.0)), 0.8, far);
+    glass = mix(glass, 0.0, mech); slab *= 1.0 - mech;
+    frame = mix(frame, vec3(0.07) * slat, mech);
   }
   float shopSign = 0.0; vec3 signC = vec3(0.0);
   if (shop > 0.5) {
@@ -129,7 +148,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   slab = mix(slab, style < 0.5 ? 0.18 : style < 3.5 && style > 2.5 ? 0.13 : style > 3.5 && style < 4.5 ? 0.12 : 0.0, far);
   fcGlass = glass;
   // per-panel tint/roughness variation; oil-canning tilt (faded with distance)
-  vec3 gl = vGlass * (0.95 + 0.1 * rnd2);
+  vec3 gl = vGlass * (0.95 + 0.1 * rnd2) * (0.85 + 0.3 * fcH(vec2(seed, 3.7)));   // per-tower glass value
   fcRough = mix(0.08 + 0.05 * rnd, 0.1, far);
   fcTilt = (vec2(rnd, rnd2) - 0.5) * 0.022 * (1.0 - far);
   // ---------------- interior mapping (rooms behind the glass)
@@ -145,7 +164,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   float ttx = abs(tt.x), tty = abs(tt.y), ttz = tt.z;
   float t = min(min(ttx, tty), ttz);
   vec3 hp = p0 + d * t;
-  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.30 * uNight, fcH(cell * 0.73 + seed));
+  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.30 * uNight, 0.65 * fcH(vec2(floor(cell.x / 6.0), cell.y) * 0.73 + seed) + 0.35 * fcH(cell * 0.73 + seed));
   vec3 lampC = mix(vec3(1.0, 0.86, 0.66), vec3(0.85, 0.92, 1.0), step(0.7, fcH(cell + 9.1)));
   // every surface is evaluated unconditionally (derivatives in divergent branches are undefined → pixel speckle),
   // then selected by ordering rather than float equality

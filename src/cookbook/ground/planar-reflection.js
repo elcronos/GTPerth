@@ -84,7 +84,7 @@ export function createPlanarReflection(G, opts = {}) {
     cam.position.set(_camPos.x, 2 * H - _camPos.y, _camPos.z);
     cam.up.set(_up.x, -_up.y, _up.z);
     cam.lookAt(_tgt.x, 2 * H - _tgt.y, _tgt.z);
-    cam.near = main.near; cam.far = main.far;
+    cam.near = main.near; cam.far = Math.min(main.far, api.maxFar ?? 1e9);
     cam.updateMatrixWorld();
     cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
     cam.projectionMatrix.copy(main.projectionMatrix);

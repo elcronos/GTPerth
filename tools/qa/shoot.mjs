@@ -38,9 +38,11 @@ for (const [gi, list] of groups.entries()) {
         const P = G.game.player;
         P.teleport(x, z, yaw);
         // the real game camera rig frames the shot (shoulder offset, pitch, collision), not a harness pose
-        G.camLocked = false; P.camYaw = yaw + Math.PI; P.camPitch = v.pitch ?? 0.16; P.camPos.set(0, 0, 0); P.camTarget.set(0, 0, 0);
+        G.camLocked = false; P.camYaw = yaw + Math.PI; P.camPitch = v.pitch ?? 0.10; P.camPos.set(0, 0, 0); P.camTarget.set(0, 0, 0);
         for (let i = 0; i < 40; i++) P.updateCamera(1 / 30, 'foot');
-      } else if (v.cam) { const c = v.cam.slice(); G.camLocked = true; if (v.rel) { const gy = G.game.groundY?.(c[0], c[2]) ?? 0; c[1] += gy; c[4] += gy; } window.__setCam(c.slice(0, 3), c.slice(3, 6)); }
+      } else if (v.cam) { const c = v.cam.slice(); G.camLocked = true; if (v.rel) { const gy = G.game.groundY?.(c[0], c[2]) ?? 0; c[1] += gy; c[4] += gy; } window.__setCam(c.slice(0, 3), c.slice(3, 6));
+        const f = G.camera.getWorldDirection(G.camera.position.clone()); const fx = c[0] + f.x * 45, fz = c[2] + f.z * 45;
+        G.focus = { x: fx, y: 0, z: fz }; G.game.traffic?.prime?.({ x: fx, z: fz }); }
       if (v.fov) { G.camera.fov = v.fov; G.camera.updateProjectionMatrix(); }
       G.post?.resetAdaptation?.();
     }, v);

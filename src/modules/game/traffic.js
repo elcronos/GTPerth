@@ -46,10 +46,10 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
     }
     return null;
   }
-  const T = { cars, target: G.quality.tier === 'high' || G.quality.tier === 'ultra' ? 22 : 12, honk: null, onHitPed: null };
+  const T = { cars, target: G.quality.tier === 'high' || G.quality.tier === 'ultra' ? 16 : 12, honk: null, onHitPed: null };
   T.update = (dt) => {
     const pl = getPlayer();
-    const focus = pl.vehicle ? pl.vehicle : { x: pl.x, z: pl.z };
+    const focus = G.camLocked && G.focus ? G.focus : pl.vehicle ? pl.vehicle : { x: pl.x, z: pl.z };
     // maintain population
     if (cars.filter((c) => c.ai).length < T.target) spawn(focus, false);
     for (let i = cars.length - 1; i >= 0; i--) {

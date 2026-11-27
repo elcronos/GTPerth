@@ -132,8 +132,8 @@ const GL = {
   silver: [0.14, 0.19, 0.26], blue: [0.05, 0.12, 0.30], green: [0.1, 0.2, 0.19], grey: [0.13, 0.18, 0.24],
   bronze: [0.22, 0.17, 0.12], clear: [0.13, 0.19, 0.25], dark: [0.07, 0.09, 0.11], teal: [0.1, 0.21, 0.25],
 };
-const FR = { white: [0.42, 0.43, 0.44], alu: [0.36, 0.38, 0.4], lightAlu: [0.5, 0.52, 0.53], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
-  granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.46, 0.43, 0.38], precast: [0.34, 0.33, 0.31] };
+const FR = { white: [0.34, 0.35, 0.36], alu: [0.36, 0.38, 0.4], lightAlu: [0.42, 0.44, 0.45], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
+  granite: [0.36, 0.28, 0.24], sandstone: [0.50, 0.40, 0.29], cream: [0.46, 0.43, 0.38], precast: [0.34, 0.33, 0.31] };
 
 export const NAMED = [
   // ---- Elizabeth Quay (positions from OSM; podiums are the mapped footprints, towers raked with the city grid)
@@ -187,9 +187,9 @@ export const SOUTH_PERTH = [
 // Every building comes from the OpenStreetMap API: footprint (or building:part rings for stepped towers), height /
 // min_height, levels, type, colour. Missing heights: levels × 3.3 m, else a guess from the building type and place.
 const NAMED_STYLE = [
-  [/Central Park/, { glass: GL.silver, frame: FR.alu, style: 'curtain', mast: [36, 2.2] }],
+  [/Central Park/, { glass: [0.06, 0.08, 0.11], frame: FR.alu, style: 'curtain', mast: [36, 2.2] }],
   [/Palace Tower|108 St Georges/, { glass: GL.green, frame: FR.lightAlu, style: 'ribbon', mast: [48, 1.1] }],
-  [/BHP|Brookfield/, { glass: GL.blue, frame: FR.white, style: 'fins' }],
+  [/BHP|Brookfield/, { glass: GL.blue, frame: [0.20, 0.21, 0.22], style: 'fins' }],
   [/QV1/, { style: 'punched', frame: FR.granite, glass: GL.dark }],
   [/Exchange Tower/, { glass: GL.blue, frame: FR.alu, style: 'curtain' }],
   [/Martin/, { style: 'ribbon', frame: FR.precast, glass: GL.dark }],
@@ -252,7 +252,7 @@ function osmBuildings(rng) {
     else if (/apartments|residential|hotel|dormitory/.test(type)) { style = tallish ? 'resi' : 'punched'; const tn = 0.36 + r() * 0.12; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.1; }
     else if (/church|cathedral|chapel|civic|public|government|courthouse/.test(type)) { style = 'punched'; frame = FR.sandstone; glass = GL.dark; pw = 3; fh = 4.5; }
     else if (/train_station|transportation|retail|supermarket/.test(type)) { style = 'curtain'; frame = FR.alu; glass = GL.clear; pw = 2; fh = 4.5; }
-    else if (tallish) { style = ['curtain', 'curtain', 'curtain', 'fins', 'ribbon'][(r() * 5) | 0]; frame = [FR.alu, FR.dark, FR.dark, FR.alu, FR.lightAlu][(r() * 5) | 0]; glass = [GL.blue, GL.blue, GL.blue, GL.grey, GL.teal, GL.dark][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
+    else if (tallish) { style = ['curtain', 'curtain', 'curtain', 'fins', 'ribbon'][(r() * 5) | 0]; frame = [FR.alu, FR.dark, FR.dark, FR.dark, FR.alu][(r() * 5) | 0]; glass = [GL.blue, GL.blue, GL.blue, GL.grey, GL.teal, GL.dark][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
     else { style = ['punched', 'ribbon', 'curtain'][(r() * 3) | 0]; frame = [FR.cream, FR.sandstone, FR.precast, FR.alu][(r() * 4) | 0]; glass = GL.dark; pw = 1.8 + r(); fh = 3.6; }
     const nm = b.n && NAMED_STYLE.find(([re]) => re.test(b.n));
     let mast = null;

@@ -4,6 +4,7 @@
 import { BufferGeometry, Float32BufferAttribute, Mesh } from 'three';
 import { ROADS, heightAt } from '../../map.js';
 import { patch } from '../../cookbook/engine/patch.js';
+import { ensureWorldVaryings } from '../../cookbook/materials/weathering.js';
 
 const STEP = 3;
 function densify(pts, step = STEP) {
@@ -29,14 +30,16 @@ export const CROSSINGS = [[125, -60, 0], [60, -198, 1], [-36, -215, 0], [125, -2
 
 export function markRoadMaterial(mat) {
   patch(mat, 'road-marks', (shader) => {
+    ensureWorldVaryings(shader);   // before any code below mentions vWthPos (it checks by substring)
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 aRoad;\nvarying vec4 vRoad;')
       .replace('#include <uv_vertex>', '#include <uv_vertex>\nvRoad = aRoad;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec4 vRoad; float rmPaint;`)
-      .replace('#include <map_fragment>', `#include <map_fragment>
+      .replace('#include <color_fragment>', `#include <color_fragment>
 {
+  // (anchored after color_fragment: the material library's PBR tint runs after map_fragment and erased the paint)
   // vRoad: x = along (m), y = across (m, 0 = centre), z = width, w = lanes + 10 * junctionFade
   float along = vRoad.x, ac = vRoad.y, W = vRoad.z;
   float lanes = mod(vRoad.w, 10.0), jf = clamp(floor(vRoad.w / 10.0) / 9.0, 0.0, 1.0);
@@ -57,7 +60,14 @@ varying vec4 vRoad; float rmPaint;`)
   rmPaint = line * wear;
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.77, 0.72), rmPaint);
 }`)
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.55, rmPaint);');
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.55, rmPaint);')
+      .replace('#include <aomap_fragment>', `
+  { // street-lamp light map (props.js): albedo-lit warm pools at night
+    vec2 luv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
+    float lamp = texture2D(uLampMap, luv).r * step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
+    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 2.8 + 0.03) * uNight;
+  }
+#include <aomap_fragment>`);
   });
   return mat;
 }

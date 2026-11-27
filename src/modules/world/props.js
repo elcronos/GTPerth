@@ -2,9 +2,9 @@
 // street lights, benches, bollards, moored boats, black swans, Fifteen The Esplanade hoarding, the Landing carousel.
 import {
   Group, InstancedMesh, Matrix4, Quaternion, Vector3, Euler, MeshStandardMaterial, DoubleSide, CanvasTexture, SRGBColorSpace,
-  Color, BufferGeometry, Float32BufferAttribute, Mesh, BoxGeometry, ConeGeometry, PlaneGeometry, ShaderMaterial, AdditiveBlending,
+  Color, BufferGeometry, Float32BufferAttribute, Mesh, BoxGeometry, ConeGeometry, PlaneGeometry, ShaderMaterial, AdditiveBlending, DataTexture, RedFormat, UnsignedByteType, LinearFilter, Vector4,
 } from 'three';
-import { patchUniforms, patch } from '../../cookbook/engine/patch.js';
+import { patchUniforms, patch, sharedUniform } from '../../cookbook/engine/patch.js';
 import { scatter, treeGeo, leafTexture, foliagePatch, poissonDisk, bushGeo } from '../../cookbook/geo/scatter.js';
 import { Kit, tube, lathe, roundedBox, mergeGeos, normalizeGeo } from '../../cookbook/geo/kit.js';
 import { rngFrom } from '../../cookbook/geo/noise.js';
@@ -18,7 +18,7 @@ function frondTexture() {
     const t = i / 58, y = -t * s * 0.95, L = s * 0.48 * Math.sin(Math.PI * (0.15 + 0.85 * t)) * (0.85 + 0.3 * rnd());
     for (const sd of [-1, 1]) {
       g.save(); g.translate(0, y); g.rotate(sd * (0.9 + 0.3 * t) + (rnd() - 0.5) * 0.15);
-      const lv = 0.7 + 0.5 * rnd(), dry = rnd() < 0.08; g.fillStyle = dry ? `rgb(${(150 * lv) | 0},${(128 * lv) | 0},${(80 * lv) | 0})` : `rgb(${(84 * lv) | 0},${(98 * lv) | 0},${(52 * lv) | 0})`;
+      const lv = 0.7 + 0.5 * rnd(), dry = rnd() < 0.12; g.fillStyle = dry ? `rgb(${(150 * lv) | 0},${(128 * lv) | 0},${(80 * lv) | 0})` : `rgb(${(72 * lv) | 0},${(90 * lv) | 0},${(54 * lv) | 0})`;
       g.beginPath(); g.moveTo(0, -1); g.quadraticCurveTo(L * 0.5, -8, L, -2); g.quadraticCurveTo(L * 0.5, 5, 0, 3); g.fill(); g.restore();
     }
   }
@@ -28,8 +28,8 @@ function frondTexture() {
 function palmGeo(seed, H = 14, lo = false) {
   const rnd = rngFrom(seed);
   const lean = [(rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2];
-  const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([lean[0] * t * t, t * H, lean[1] * t * t]); }
-  const trunk = tube(pts, (t) => 0.32 * (1 - 0.28 * t) + 0.012 * Math.sin(t * 90), { radial: lo ? 6 : 12, curve: true, samples: lo ? 16 : 40 });
+  const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([lean[0] * t * t, t * (H + 0.6) - 0.6, lean[1] * t * t]); }   // sunk 0.6 m: no floating base on uneven ground
+  const trunk = tube(pts, (t) => 0.26 * (1 - 0.25 * t) + 0.08 * Math.max(0, 1 - t * 14) + 0.004 * Math.sin(t * 90), { radial: lo ? 6 : 16, curve: true, samples: lo ? 16 : 40 });
   const top = pts[12];
   const cards = { p: [], n: [], u: [], i: [], c: [] };
   const card = (a, droop, L, W, y0, col, lift = 1.1) => {
@@ -43,8 +43,8 @@ function palmGeo(seed, H = 14, lo = false) {
       if (sgi > 0) { const b = base + (sgi - 1) * 2; cards.i.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
     }
   };
-  const n = lo ? 14 : 24;
-  for (let k = 0; k < n; k++) card((k / n) * Math.PI * 2 + rnd() * 0.3, 0.2 + rnd() * 0.9, 4.8 + rnd() * 1.4, 1.9, 0, [1, 1, 1]);
+  const n = lo ? 14 : 28;
+  for (let k = 0; k < n; k++) card((k / n) * Math.PI * 2 + rnd() * 0.3, 0.2 + rnd() * 0.9, 4.8 + rnd() * 1.4, 2.3, 0, [1, 1, 1]);
   // dead fronds hanging against the trunk (Washingtonia petticoat remnants), straw-brown
   if (!lo) for (let k = 0; k < 10; k++) card((k / 10) * Math.PI * 2 + rnd() * 0.5, 2.4 + rnd() * 0.6, 2.2, 1.2, -0.5, [1.55, 1.05, 0.55], 0.2);
   const fg = new BufferGeometry();
@@ -96,6 +96,7 @@ export function create(G, { mats, roads, footprints = [] }) {
   const group = new Group(); group.name = 'props';
   const rng = rngFrom(31);
   const hiT = G.quality.tier === 'high' || G.quality.tier === 'ultra';
+  const NR = [], nr = (o) => { group.add(o); NR.push(o); return o; };   // groups the river mirror skips (street trees, bush, shrubs, benches, lamp pools): far from the water, costly to redraw
   const colliders = [];
   // ----- trees
   const leafTex = leafTexture({ size: 256, seed: 5, kind: 'broad' });
@@ -117,13 +118,14 @@ export function create(G, { mats, roads, footprints = [] }) {
   const plane = treeGeo({ seed: 3, height: 12, trunkR: 0.3, branches: 10, leafSize: 2.0, density: 1.6 });
   const euc = treeGeo({ seed: 8, height: 16, trunkR: 0.34, branches: 8, leafSize: 2.0, density: 1.1, lean: 0.9 });
   const euc2 = treeGeo({ seed: 12, height: 11, trunkR: 0.25, branches: 7, leafSize: 1.7, density: 1.3, lean: 0.7 });
-  const lineTrees = (P, spacing, off) => { const pts = []; for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const tx = (b[0] - a[0]) / L, tz = (b[1] - a[1]) / L; for (let d = spacing / 2; d < L; d += spacing) for (const s of [-1, 1]) pts.push(a[0] + tx * d + tz * off * s, a[1] + tz * d - tx * off * s); } return pts; };
+  const lineTrees = (P, spacing, off, oneSide) => { const pts = []; for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const tx = (b[0] - a[0]) / L, tz = (b[1] - a[1]) / L; for (let d = spacing / 2; d < L; d += spacing) for (const s of (oneSide ? [1] : [-1, 1])) pts.push(a[0] + tx * d + tz * off * s, a[1] + tz * d - tx * off * s); } return pts; };
   // London planes on Barrack Street + The Esplanade, Moreton Bay fig-like big trees around One The Esplanade
-  const planePts = []; for (const r of ROADS) { if ((r.cls !== 'p' && r.cls !== 's') || r.oneway && r.lanes < 2 || !r.pts.some((p) => p[1] < -150 && p[1] > -900 && p[0] > -450 && p[0] < 650)) continue; planePts.push(...lineTrees(r.pts, 22, r.w / 2 + 2.4)); }
+  const planePts = []; for (const r of ROADS) { if ((r.cls !== 'p' && r.cls !== 's') || r.oneway && r.lanes < 2 || !r.pts.some((p) => p[1] < -150 && p[1] > -900 && p[0] > -450 && p[0] < 650)) continue; planePts.push(...lineTrees(r.pts, 22, r.w / 2 + 3.0, r.oneway)); }
+  { const ok = []; for (let i = 0; i < planePts.length; i += 2) if (!nearRoad(planePts[i], planePts[i + 1])) ok.push(planePts[i], planePts[i + 1]); planePts.length = 0; planePts.push(...ok); }   // never in a carriageway
   const inFoot = (x, z) => footprints.some((f) => { const P = f.pts; let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; } return c; });
   const keep = (arr, pad = 0) => { const o = []; for (let i = 0; i < arr.length; i += 2) if (!inFoot(arr[i], arr[i + 1]) && !inFoot(arr[i] + pad, arr[i + 1]) && !inFoot(arr[i] - pad, arr[i + 1]) && !inFoot(arr[i], arr[i + 1] + pad) && !inFoot(arr[i], arr[i + 1] - pad)) o.push(arr[i], arr[i + 1]); return o; };
   const pm = leafMat(leafTex, 0x9aa476), pb = barkMat();
-  group.add(scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: keep(planePts, 4), heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [380, 520], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group);
+  nr((scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: keep(planePts, 4), heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [380, 520], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group));
   // eucalypts: Kings Park bushland (dense), foreshores, Langley Park, South Perth park
   const eucPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && !nearRoad(x, z) && !inFoot(x, z); } });
   const parkPts = poissonDisk({ x0: -900, z0: 520, w: 2900, h: 1300, r: 24, rng, accept: (x, z) => isLand(x, z) && z > 520 && distPoly(x, z, SHORE_S) > 10 && distPoly(x, z, SHORE_S) < 170 && !nearRoad(x, z) && !inFoot(x, z) && !(x > -300 && x < -130 && z > 1250 && z < 1400) });
@@ -139,13 +141,13 @@ export function create(G, { mats, roads, footprints = [] }) {
   const clumpPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: G.quality.tier === 'high' || G.quality.tier === 'ultra' ? 7.5 : 9.5, rng, accept: kpAccept });
   const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: 48, leafSize: 3.3 });   // 15–20 m jarrah / marri / tuart crowns
   clump.translate(0, 7.5, 0);
-  const stem = lathe([[0.3, 0], [0.18, 8], [0, 8.6]], { seg: 4, crease: 89 });
-  const cm = leafMat(euTex, 0x5c6844), cb = barkMat(); cb.color.set(0x5e564c);
-  group.add(scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: hiT ? [1400, 1900] : [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group);
+  const stem = lathe([[0.2, 0], [0.11, 7.2], [0, 7.8]], { seg: 4, crease: 89 });   // ends inside the crown
+  const cm = leafMat(euTex, 0x5c6844), cb = barkMat(); cb.color.set(0x463f37);
+  nr((scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: hiT ? [1100, 1500] : [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group));
   const shrubPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 10, rng, accept: kpAccept });
   const shrub = bushGeo({ seed: 23, radius: 1.5, height: 1.6, cards: 36, leafSize: 1.1 });
   const sm = leafMat(euTex, 0x5f6a44);
-  group.add(scatter(G, { parts: [{ geo: shrub, material: sm }], points: shrubPts, heightAt, scale: [0.7, 1.4], tint: { color: 0xffffff, l: 0.12 }, fade: [300, 420], cell: 70, seed: 29 }).group);
+  nr((scatter(G, { parts: [{ geo: shrub, material: sm }], points: shrubPts, heightAt, scale: [0.7, 1.4], tint: { color: 0xffffff, l: 0.12 }, fade: [300, 420], cell: 70, seed: 29 }).group));
   // South Perth: street trees and garden trees through the suburbs behind Mill Point Road, plus a band of
   // shady trees along the foreshore path of Sir James Mitchell Park
   const spAccept = (x, z) => isLand(x, z) && z > 520 && !nearRoad(x, z) && !inFoot(x, z) && distPoly(x, z, SHORE_S) > 160;
@@ -154,15 +156,16 @@ export function create(G, { mats, roads, footprints = [] }) {
   group.add(scatter(G, { parts: [{ geo: stem, material: cb2 }, { geo: clump, material: leafMat(euTex, 0x66744c) }], points: spTrees, heightAt, scale: [0.8, 1.6], scaleY: [0.9, 1.5], tint: { color: 0xffffff, l: 0.14, h: 0.03 }, fade: [900, 1300], cell: 120, seed: 31 }).group);
   // Washingtonia palms: Barrack Square, Riverside Drive median, Mends Street, South Perth Esplanade
   const lo = G.quality.tier === 'low';
-  const fm = new MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: DoubleSide, vertexColors: true, roughness: 0.7 }); foliagePatch(fm, { trans: 0.28 }); fm.name = 'fronds';
+  const fm = new MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: DoubleSide, vertexColors: true, roughness: 0.7 }); foliagePatch(fm, { trans: 0.16 }); fm.color.set(0xb4bca0); fm.name = 'fronds';
   const trunkMat = (H) => {
     const tm = new MeshStandardMaterial({ color: 0x8c7c68, roughness: 0.95, vertexColors: true }); tm.name = 'palm-trunk';
     patch(tm, 'palm-rings' + H, (sh) => {   // leaf-scar rings every ~16 cm + vertical fibre (instanced: object-space height)
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vPalmP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPalmP = position;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPalmP;')
         .replace('#include <color_fragment>', `#include <color_fragment>
-  { float rr = fract(vPalmP.y / 0.16); float ring = 0.86 + 0.14 * smoothstep(0.0, 0.35, rr);
-    float fib = 0.96 + 0.04 * sin(atan(vPalmP.z, vPalmP.x) * 40.0 + vPalmP.y * 3.0);
+  { float jit = sin(vPalmP.y * 1.7) * 0.5 + sin(vPalmP.y * 4.3 + 1.3) * 0.3; float rr = fract(vPalmP.y / 0.16 + 0.35 * jit); float ring = 0.92 + 0.08 * smoothstep(0.0, 0.35, rr);
+    float fib = 0.975 + 0.025 * sin(atan(vPalmP.z, vPalmP.x) * 16.0 + vPalmP.y * 2.0);
+    fib *= mix(0.8, 1.0, smoothstep(0.0, 1.2, vPalmP.y));
     diffuseColor.rgb *= ring * fib * mix(1.0, 0.6, smoothstep(${(H - 1.6).toFixed(1)}, ${(H - 0.6).toFixed(1)}, vPalmP.y)); }`);
     });
     return tm;
@@ -171,12 +174,12 @@ export function create(G, { mats, roads, footprints = [] }) {
   const palmPts = [];
   for (const p of alongShore(SHORE_N, 150, 1100, 14, 14, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // EQ promenade: a palm every 18 m around the inlet, set back from the lamps and benches
-  for (const p of alongShore(SHORE_N, -110, 150, 18, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z))) palmPts.push(p[0], p[1]);
+  for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z), 8.5)) palmPts.push(p[0], p[1]);   // alternate with the lamps
   for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
   for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   PALMS.forEach((V, vi) => {   // varied heights: every 3rd palm per variant
     const pts = []; for (let i = 0; i < palmPts.length; i += 2) if ((i / 2) % PALMS.length === vi) pts.push(palmPts[i], palmPts[i + 1]);
-    group.add(scatter(G, { parts: [{ geo: V.g.trunk, material: V.tm }, { geo: V.g.fronds, material: fm }], points: pts, heightAt, scale: [0.85, 1.15], fade: [800, 1100], cell: 80, seed: 2 + vi, sway: { amp: 0.12, freq: 0.8, height: V.H, flutter: 0.4 } }).group);
+    group.add(scatter(G, { parts: [{ geo: V.g.trunk, material: V.tm }, { geo: V.g.fronds, material: fm }], points: pts, heightAt, scale: [0.85, 1.15], fade: [800, 1100], cell: 220, seed: 2 + vi, sway: { amp: 0.12, freq: 0.8, height: V.H, flutter: 0.4 } }).group);
   });
 
   // ----- street lights along roads + promenades, benches, bollards
@@ -198,22 +201,27 @@ export function create(G, { mats, roads, footprints = [] }) {
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
   (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));
-  // night: a warm pool of light on the ground under every lamp head (one instanced additive quad set, fades in with uNight)
+  // night: street-lamp light map — every lamp head splatted (Gaussian, sigma ~5 m) into a 1024² ground texture that the
+  // ground and road shaders multiply by their own albedo (keeps the paving texture; no extra draw call)
   {
-    const pg = new PlaneGeometry(13, 13); pg.rotateX(-Math.PI / 2);
-    const pm = new ShaderMaterial({
-      uniforms: { uNight: patchUniforms.uNight || { value: 0 } },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uNight; varying vec2 vUv; void main(){ float r2 = dot(vUv, vUv); if (r2 > 1.0) discard; float e = exp(-r2 * 4.5) - 0.011; gl_FragColor = vec4(vec3(1.0, 0.74, 0.46) * max(e, 0.0) * 0.32 * uNight, 1.0); }',
-      transparent: true, blending: AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-    pm.userData.noAtmos = true; pm.userData.noWeather = true;
-    const pools = new InstancedMesh(pg, pm, lampM.length);
-    const tmp = new Matrix4(), q0 = new Quaternion(), s0 = new Vector3(1, 1, 1), pp = new Vector3(), qq = new Quaternion(), ss = new Vector3();
-    lampM.forEach((m, i) => { m.decompose(pp, qq, ss); const off = new Vector3(0.55, 0, 0).applyQuaternion(qq); const x = pp.x + off.x, z = pp.z + off.z; tmp.compose(new Vector3(x, heightAt(x, z) + 0.06, z), q0, s0); pools.setMatrixAt(i, tmp); });
-    pools.instanceMatrix.needsUpdate = true; pools.computeBoundingSphere(); pools.renderOrder = 2; pools.name = 'lamp-pools'; pools.userData.noReflect = true;
-    group.add(pools);
+    const N = 1024, box = [-2000, -1300, 4100, 3600], data = new Uint8Array(N * N);
+    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 5.2;
+    const tx = (x) => ((x - box[0]) / box[2]) * N, tz = (z) => ((z - box[1]) / box[3]) * N, px = box[2] / N;
+    const R = Math.ceil((sig * 2.6) / px);
+    for (const m of lampM) {
+      m.decompose(pp, qq, ss); const off = new Vector3(0.55, 0, 0).applyQuaternion(qq);
+      const cx = tx(pp.x + off.x), cz = tz(pp.z + off.z), ix = Math.round(cx), iz = Math.round(cz);
+      for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) {
+        const X = ix + i, Z = iz + j; if (X < 0 || Z < 0 || X >= N || Z >= N) continue;
+        const d2 = ((X - cx) ** 2 + (Z - cz) ** 2) * px * px, v = Math.round(255 * Math.exp(-d2 / (2 * sig * sig)));
+        const k = X + Z * N; if (v > data[k]) data[k] = v;
+      }
+    }
+    const tex = new DataTexture(data, N, N, RedFormat, UnsignedByteType); tex.magFilter = LinearFilter; tex.minFilter = LinearFilter; tex.needsUpdate = true;
+    sharedUniform('uLampMap', 'sampler2D', null).value = tex;
+    sharedUniform('uLampBox', 'vec4', new Vector4()).value.set(box[0], box[1], box[2], box[3]);
   }
-  group.add(instanced(G, benchGeo(), mats, benchM, 'benches'));
+  nr((instanced(G, benchGeo(), mats, benchM, 'benches')));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }
 
   // ----- The Landing furniture: limestone planter benches, bollards, a kiosk umbrella cluster
@@ -248,5 +256,5 @@ export function create(G, { mats, roads, footprints = [] }) {
     hull: new MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, vertexColors: true }) };
   k.bakeAO({ radius: 0.5, samples: 6, strength: 0.5, ground: PROMENADE_Y - 0.02 });
   group.add(k.build(extra));
-  return { group, colliders };
+  return { group, colliders, noReflect: NR };
 }
