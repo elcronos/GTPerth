@@ -203,7 +203,8 @@ export function create(G, { mats, roads, footprints = [] }) {
   let bi = 0;
   // keep the spawn-to-EQ-Bridge sightline clear of lamp poles (they split the arches in the opening frame)
   const sightOK = (x, z) => { const ax = PLAYER_SPAWN[0], az = PLAYER_SPAWN[2], vx = -ax, vz = -10 - az, l2 = vx * vx + vz * vz, t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / l2)); return Math.hypot(ax + vx * t - x, az + vz * t - z) > 3 || t > 0.5; };
-  for (const p of alongShore(SHORE_N, -110, 330, 17, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z) && sightOK(x, z))) { lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); if (bi++ % 2 === 0) benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
+  const ghostLamps = [];   // lamps kept out of the sightline still light the plaza (light map only, pool pulled 2 m landward)
+  for (const p of alongShore(SHORE_N, -110, 330, 17, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z))) { if (sightOK(p[0], p[1])) lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); else ghostLamps.push(M(p[0] + p[3] * 2, PROMENADE_Y, p[1] + p[4] * 2, p[2])); if (bi++ % 2 === 0) benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
   (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));
@@ -211,10 +212,10 @@ export function create(G, { mats, roads, footprints = [] }) {
   // ground and road shaders multiply by their own albedo (keeps the paving texture; no extra draw call)
   {
     const N = 1024, box = [-2000, -1300, 4100, 3600], data = new Uint8Array(N * N);
-    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 5.2;
+    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 6.0;
     const tx = (x) => ((x - box[0]) / box[2]) * N, tz = (z) => ((z - box[1]) / box[3]) * N, px = box[2] / N;
     const R = Math.ceil((sig * 2.6) / px);
-    for (const m of lampM) {
+    for (const m of [...lampM, ...ghostLamps]) {
       m.decompose(pp, qq, ss); const off = new Vector3(0.55, 0, 0).applyQuaternion(qq);
       const cx = tx(pp.x + off.x), cz = tz(pp.z + off.z), ix = Math.round(cx), iz = Math.round(cz);
       for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) {

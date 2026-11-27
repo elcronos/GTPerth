@@ -90,10 +90,14 @@ export function create(G, { mats }) {
       best = Math.min(best, Math.hypot(ax + vx * t - x, az + vz * t - z) - o.w / 2); }
     return best;
   };
-  // everything merges into ONE road mesh + ONE kerb mesh (≈1000 OSM streets)
-  const pos = [], uv = [], road = [], idx = [], kpos = [], kuv = [], kidx = [];
+  // streets merge into one road mesh + one kerb mesh per 600 m chunk (≈1000 OSM streets; chunks let the camera cull)
+  const CH = new Map();
+  let pos, uv, road, idx, kpos, kuv, kidx;
   const LIFT = { t: 0.1, p: 0.09, s: 0.08, m: 0.065 };
   ROADS.forEach((r, ri) => {
+    const mid = r.pts[Math.floor(r.pts.length / 2)], ck = Math.floor(mid[0] / 600) + ',' + Math.floor(mid[1] / 600);
+    if (!CH.has(ck)) CH.set(ck, { pos: [], uv: [], road: [], idx: [], kpos: [], kuv: [], kidx: [] });
+    ({ pos, uv, road, idx, kpos, kuv, kidx } = CH.get(ck));
     const pts = densify(r.pts);
     const v0 = pos.length / 3, k0 = kpos.length / 3;
     let u = 0; const hw = r.w / 2, lift = (LIFT[r.cls] ?? 0.06) + (ri % 7) * 0.0015;
@@ -137,17 +141,21 @@ export function create(G, { mats }) {
       }
     }
   });
-  const g = new BufferGeometry();
-  g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
-  g.setAttribute('aRoad', new Float32BufferAttribute(road, 4)); g.setIndex(idx); g.computeVertexNormals();
-  // the road/kerb materials use vertex colours: without a colour attribute WebGL reads (0,0,0) and the bitumen renders black
-  g.setAttribute('color', new Float32BufferAttribute(new Float32Array(pos.length).fill(1), 3));
-  const m = new Mesh(g, mats.road); m.name = 'roads'; m.receiveShadow = true; m.renderOrder = -1;
-  const kg = new BufferGeometry();
-  kg.setAttribute('position', new Float32BufferAttribute(kpos, 3)); kg.setAttribute('uv', new Float32BufferAttribute(kuv, 2)); kg.setIndex(kidx); kg.computeVertexNormals();
-  kg.setAttribute('color', new Float32BufferAttribute(new Float32Array(kpos.length).fill(1), 3));
-  const km = new Mesh(kg, mats.kerb); km.name = 'kerbs'; km.receiveShadow = true;
-  return { meshes: [m, km], lanes };
+  const meshes = [];
+  for (const [ck, B] of CH) {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new Float32BufferAttribute(B.pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(B.uv, 2));
+    g.setAttribute('aRoad', new Float32BufferAttribute(B.road, 4)); g.setIndex(B.idx); g.computeVertexNormals(); g.computeBoundingSphere();
+    // the road/kerb materials use vertex colours: without a colour attribute WebGL reads (0,0,0) and the bitumen renders black
+    g.setAttribute('color', new Float32BufferAttribute(new Float32Array(B.pos.length).fill(1), 3));
+    const m = new Mesh(g, mats.road); m.name = 'roads-' + ck; m.receiveShadow = true; m.renderOrder = -1; meshes.push(m);
+    if (!B.kidx.length) continue;
+    const kg = new BufferGeometry();
+    kg.setAttribute('position', new Float32BufferAttribute(B.kpos, 3)); kg.setAttribute('uv', new Float32BufferAttribute(B.kuv, 2)); kg.setIndex(B.kidx); kg.computeVertexNormals(); kg.computeBoundingSphere();
+    kg.setAttribute('color', new Float32BufferAttribute(new Float32Array(B.kpos.length).fill(1), 3));
+    const km = new Mesh(kg, mats.kerb); km.name = 'kerbs-' + ck; km.receiveShadow = true; meshes.push(km);
+  }
+  return { meshes, lanes };
 }
 // offset to the left of travel (x east, z south: left of direction (tx,tz) is (tz,-tx))
 function offsetLine(P, off) {

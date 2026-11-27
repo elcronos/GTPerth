@@ -104,7 +104,20 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
     }
   };
   T.spawnAt = (kind, x, z, h, color) => { const c = new Car(G, kind, color ?? CAR_COLORS[0], M, col); c.place(x, z, h); cars.push(c); return c; };
-  T.prime = (near) => { for (let i = 0; i < T.target; i++) spawn(near, false); };
+  // prime: most cars on lanes 20-160 m ahead of the camera (photo cams, first frame), the rest anywhere legal
+  T.prime = (near) => {
+    const cf = G.camera.getWorldDirection(_cf), cp = G.camera.position; let placed = 0;
+    for (let tries = 0; tries < 400 && placed < Math.ceil(T.target * 0.6); tries++) {
+      const li = Math.floor(Math.random() * usable.length), l = usable[li], d = Math.random() * lens[li];
+      const [x, z, h] = pointOn(l, d), dist = Math.hypot(x - near.x, z - near.z);
+      if (dist < 20 || dist > 160 || (x - cp.x) * cf.x + (z - cp.z) * cf.z < 0) continue;
+      if (cars.some((c) => Math.hypot(c.x - x, c.z - z) < 14)) continue;
+      const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
+      const c = new Car(G, kind, CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)], M, col); c.place(x, z, h);
+      const sp = 9 + Math.random() * 4; c.ai = { li, d, cruise: sp }; c.vx = Math.cos(h) * sp * 0.8; c.vz = Math.sin(h) * sp * 0.8; cars.push(c); placed++;
+    }
+    for (let i = placed; i < T.target; i++) spawn(near, false);
+  };
   T.clear = () => { for (const c of cars) c.dispose(); cars.length = 0; };
   return T;
 }

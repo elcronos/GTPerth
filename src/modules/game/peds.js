@@ -4,7 +4,7 @@
 import { MathUtils } from 'three';
 import { Character } from './character.js';
 import { FEMALE, MALE, PLAYER_AVATAR } from './avatars.js';
-import { heightAt, isLand, PROMENADE_Y, SHORE_N, SHORE_S, alongShore } from '../../map.js';
+import { heightAt, isLand, PROMENADE_Y, SHORE_N, SHORE_S, alongShore, nearRoad } from '../../map.js';
 import { groundAt } from './player.js';
 
 // walkable waypoint loops (promenades), metres
@@ -16,6 +16,12 @@ const LOOPS = {
   west: sh(SHORE_N, -460, -70, 24, 11, (x, z) => z > -120),
   barrack: sh(SHORE_N, 140, 330, 10, 10, (x, z) => z > -40 && z < 120),
   south: sh(SHORE_S, -430, 200, 22, 12),
+  sgt: (() => {   // St Georges Terrace footpaths: east along the north side, back along the south side
+    const C = [[-264, -618], [57, -498], [251, -433], [367, -388]], out = [[], []];
+    for (let i = 0; i < C.length - 1; i++) { const [ax, az] = C[i], [bx, bz] = C[i + 1], L = Math.hypot(bx - ax, bz - az), nx = (bz - az) / L, nz = -(bx - ax) / L;
+      for (let d = 0; d < L; d += 12) for (const [k, s] of [[0, 1], [1, -1]]) { const px = ax + (bx - ax) * d / L, pz = az + (bz - az) * d / L; let o = 6; while (o < 22 && nearRoad(px + nx * o * s, pz + nz * o * s)) o += 1; o += 1.2; out[k].push([px + nx * o * s, pz + nz * o * s]); } }
+    return [...out[0], ...out[1].reverse()];
+  })(),
 };
 const IDLE_SPOTS = alongShore(SHORE_N, -70, 300, 37, 2.2, (x, z) => z > -215 && z < 90).concat(alongShore(SHORE_S, -320, -100, 30, 3))
   .map((p) => [p[0], p[1], Math.atan2(-p[3], -p[4])]).filter((_, i) => i % 2 === 0).slice(0, 24);
@@ -45,6 +51,8 @@ export function createPeds(G, { avatars, col }) {
   for (let i = 0; i < (busy ? 16 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
   for (let i = 0; i < (busy ? 8 : 4); i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0], w[1], 'landing'); }
   for (let i = 0; i < 3; i++) { const L = LOOPS.west, w = L[Math.floor(R() * L.length)]; add('jog', w[0], w[1], 'west', { avatar: i % 2 ? 'Sports_Male_04' : 'Sports_Female_02' }); }
+  for (let i = 0; i < (busy ? 12 : 5); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt'); }
+  for (let i = 0; i < 3; i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0] + (R() - 0.5) * 6, w[1] + (R() - 0.5) * 6, 'landing'); }   // a few near the spawn edge
   for (let i = 0; i < (busy ? 7 : 4); i++) { const L = LOOPS.barrack, w = L[Math.floor(R() * L.length)]; add('walk', w[0], w[1], 'barrack'); }
   for (let i = 0; i < 7; i++) { const L = LOOPS.south, w = L[Math.floor(R() * L.length)]; add(R() < 0.5 ? 'stroll' : 'walk', w[0], w[1], 'south'); }
   IDLE_SPOTS.forEach(([x, z, yaw], i) => { if (!busy && i >= 16) return; const g = ['photo', 'phone', 'look', null][i % 4]; add('idle', x, z, null, { yaw, gesture: g, avatar: g === 'photo' ? FEMALE[(i % 4) + 1] : g === 'phone' ? MALE[(i % 5)] : undefined }); });
