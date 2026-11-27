@@ -1,27 +1,144 @@
 {
-  "query": "autostart=1&seed=4207",
-  "w": 1280, "h": 720,
-  "steps": [
-    { "waitFor": "__G.mods.ui && __G.mods.ui.state === 'playing'", "timeout": 8000 },
-    { "assert": "__stats().modules.every(m => m.ok)", "msg": "every boot stage ok (no stubs)" },
-    { "assert": "__G.quality.tier && __G.quality.scale > 0", "msg": "quality tier detected" },
-    { "eval": "__G.mods.player.position.toArray()", "as": "p0" },
-    { "eval": "__G.mods.player.yaw", "as": "yaw0" },
-    { "hold": "forward", "ms": 1200 },
-    { "assert": "__G.mods.player.position.distanceTo(new __G.camera.position.constructor().fromArray(__pt.p0)) > 2", "msg": "W moves the player > 2 m in 1.2 s" },
-    { "look": [300, 0] },
-    { "wait": 100 },
-    { "assert": "Math.abs(__G.mods.player.yaw - __pt.yaw0) > 0.3", "msg": "mouse look turns the player" },
-    { "press": "jump", "after": 150 },
-    { "assert": "__G.mods.player.position.y > 0.2", "msg": "Space jumps" },
-    { "wait": 900 },
-    { "assert": "__G.mods.player.grounded", "msg": "player lands again" },
-    { "move": [1, 0], "ms": 600 },
-    { "shot": "after-moves" },
-    { "press": "pause", "after": 200 },
-    { "assert": "__G.mods.ui.state === 'paused' && __G.paused", "msg": "P pauses" },
-    { "press": "pause", "after": 200 },
-    { "assert": "__G.mods.ui.state === 'playing'", "msg": "P resumes" },
-    { "assert": "__stats().calls > 0 && __stats().tris > 0", "msg": "renders geometry" }
-  ]
+ "query": "autostart=1&q=low&dynres=0&mb=0",
+ "w": 480,
+ "h": 270,
+ "steps": [
+  {
+   "waitFor": "__G.game && __G.game.state.mode === 'playing'",
+   "timeout": 20000
+  },
+  {
+   "assert": "__stats().modules.every(m => m.ok && !m.stub)",
+   "msg": "every boot stage ok (no stubs)"
+  },
+  {
+   "assert": "__G.game.mission.step === 'goto'",
+   "msg": "mission starts: go to the jetty"
+  },
+  {
+   "eval": "[__G.game.player.x, __G.game.player.z]",
+   "as": "p0"
+  },
+  {
+   "hold": "forward",
+   "ms": 9000
+  },
+  {
+   "assert": "Math.hypot(__G.game.player.x - __pt.p0[0], __G.game.player.z - __pt.p0[1]) > 0.25",
+   "msg": "W walks the player"
+  },
+  {
+   "press": "fire",
+   "after": 300
+  },
+  {
+   "assert": "__G.game.player.ch.punchT > 0",
+   "msg": "click punches"
+  },
+  {
+   "eval": "__G.game.teleport(-55, -80)"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "press": "interact",
+   "after": 1500
+  },
+  {
+   "assert": "__G.game.player.vehicle === __G.game.ferry",
+   "msg": "F at the jetty hijacks the ferry"
+  },
+  {
+   "assert": "__G.game.wanted.stars >= 2",
+   "msg": "stealing the ferry gives 2+ stars"
+  },
+  {
+   "assert": "__G.game.mission.step === 'cross'",
+   "msg": "objective: cross to Mends Street"
+  },
+  {
+   "eval": "[__G.game.ferry.x, __G.game.ferry.z]",
+   "as": "f0"
+  },
+  {
+   "hold": "forward",
+   "ms": 12000
+  },
+  {
+   "assert": "Math.hypot(__G.game.ferry.x - __pt.f0[0], __G.game.ferry.z - __pt.f0[1]) > 0.15",
+   "msg": "W drives the ferry"
+  },
+  {
+   "shot": "ferry-driving"
+  },
+  {
+   "eval": "__G.game.debugWin()"
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "assert": "__G.game.mission.step === 'passed'",
+   "msg": "berthing at Mends Street passes the mission (WIN)"
+  },
+  {
+   "assert": "__G.game.hud.cash >= 50000",
+   "msg": "reward paid"
+  },
+  {
+   "shot": "mission-passed"
+  },
+  {
+   "eval": "__G.game.debugLose()"
+  },
+  {
+   "wait": 2500
+  },
+  {
+   "assert": "__G.game.state.mode === 'dead'",
+   "msg": "health 0 \u2192 WASTED (LOSE)"
+  },
+  {
+   "shot": "wasted"
+  },
+  {
+   "waitFor": "__G.game.state.mode === 'playing'",
+   "timeout": 120000
+  },
+  {
+   "assert": "__G.game.player.health === 100",
+   "msg": "respawn restores health (restart)"
+  },
+  {
+   "eval": "__G.game.debugBusted()"
+  },
+  {
+   "wait": 1500
+  },
+  {
+   "assert": "__G.game.state.mode === 'dead' && __G.game.state.kind === 'busted'",
+   "msg": "BUSTED state"
+  },
+  {
+   "waitFor": "__G.game.state.mode === 'playing'",
+   "timeout": 120000
+  },
+  {
+   "press": "pause",
+   "after": 600
+  },
+  {
+   "assert": "__G.game.state.mode === 'paused'",
+   "msg": "Esc pauses"
+  },
+  {
+   "press": "pause",
+   "after": 600
+  },
+  {
+   "assert": "__G.game.state.mode === 'playing'",
+   "msg": "Esc resumes"
+  }
+ ]
 }

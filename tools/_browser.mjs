@@ -20,7 +20,7 @@ export async function openTarget(url) {
 }
 
 export async function launchChrome({ w = 1600, h = 900, extraArgs = [], uncapped = false } = {}) {
-  const angle = { darwin: 'metal', win32: 'd3d11', linux: 'vulkan' }[process.platform] || 'default';
+  const angle = process.env.ANGLE || ({ darwin: 'metal', win32: 'd3d11', linux: 'vulkan' }[process.platform] || 'default');
   const args = ['--enable-gpu', '--ignore-gpu-blocklist', `--use-angle=${angle}`,
     '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
     `--window-size=${w},${h + 80}`, ...extraArgs];
@@ -37,7 +37,7 @@ export async function launchChrome({ w = 1600, h = 900, extraArgs = [], uncapped
 export const withQuery = (url, query, hash) => url + (query ? (url.includes('?') ? '&' : '?') + query : '') + (hash ? '#' + hash : '');
 export const isSoftware = (r) => /SwiftShader|llvmpipe|Software|Basic Render/i.test(r || '');
 
-export async function waitReady(page, timeout = 60000) {
+export async function waitReady(page, timeout = +(process.env.READY_MS || 60000)) {
   try { await page.waitForFunction(() => window.__ready === true || !!window.__fatal, null, { timeout }); }
   catch { return { ok: false, why: '__ready never became true' }; }
   const fatal = await page.evaluate(() => window.__fatal || null);

@@ -21,7 +21,7 @@ const out = path.resolve(here, arg('out', 'dist/index.html'));
 const entry = path.resolve(here, arg('entry', 'src/main.js'));
 const pkg = JSON.parse(readFileSync(path.join(here, 'package.json'), 'utf8'));
 const title = arg('title', pkg.gameTitle || pkg.name || 'Game');
-const MAX = 2 * 1024 * 1024;
+const MAX = (+arg('budget', pkg.budgetMB || 2)) * 1024 * 1024;   // this game ships real human models (user-approved): budget in package.json
 const fail = (m) => { console.error('BUILD FAILED: ' + m); process.exit(1); };
 
 const t0 = Date.now();
@@ -38,7 +38,9 @@ let js = r.outputFiles[0].text;
 if (!/@license|MIT/.test(js.slice(-4000))) js += '\n/*! three.js r180 — Copyright 2010-2025 Three.js Authors — MIT License */\n';
 
 const cssPath = path.join(here, 'src/ui/ui.css');
-const css = existsSync(cssPath) ? (await transform(readFileSync(cssPath, 'utf8'), { loader: 'css', minify: !readable })).code : '';
+const fontsPath = path.join(here, 'src/ui/fonts.css');
+const cssSrc = (existsSync(fontsPath) ? readFileSync(fontsPath, 'utf8') : '') + (existsSync(cssPath) ? readFileSync(cssPath, 'utf8') : '');
+const css = (await transform(cssSrc, { loader: 'css', minify: !readable })).code;
 let html = readFileSync(path.join(here, 'template.html'), 'utf8');
 if (!html.includes('/*CSS*/') || !html.includes('/*SCRIPT*/')) fail('template.html must contain /*CSS*/ and /*SCRIPT*/ slots');
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -46,7 +48,7 @@ html = html.replaceAll('{{TITLE}}', esc(title))
   .replace('/*CSS*/', () => css)
   .replace('/*SCRIPT*/', () => js.replace(/<\/script/gi, '<\\/script'));
 
-const blob = html.match(/data:(image|audio|video|font|application\/(octet-stream|font|x-font))[^"'`)\s]{0,40}/i);
+const blob = pkg.allowAssets ? null : html.match(/data:(image|audio|video|font|application\/(octet-stream|font|x-font))[^"'`)\s]{0,40}/i);
 if (blob) fail(`embedded binary asset found: "${blob[0]}…" — generate it procedurally instead`);
 mkdirSync(path.dirname(out), { recursive: true });
 writeFileSync(out, html);

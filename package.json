@@ -1,6 +1,6 @@
 {
-  "name": "onefile-game",
-  "gameTitle": "Untitled",
+  "name": "grand-theft-perth",
+  "gameTitle": "GRAND THEFT PERTH",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,5 +22,7 @@
     "jpeg-js": "^0.4.4",
     "playwright": "^1.56.1",
     "pngjs": "^7.0.0"
-  }
+  },
+  "budgetMB": 9,
+  "allowAssets": true
 }

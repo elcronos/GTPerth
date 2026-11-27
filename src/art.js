@@ -1,17 +1,18 @@
-// Art direction constants (schema: cookbook/CONTRACT.md). Pick a preset from references/art-direction.md, then tune
-// here ONLY — every cookbook system reads G.ART at build time. Colours are LINEAR RGB; intensities are HDR.
-// Sample: rainy golden-hour harbour. Read-only at runtime.
+// Art direction — custom thesis "Perth golden hour, Leonida grade" (adapted from T4 desert dusk: clear coastal air
+// instead of dust). Late November, ~19:05 AWST: the sun sets WSW over the Narrows / Kings Park (bearing ≈245°).
+// Frame: +x east, +z south → azimDeg (from +Z toward +X) = -65 for a WSW sun. Colours LINEAR. Read-only at runtime.
 export const ART = {
-  sun:   { elevDeg: 12, azimDeg: 210, color: [1.0, 0.72, 0.45], intensity: 8.0 },   // low + warm + backlit hero poses
-  sky:   { zenith: [0.10, 0.16, 0.28], horizon: [0.85, 0.62, 0.45], groundTint: [0.20, 0.18, 0.16],
-           cloudCover: 0.6, cloudSharp: 0.5, sunGlow: 1.0, burnGap: 0.6 },
-  fog:   { sigma: [0.0055, 0.0068, 0.0090], scatter: [0.75, 0.62, 0.52], heightFalloff: 0.08, baseHeight: 0.0, sunInscatter: 1.0, start: 2.0 },
-  vol:   { density: 0.014, g: 0.60, steps: 20, strength: 1.0 },
-  ambient: { skyIntensity: 1.6, envIntensity: 1.8 },
-  grade: { exposure: 1.0, agxMix: 0.25, lookPower: 1.15, sat: 1.18, contrast: 0.18,
-           splitShadow: [0.92, 1.0, 1.08], splitHigh: [1.06, 1.0, 0.92], vignette: 0.30,
-           bloom: 0.065, bloomThreshold: 1.2, lensDirt: 0.4, chroma: 0.0015, grain: 0.022, sharpen: 0.25,
-           adaptMin: 0.6, adaptMax: 2.0, adaptTau: 1.5 },
-  surface: { wet: 0.8, dust: 0.0, snow: 0.0, macroVar: 0.25 },
-  weather: { kind: 'rain', amount: 0.7, wind: [1.5, 0, 0.4], lightning: false },   // lightning: true → storm flashes + thunder
+  sun:   { elevDeg: 10.5, azimDeg: -65, color: [1.0, 0.62, 0.34], intensity: 11.0 },
+  sky:   { zenith: [0.045, 0.11, 0.30], horizon: [1.05, 0.56, 0.30], groundTint: [0.30, 0.22, 0.18],
+           cloudCover: 0.32, cloudSharp: 0.62, sunGlow: 1.35, burnGap: 0.35, fogFar: 4200 },
+  fog:   { sigma: [0.00020, 0.00028, 0.00045], scatter: [0.98, 0.64, 0.42], heightFalloff: 0.004, baseHeight: 0.0,
+           sunInscatter: 1.0, start: 40.0 },
+  vol:   { density: 0.010, g: 0.65, steps: 20, strength: 0.8 },
+  ambient: { skyIntensity: 1.0, envIntensity: 0.95 },
+  grade: { exposure: 1.0, agxMix: 0.25, lookPower: 1.22, sat: 1.30, contrast: 0.24,
+           splitShadow: [0.92, 1.0, 1.07], splitHigh: [1.08, 1.0, 0.88], vignette: 0.26,
+           bloom: 0.07, bloomThreshold: 1.25, lensDirt: 0.25, chroma: 0.0012, grain: 0.018, sharpen: 0.28,
+           adaptMin: 0.55, adaptMax: 1.9, adaptTau: 1.2 },
+  surface: { wet: 0.0, dust: 0.05, snow: 0.0, macroVar: 0.28 },
+  weather: { kind: 'none', amount: 0.0, wind: [-3.0, 0, 1.4], lightning: false },
 };

@@ -1,36 +1,41 @@
-// Frozen contracts shared by every module owner. Change only through the lead (re-run captures after any change).
-//  POSES  6 hero camera poses [x,y,z, tx,ty,tz] — the critic judges exactly these (capture.mjs --poses).
-//         Face INTO the low sun for at least 2 of them (backlight = the golden-hour look).
-//  PATH   fly-through keys, same format; used by the title screen flyover and #bench (engine/bench.js).
-//  WORLD  playable bounds (metres, Y up). Anything outside is set dressing / backdrop hidden by fog.
-//  PLAYER body + feel constants read by modules/player.js.
-export const SEED = 4207;
+// Frozen contracts (change only through the lead; re-capture after any change).
+// Frame: +x east, +z south, y up, metres; origin = Elizabeth Quay Bridge midpoint. Water y = 0, promenade y = 2.2.
+export const SEED = 6000;   // Perth postcode
 
 export const POSES = [
-  [-14.0, 2.2, 14.0, 0.0, 1.4, 0.0],     // 1 establishing, sun behind the scene
-  [8.0, 1.7, 9.0, -2.0, 1.2, -3.0],      // 2 eye height, into the sun
-  [0.0, 1.7, -12.0, 0.0, 1.5, 4.0],      // 3 reverse angle
-  [-6.0, 0.6, 2.0, -2.0, 0.4, -2.0],     // 4 low, ground detail / wet reflections
-  [14.0, 6.0, -6.0, 0.0, 1.0, 0.0],      // 5 high overview
-  [3.0, 1.7, 3.0, 8.0, 1.8, -8.0],       // 6 hero object close-up
+  [34, 10.5, 26, -520, 18, 250],          // 1 establishing INTO the sun: from the bridge over the inlet mouth toward the Narrows + Kings Park
+  [12.0, 4.3, -178.0, -30, 2.4, -96],      // 2 gameplay eye at spawn (third-person cam behind the player at The Landing), toward the ferry jetty
+  [-24, 4.4, -58, -47, 2.6, -84],          // 3 hero object: MV Tricia berthed at the Elizabeth Quay Jetty, rim-lit by the sun behind it
+  [-178, 3.9, 1292, -20, 72, -330],        // 4 second biome: Mends Street Jetty, South Perth — the postcard view of the CBD skyline at golden hour
+  [-102, 9.0, 330, -150, 1.5, 420],        // 5 action: stolen ferry crossing Perth Water with the Water Police on its tail (?show=chase)
+  [8, 4.8, 34, 190, 24, -16],              // 6 reverse angle AWAY from the sun: Bell Tower, Ritz-Carlton and Barrack Square in full sun
+];
+// Non-composed checks from the spawn: north into the CBD, east toward the Ritz-Carlton.
+export const YAWS = [
+  [8, 4.0, -172, 30, 40, -420],
+  [8, 4.0, -172, 160, 22, -110],
 ];
 
+// Title flyover (Catmull-Rom). Starts over Perth Water, swings through the inlet past Spanda, rises over the CBD.
 export const PATH = [
-  [-18, 3.0, 16, 0, 1.5, 0],
-  [-4, 2.2, 12, 4, 1.4, -2],
-  [10, 2.6, 6, 0, 1.2, -6],
-  [12, 3.4, -10, -4, 1.4, 0],
-  [-6, 2.4, -14, 0, 1.4, 4],
-  [-18, 3.0, 16, 0, 1.5, 0],
+  [-260, 60, 520, -40, 30, -120],
+  [-120, 26, 170, 0, 10, -60],
+  [-30, 14, 40, 20, 8, -120],
+  [20, 9, -60, 10, 18, -190],
+  [60, 18, -150, -60, 30, -230],
+  [140, 60, -200, -40, 70, -520],
+  [80, 110, 120, -240, 30, 320],
+  [-260, 60, 520, -40, 30, -120],
 ];
 
-export const WORLD = { min: [-30, -2, -30], max: [30, 20, 30], groundY: 0, seaY: -1.6 };
+export const WORLD = { min: [-1400, -5, -900], max: [1400, 300, 1800], groundY: 2.2, seaY: 0 };
 
 export const PLAYER = {
-  eye: 1.68, crouchEye: 1.05, radius: 0.32, height: 1.8,
-  fov: 74, viewFov: 54,                     // world camera / view-model camera
-  walk: 4.2, sprint: 7.0, crouch: 2.2,      // m/s
-  accel: 40, airAccel: 6, friction: 10,     // m/s² / 1/s
-  jump: 5.2, gravity: 18,                   // m/s, m/s²
-  spawn: [-14, 0, 14], spawnYaw: -0.8,
+  height: 1.73, radius: 0.32,
+  fov: 62,
+  walk: 1.55, run: 4.2, sprint: 6.8,     // m/s (matches the clip root speeds)
+  accel: 14, turn: 10,
+  jump: 4.6, gravity: 18,
+  camDist: 4.4, camHeight: 1.85, camVehicleDist: 8.5, camFerryDist: 22,
+  spawn: [6, 2.2, -170], spawnYaw: Math.PI * 0.82,   // facing SW toward the ferry terminal
 };

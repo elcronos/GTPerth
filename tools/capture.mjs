@@ -37,7 +37,7 @@ if (!/^https?:/.test(url)) {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   url = `http://127.0.0.1:${server.address().port}/${path.basename(file)}`;
 }
-const angle = { darwin: 'metal', win32: 'd3d11', linux: 'vulkan' }[process.platform] || 'default';
+const angle = process.env.ANGLE || ({ darwin: 'metal', win32: 'd3d11', linux: 'vulkan' }[process.platform] || 'default');
 const browser = await chromium.launch({
   channel: 'chrome', headless: false,
   args: ['--enable-unsafe-webgpu', '--enable-gpu', '--ignore-gpu-blocklist', `--use-angle=${angle}`,
@@ -90,9 +90,14 @@ for (let i = 0; i < poses.length; i++) {
   if (poses[i]) q.set('cam', poses[i]);
   const u = url + (url.includes('?') ? '&' : '?') + q.toString() + (A.hash ? '#' + A.hash : '');
   const t0 = Date.now();
-  await page.goto(u);
-  try { await page.waitForFunction(() => window.__ready === true, null, { timeout: 60000 }); }
-  catch { logs.push(`[capture] ${name}: __ready never became true (60s)`); }
+  if (A.reuse && i > 0 && poses[i]) {
+    const c = poses[i].split(',').map(Number);
+    await page.evaluate((c) => { window.__setCam([c[0], c[1], c[2]], [c[3], c[4], c[5]]); if (window.__G?.post?.resetAdaptation) window.__G.post.resetAdaptation(); }, c);
+  } else {
+    await page.goto(u);
+    try { await page.waitForFunction(() => window.__ready === true, null, { timeout: +(A.ready || 60000) }); }
+    catch { logs.push(`[capture] ${name}: __ready never became true`); }
+  }
   await page.waitForTimeout(WAIT);
   const file = path.join(A.out, name + '.png');
   const buf = await page.screenshot({ path: file });
