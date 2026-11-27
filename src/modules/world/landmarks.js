@@ -293,8 +293,8 @@ function warMemorial(k) {
 
 // Brookfield Place: the open steel exoskeleton crown (~30 m) above the 204 m roof, with the red BHP sign
 function brookfieldCrown(k) {
-  const x = -96, z = -494, y = heightAt(x, z) + 204, W = 50, D = 24, H = 30;
-  k.push(x, y, z, 0);
+  const x = -104, z = -476, y = heightAt(x, z) + 204, W = 50, D = 24, H = 30;
+  k.push(x, y, z, -0.358);   // Kit yaw is clockwise-negative vs the city grid's +20.5° rake
   const C = [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]];
   for (const [cx, cz] of C) k.bar([cx, 0, cz], [cx, H, cz], 0.9, 0.9, 'steel');
   for (const hy of [10, 20, H]) for (let i = 0; i < 4; i++) { const a = C[i], b = C[(i + 1) % 4]; k.bar([a[0], hy, a[1]], [b[0], hy, b[1]], 0.6, 0.7, 'steel'); }
@@ -308,8 +308,8 @@ function bhpSign() {
   g.fillStyle = '#d4141b'; g.fillRect(0, 0, 256, 96); g.fillStyle = '#fff'; g.font = 'bold 72px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BHP', 128, 52);
   const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace;
   const m = new MeshBasicMaterial({ map: t, color: 0xffffff, fog: true }); const out = [];
-  const x = -96, z = -494, y = heightAt(x, z) + 204 + 24;
-  for (const s of [-1, 1]) { const p = new Mesh(new PlaneGeometry(12, 4.5), m); p.position.set(x, y, z + s * 12.6); p.rotation.y = s > 0 ? 0 : Math.PI; out.push(p); }
+  const x = -104, z = -476, y = heightAt(x, z) + 204 + 24, ca = Math.cos(0.358), sa = Math.sin(0.358);
+  for (const s of [-1, 1]) { const p = new Mesh(new PlaneGeometry(12, 4.5), m); p.position.set(x - sa * s * 12.6, y, z + ca * s * 12.6); p.rotation.y = (s > 0 ? 0 : Math.PI) - 0.358; out.push(p); }
   return out;
 }
 

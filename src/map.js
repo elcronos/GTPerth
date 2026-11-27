@@ -94,8 +94,7 @@ export function heightAt(x, z) {
 }
 
 // ---------------------------------------------------------------- roads (centrelines, width m, lanes). Left-hand traffic.
-const RCLS = { t: ['Trunk road', 16, 4], p: ['Main road', 14, 4], s: ['Road', 11, 2], m: ['Street', 8.5, 2] };
-export const ROADS = OSM_ROADS.map((r, i) => ({ name: RCLS[r.c][0] + ' ' + i, cls: r.c, w: RCLS[r.c][1], lanes: RCLS[r.c][2], pts: r.pts, traffic: r.c !== 'm' }));
+export const ROADS = OSM_ROADS.map((r, i) => ({ name: r.n || 'road ' + i, street: r.n || null, cls: r.c, w: r.w, lanes: r.l, oneway: !!r.o, pts: r.pts, traffic: r.c !== 'm' }));
 // Narrows Bridge (two road decks + rail between), north end → south end
 export const NARROWS = { a: [-833, 318], b: [-858, 606], width: 34 };
 // Kwinana Freeway continues south of the Narrows

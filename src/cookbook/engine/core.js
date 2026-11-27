@@ -62,7 +62,7 @@ export function createCore({ canvas, ART, fov = 60, near = 0.05, far = 1500 } = 
   window.__G = G;
 
   renderer.debug.onShaderError = (gl, program, vs, fs) => {
-    const log = (gl.getShaderInfoLog(fs) || '') + (gl.getShaderInfoLog(vs) || '') + (gl.getProgramInfoLog(program) || '');
+    const log = (gl.getShaderInfoLog(fs) || '') + (gl.getShaderInfoLog(vs) || '') + (gl.getProgramInfoLog(program) || '') + (gl.isContextLost() ? ' [context lost]' : '') + ' frame ' + G.frame + ' ' + ((gl.getShaderSource(fs) || '').match(/#define SHADER_NAME (.*)/) || [])[1] + ' vsOK=' + gl.getShaderParameter(vs, gl.COMPILE_STATUS) + ' fsOK=' + gl.getShaderParameter(fs, gl.COMPILE_STATUS) + ' len=' + (gl.getShaderSource(fs) || '').length;
     G.errors.push('shader: ' + log.slice(0, 600));
     console.error('[shader]', log);
   };

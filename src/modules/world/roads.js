@@ -96,7 +96,7 @@ export function create(G, { mats }) {
       const L = [p[0] + nx * hw, p[1] + nz * hw], R = [p[0] - nx * hw, p[1] - nz * hw];
       pos.push(L[0], heightAt(L[0], L[1]) + lift, L[1], R[0], heightAt(R[0], R[1]) + lift, R[1]);
       uv.push(u, -hw, u, hw);
-      road.push(u, hw, r.w, r.lanes + 10 * jf, u, -hw, r.w, r.lanes + 10 * jf);
+      const lm = r.oneway ? Math.max(1, Math.min(2, r.lanes)) : r.lanes; road.push(u, hw, r.w, lm + 10 * jf, u, -hw, r.w, lm + 10 * jf);
       if (i > 0) { const k = v0 + (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
       for (const side of [1, -1]) {
         const ex = p[0] + nx * hw * side, ez = p[1] + nz * hw * side, ox = nx * 0.3 * side, oz = nz * 0.3 * side;
@@ -114,11 +114,16 @@ export function create(G, { mats }) {
       }
     }
     if (r.traffic === false) return;
-    const nl = Math.max(1, Math.floor(r.lanes / 2)), lw = (r.w * 0.5 - 0.5) / nl;
-    for (let li = 0; li < nl; li++) {
-      const off = lw * (li + 0.5);
-      lanes.push({ road: r.name, off, pts: offsetLine(r.pts, off) });
-      lanes.push({ road: r.name, off, pts: offsetLine([...r.pts].reverse(), off) });
+    if (r.oneway) { // all lanes run with the way's direction, spread across the carriageway
+      const nl = Math.max(1, r.lanes), lw = (r.w - 1) / nl;
+      for (let li = 0; li < nl; li++) { const off = -r.w / 2 + 0.5 + lw * (li + 0.5); lanes.push({ road: r.name, off, pts: offsetLine(r.pts, off) }); }
+    } else {
+      const nl = Math.max(1, Math.floor(r.lanes / 2)), lw = (r.w * 0.5 - 0.5) / nl;
+      for (let li = 0; li < nl; li++) {
+        const off = lw * (li + 0.5);
+        lanes.push({ road: r.name, off, pts: offsetLine(r.pts, off) });
+        lanes.push({ road: r.name, off, pts: offsetLine([...r.pts].reverse(), off) });
+      }
     }
   });
   const g = new BufferGeometry();

@@ -184,52 +184,71 @@ export const NAMED = [
 export const SOUTH_PERTH = [
   { name: 'Civic Heart', x: -440, z: 1515, style: 'resi', pw: 1.6, fh: 3.2, frame: FR.white, glass: GL.grey, seed: 50, tiers: [{ w: 44, d: 36, h: 12, style: 'curtain' }, { w: 30, d: 26, cr: 6, h: 147 }] },
 ];
-// Every other building: its real footprint from OpenStreetMap. Heights are not in the map style, so they follow the
-// place: a tall CBD core falling off to West Perth / Northbridge, residential towers on the South Perth peninsula and
-// along Mill Point Road, houses in the suburbs, low pavilions around Elizabeth Quay.
+// Every building comes from the OpenStreetMap API: footprint (or building:part rings for stepped towers), height /
+// min_height, levels, type, colour. Missing heights: levels × 3.3 m, else a guess from the building type and place.
+const NAMED_STYLE = [
+  [/Central Park/, { glass: GL.silver, frame: FR.alu, style: 'curtain', mast: [36, 2.2] }],
+  [/Palace Tower|108 St Georges/, { glass: GL.green, frame: FR.lightAlu, style: 'ribbon', mast: [48, 1.1] }],
+  [/BHP|Brookfield/, { glass: GL.blue, frame: FR.white, style: 'fins' }],
+  [/QV1/, { style: 'punched', frame: FR.granite, glass: GL.dark }],
+  [/Exchange Tower/, { glass: GL.blue, frame: FR.alu, style: 'curtain' }],
+  [/Martin/, { style: 'ribbon', frame: FR.precast, glass: GL.dark }],
+  [/Allendale/, { style: 'ribbon', frame: FR.bronze, glass: GL.bronze }],
+  [/Ritz-Carlton/, { style: 'resi', frame: FR.white, glass: GL.clear }],
+  [/Towers @ Elizabeth/, { style: 'resi', frame: FR.white, glass: GL.teal }],
+  [/Chevron/, { style: 'fins', frame: FR.white, glass: GL.clear }],
+  [/EQ West/, { style: 'resi', frame: FR.alu, glass: GL.grey }],
+  [/Mia Yellagonga/, { style: 'fins', frame: FR.white, glass: GL.teal }],
+  [/Justice Centre/, { style: 'fins', frame: FR.white, glass: GL.clear }],
+  [/Westin|Parmelia|Quadrant/, { style: 'curtain', frame: FR.alu, glass: GL.grey }],
+  [/240 St Georges/, { style: 'curtain', frame: FR.alu, glass: GL.grey }],
+  [/140 St Georges/, { style: 'punched', frame: FR.precast, glass: GL.dark }],
+  [/Bankwest/, { style: 'curtain', frame: FR.alu, glass: GL.green }],
+];
+const NAMED_COL = { white: [0.8, 0.8, 0.78], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
+  red: [0.5, 0.16, 0.1], yellow: [0.72, 0.6, 0.3], cream: [0.75, 0.7, 0.58], black: [0.08, 0.08, 0.08], blue: [0.15, 0.25, 0.45], green: [0.2, 0.32, 0.22], orange: [0.7, 0.35, 0.15], sandstone: FR.sandstone };
+function osmColour(c) {
+  if (!c) return null; c = c.trim().toLowerCase();
+  if (NAMED_COL[c]) return NAMED_COL[c];
+  const m = c.match(/^#?([0-9a-f]{6})$/); if (!m) return null;
+  const v = parseInt(m[1], 16), lin = (x) => Math.pow(x / 255, 2.2);
+  return [lin((v >> 16) & 255), lin((v >> 8) & 255), lin(v & 255)];
+}
+const HOUSE = /^(house|detached|semidetached_house|terrace|bungalow|garage|garages|shed|hut|carport|roof)$/;
 function osmBuildings(rng) {
   const out = [];
-  const named = NAMED.concat(SOUTH_PERTH).map((b) => ({ b, r: b.tiers.reduce((m, t) => Math.max(m, t.r || (t.pts ? 26 : Math.max(t.w || 0, t.d || 0) / 2)), 8) }));
-  const inPoly = (x, z, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; return c; };
   const CBD = [20, -540];
-  for (const [c, ring] of OSM_BUILDINGS) {
-    const [cx, cz] = c; let area = 0;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]);
-    area = Math.abs(area) / 2;
-    if (area < 40) continue;
-    // a named tower stands here: the footprint becomes its podium (or is dropped)
-    const hit = named.find((n) => inPoly(n.b.x, n.b.z, ring) || Math.hypot(n.b.x - cx, n.b.z - cz) < n.r * 0.7);
-    let h, style, frame, glass, pw = 1.5, fh = 3.6;
+  // tallest part per OSM building group gets the named crown / mast
+  const tallest = new Map();
+  for (const b of OSM_BUILDINGS) { const h = b.h || (b.lv || 0) * 3.3; const t = tallest.get(b.g); if (!t || h > t) tallest.set(b.g, h); }
+  for (const b of OSM_BUILDINGS) {
+    const ring = b.p; let cx = 0, cz = 0; for (const p of ring) { cx += p[0]; cz += p[1]; } cx /= ring.length; cz /= ring.length;
+    let area = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]); area = Math.abs(area) / 2;
     const r = () => rng();
-    if (hit) {
-      if (hit.b.osmOnly) { h = hit.b.osmOnly; style = hit.b.style; frame = hit.b.frame; glass = hit.b.glass; pw = hit.b.pw; fh = hit.b.fh; }
-      else if (hit.b.podium) { h = hit.b.podium; style = 'curtain'; frame = hit.b.frame; glass = hit.b.glass; fh = 4.5; }
-      else continue;
-    } else {
-      const sp = cz > 450;
-      if (sp) {
-        const peninsula = cx < -120 && cz < 1560, millPt = cz < 1700 && cx > -120;
-        if (area < 330) { h = 4.5 + r() * 3; style = 'punched'; frame = [0.72 + r() * 0.1, 0.62 + r() * 0.08, 0.52]; glass = GL.dark; pw = 2.4; fh = 3.0; }
-        else if (peninsula && area > 550) { h = r() < 0.55 ? 32 + r() * 60 : 12 + r() * 16; style = 'resi'; const tn = 0.72 + r() * 0.14; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.0; }
-        else if (millPt && area > 600) { h = r() < 0.3 ? 24 + r() * 30 : 9 + r() * 10; style = 'resi'; const tn = 0.72 + r() * 0.14; frame = [tn, tn * 0.98, tn * 0.93]; glass = GL.grey; fh = 3.0; }
-        else { h = 7 + r() * 8; style = 'punched'; frame = [0.7, 0.66, 0.6]; glass = GL.dark; pw = 2.2; fh = 3.1; }
-      } else {
-        const d = Math.hypot((cx - CBD[0]) * 0.8, cz - CBD[1]);
-        const core = Math.exp(-d / 330), big = Math.min(1, area / 2200);
-        const eqPrecinct = cx > -120 && cx < 320 && cz > -210 && cz < 120;
-        if (eqPrecinct) { h = 5 + r() * 6; style = 'curtain'; frame = FR.alu; glass = GL.clear; fh = 4.5; }
-        else if (area < 160) { h = 7 + r() * 8; style = 'punched'; frame = [FR.cream, FR.sandstone, FR.precast][(r() * 3) | 0]; glass = GL.dark; pw = 2.2; }
-        else {
-          h = 10 + r() * 22 + core * (big * 140 + r() * 60) * (r() < 0.75 ? 1 : 0.35);
-          style = ['curtain', 'curtain', 'ribbon', 'punched', 'fins'][(r() * 5) | 0];
-          frame = [FR.alu, FR.lightAlu, FR.precast, FR.dark, FR.white, FR.cream][(r() * 6) | 0];
-          glass = [GL.grey, GL.blue, GL.silver, GL.clear, GL.dark, GL.teal][(r() * 6) | 0];
-          pw = 1.3 + r() * 1.1; fh = 3.4 + r() * 0.7;
-        }
-      }
+    const sp = cz > 450, type = b.b || 'yes';
+    let h = b.h || (b.lv ? b.lv * 3.3 + (b.lv > 3 ? 1.5 : 0.6) : 0);
+    if (!h) {
+      if (HOUSE.test(type) || (sp && area < 330)) h = type === 'garage' || type === 'shed' || type === 'carport' ? 2.6 : 4.5 + r() * 2.5;
+      else if (sp) h = 7 + r() * 8;
+      else { const d = Math.hypot((cx - CBD[0]) * 0.8, cz - CBD[1]); h = area < 160 ? 7 + r() * 6 : 9 + r() * 14 + Math.exp(-d / 300) * r() * 40; }
     }
+    const mh = Math.min(b.mh || 0, h - 1);
+    let style, frame, glass, pw = 1.5, fh = 3.4;
+    const tallish = h > 28;
+    if (HOUSE.test(type) || (h < 8 && sp)) { style = 'punched'; frame = [0.72 + r() * 0.1, 0.6 + r() * 0.1, 0.5]; glass = GL.dark; pw = 2.4; fh = 3.0; }
+    else if (/apartments|residential|hotel|dormitory/.test(type)) { style = tallish ? 'resi' : 'punched'; const tn = 0.7 + r() * 0.15; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.1; }
+    else if (/church|cathedral|chapel|civic|public|government|courthouse/.test(type)) { style = 'punched'; frame = FR.sandstone; glass = GL.dark; pw = 3; fh = 4.5; }
+    else if (/train_station|transportation|retail|supermarket/.test(type)) { style = 'curtain'; frame = FR.alu; glass = GL.clear; pw = 2; fh = 4.5; }
+    else if (tallish) { style = ['curtain', 'curtain', 'ribbon', 'fins', 'punched'][(r() * 5) | 0]; frame = [FR.alu, FR.lightAlu, FR.precast, FR.dark, FR.white][(r() * 5) | 0]; glass = [GL.grey, GL.blue, GL.silver, GL.clear, GL.dark, GL.teal][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
+    else { style = ['punched', 'ribbon', 'curtain'][(r() * 3) | 0]; frame = [FR.cream, FR.sandstone, FR.precast, FR.alu][(r() * 4) | 0]; glass = GL.dark; pw = 1.8 + r(); fh = 3.6; }
+    const nm = b.n && NAMED_STYLE.find(([re]) => re.test(b.n));
+    let mast = null;
+    if (nm) { style = nm[1].style || style; frame = nm[1].frame || frame; glass = nm[1].glass || glass; if (nm[1].mast && h >= (tallest.get(b.g) || 0) - 0.1) mast = nm[1].mast; }
+    const col = osmColour(b.col); if (col) frame = col;
     const pts = ring.map((p) => [p[0] - cx, p[1] - cz]);
-    out.push({ name: 'osm', x: cx, z: cz, style, pw, fh, frame, glass, seed: 200 + out.length, plant: h > 40, parapet: h > 12 ? undefined : 0.4, tiers: [{ pts, h, parapet: h > 12 ? undefined : 0.5 }] });
+    let ground = 1e9; for (const p of ring) ground = Math.min(ground, heightAt(p[0], p[1]));
+    out.push({ name: b.n || 'osm', x: cx, z: cz, base: ground - 0.3 + mh, style, pw, fh, frame, glass, seed: 200 + out.length,
+      plant: h > 40 && !mast && !b.part, mast, tiers: [{ pts, h: h - mh, parapet: h > 12 ? undefined : 0 }] });
   }
   return out;
 }
@@ -237,7 +256,8 @@ export function create(G, { material }) {
   const rng = rngFrom(4207);
   const footprints = [];
   const chunks = new Map();
-  const all = [...NAMED.filter((b) => !b.osmOnly), ...SOUTH_PERTH, ...osmBuildings(rng)];
+  let all = osmBuildings(rng);
+  if (G.params.has('bldmax')) all = all.slice(0, +G.params.get('bldmax'));
   for (const b of all) {
     const key = Math.floor(b.x / 400) + ',' + Math.floor(b.z / 400);
     if (!chunks.has(key)) chunks.set(key, new Acc());

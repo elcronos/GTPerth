@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { startServer } from '../serve.mjs';
 const s = await startServer('/home/claude/perth/dist/index.html');
-const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
 const logs = []; p.on('console', m => { if (m.type() === 'error' || m.type()==='warning') logs.push(m.text().slice(0, 300)); }); p.on('pageerror', e => logs.push('PAGEERR ' + e.message));
 await p.goto(s.url + (process.argv[2] || '?autostart=1&dynres=0'));

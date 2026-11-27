@@ -5,7 +5,7 @@ import { mkdirSync } from 'node:fs';
 const [out, pose, ...hours] = process.argv.slice(2); mkdirSync(out, { recursive: true });
 const c = pose.split(',').map(Number);
 const s = await startServer('/home/claude/perth/dist/index.html');
-const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] });
 const p = await b.newPage({ viewport: { width: 960, height: 600 } });
 const logs = []; p.on('pageerror', (e) => logs.push(e.message));
 await p.goto(s.url + '?shot=1&autostart=1&dynres=0');

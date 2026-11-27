@@ -21,7 +21,7 @@ export async function openTarget(url) {
 
 export async function launchChrome({ w = 1600, h = 900, extraArgs = [], uncapped = false } = {}) {
   const angle = process.env.ANGLE || ({ darwin: 'metal', win32: 'd3d11', linux: 'vulkan' }[process.platform] || 'default');
-  const args = ['--enable-gpu', '--ignore-gpu-blocklist', `--use-angle=${angle}`, ...(angle === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []),
+  const args = ['--enable-gpu', '--ignore-gpu-blocklist', `--use-angle=${angle}`, ...(angle === 'swiftshader' ? ['--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] : []),
     '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
     `--window-size=${w},${h + 80}`, ...extraArgs];
   // uncapped: measure real frame cost instead of the vsync interval
