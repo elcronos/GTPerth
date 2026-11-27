@@ -75,7 +75,13 @@ export const PROMENADE_Y = 2.2;     // quay / promenade level above water
 // Mount Eliza (plateau = the park as mapped in OSM, escarpment down to Mounts Bay Road), South Perth rising inland.
 let KPD = null;
 function kpHeight(x, z) {
-  if (!KPD) { const bin = atob(KP_HEIGHT.data); KPD = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) KPD[i] = bin.charCodeAt(i); }
+  if (!KPD) {
+    const bin = atob(KP_HEIGHT.data), n0 = KP_HEIGHT.n, raw = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) raw[i] = bin.charCodeAt(i);
+    // 8-bit heights (0.3 m steps) terrace the slopes: one separable 5-tap Gaussian pass (sigma ~1.2 texels) smooths them
+    const W = [0.0702, 0.2311, 0.3974, 0.2311, 0.0702], tmp = new Float32Array(raw.length); KPD = new Float32Array(raw.length);
+    for (let y = 0; y < n0; y++) for (let x = 0; x < n0; x++) { let a = 0; for (let k = -2; k <= 2; k++) a += W[k + 2] * raw[y * n0 + Math.min(n0 - 1, Math.max(0, x + k))]; tmp[y * n0 + x] = a; }
+    for (let y = 0; y < n0; y++) for (let x = 0; x < n0; x++) { let a = 0; for (let k = -2; k <= 2; k++) a += W[k + 2] * tmp[Math.min(n0 - 1, Math.max(0, y + k)) * n0 + x]; KPD[y * n0 + x] = a; }
+  }
   const n = KP_HEIGHT.n, u = ((x - KP_HEIGHT.x0) / KP_HEIGHT.size) * n - 0.5, v = ((z - KP_HEIGHT.z0) / KP_HEIGHT.size) * n - 0.5;
   if (u < 0 || v < 0 || u >= n - 1 || v >= n - 1) return u < 0 && z < 700 && z > -900 ? 55 : 0;
   const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, k = j * n + i;

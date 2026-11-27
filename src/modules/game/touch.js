@@ -16,6 +16,8 @@ export function createTouchControls(G, { input, ctx }) {
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
     wrap.appendChild(b); return b;
   };
+  // idle stick hint where the left thumb usually rests (the live stick still spawns wherever the thumb lands)
+  const ghost = document.createElement('div'); ghost.className = 'tc-ghost'; ghost.innerHTML = '<i></i>'; wrap.appendChild(ghost);
   const bAction = mk('action', 'ENTER', 'act');
   const bPunch = mk('punch', 'PUNCH', 'b2');
   const bJump = mk('jump', 'JUMP', 'b3');
@@ -38,6 +40,7 @@ export function createTouchControls(G, { input, ctx }) {
   let last = '';
   G.on('update', () => {
     if (!shown) return;
+    ghost.style.opacity = Math.hypot(input.move.x, input.move.y) > 0.05 ? '0' : '';
     const c = ctx();
     wrap.hidden = c.mode !== 'playing';
     const key = [c.inVehicle, c.canEnter, c.isFerry, c.hijack].join();

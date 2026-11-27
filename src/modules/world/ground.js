@@ -284,14 +284,20 @@ export function create(G, { mats }) {
   const copingGeo = (pts, w, hgt) => { const s = waterSide(pts[Math.floor(pts.length / 2)], (() => { const a = pts[0], b = pts[1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / l, -(b[0] - a[0]) / l]; })());
     return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]) + hgt; return [[p[0] - n[0] * w * s, y, p[1] - n[1] * w * s], [p[0] + n[0] * 0.08 * s, y, p[1] + n[1] * 0.08 * s]]; }, () => [0, 1, 0]); };
 
+  // coping block front face (overhangs the wall by 8 cm) and a dark wet/algae band just above the waterline
+  const copeFace = (pts, hgt) => { const s = waterSide(pts[Math.floor(pts.length / 2)], (() => { const a = pts[0], b = pts[1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / l, -(b[0] - a[0]) / l]; })());
+    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]); const o = 0.08 * s; return [[p[0] + n[0] * o, y + hgt, p[1] + n[1] * o], [p[0] + n[0] * o, y - 0.24, p[1] + n[1] * o]]; }, (p) => { const a = pts[0], b = pts[1], l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [((b[1] - a[1]) / l) * s, 0, (-(b[0] - a[0]) / l) * s]; }); };
+  const wetBand = (pts) => { const s = waterSide(pts[Math.floor(pts.length / 2)], (() => { const a = pts[0], b = pts[1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / l, -(b[0] - a[0]) / l]; })());
+    return strip(pts, (p, n) => { const o = 0.035 * s; return [[p[0] + n[0] * o, 0.45, p[1] + n[1] * o], [p[0] + n[0] * o, -0.6, p[1] + n[1] * o]]; }, (p) => { const a = pts[0], b = pts[1], l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [((b[1] - a[1]) / l) * s, 0, (-(b[0] - a[0]) / l) * s]; }); };
+  const wetMat = mats.quayWall.clone(); wetMat.color.multiplyScalar(0.42); wetMat.roughness = 0.35; wetMat.name = 'quay-wet';
   const add = (geo, mat, name, shadow = true) => { const m = new Mesh(geo, mat); m.name = name; m.receiveShadow = true; m.castShadow = shadow; group.push(m); return m; };
-  for (const r of wallPts) { add(wallGeo(r), mats.quayWall, 'quay-wall'); add(copingGeo(r, 0.55, 0.06), mats.coping, 'quay-coping', false); }
+  for (const r of wallPts) { add(wallGeo(r), mats.quayWall, 'quay-wall'); add(copingGeo(r, 0.6, 0.12), mats.coping, 'quay-coping', false); add(copeFace(r, 0.12), mats.coping, 'quay-coping-face', false); add(wetBand(r), wetMat, 'quay-wet', false); }
   for (const r of limePts) add(wallGeo(r), mats.limestone, 'lime-wall');
   for (const r of revetPts) add(slopeGeo(r, 7, -1.5), mats.rock, 'revetment');
   for (const r of wallS) { add(wallGeo(r), mats.limestone, 'sp-wall'); add(copingGeo(r, 0.45, 0.04), mats.coping, 'sp-coping', false); }
   for (const r of sandS) add(slopeGeo(r, 9, -1.4), mats.sand, 'beach');
   const isl = densify([...ISLAND_POLY, ISLAND_POLY[0]], 3);
-  add(wallGeo(isl), mats.quayWall, 'island-wall'); add(copingGeo(isl, 0.5, 0.06), mats.coping, 'island-coping', false);
+  add(wallGeo(isl), mats.quayWall, 'island-wall'); add(copingGeo(isl, 0.5, 0.12), mats.coping, 'island-coping', false); add(copeFace(isl, 0.12), mats.coping, 'island-coping-face', false); add(wetBand(isl), wetMat, 'island-wet', false);
 
   return { meshes: group, ground: meshes.ground, material: gm };
 }
