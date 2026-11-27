@@ -132,8 +132,8 @@ export function create(G, { mats, roads, footprints = [] }) {
   // eucalypts: Kings Park bushland (dense), foreshores, Langley Park, South Perth park
   const eucPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && !nearRoad(x, z) && !inFoot(x, z); } });
   const parkPts = poissonDisk({ x0: -900, z0: 520, w: 2900, h: 1300, r: 24, rng, accept: (x, z) => isLand(x, z) && z > 520 && distPoly(x, z, SHORE_S) > 10 && distPoly(x, z, SHORE_S) < 170 && !nearRoad(x, z) && !inFoot(x, z) && !(x > -300 && x < -130 && z > 1250 && z < 1400) });
-  const langPts = poissonDisk({ x0: 300, z0: -250, w: 1700, h: 900, r: 40, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, SHORE_N) < 140 && distPoly(x, z, SHORE_N) > 8 && !nearRoad(x, z) && !inFoot(x, z) });
-  const foreshore = poissonDisk({ x0: -1400, z0: -350, w: 1300, h: 1000, r: 22, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, SHORE_N) < 120 && !nearRoad(x, z) && !inFoot(x, z) });
+  const langPts = poissonDisk({ x0: 300, z0: -250, w: 1700, h: 900, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, SHORE_N) < 140 && distPoly(x, z, SHORE_N) > 8 && !nearRoad(x, z) && !inFoot(x, z) });
+  const foreshore = poissonDisk({ x0: -1400, z0: -350, w: 1300, h: 1000, r: 34, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, SHORE_N) < 120 && !nearRoad(x, z) && !inFoot(x, z) });
   const em = leafMat(euTex, 0x6a7450), eb = barkMat(); eb.color.set(0x8a7e6e);   // eucalypt olive / grey-green (photo-matched)
   group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: hiT ? [900, 1250] : [600, 900], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
   const em2 = leafMat(euTex, 0x6a7650), eb2 = barkMat(); eb2.color.set(0x7a6f62);

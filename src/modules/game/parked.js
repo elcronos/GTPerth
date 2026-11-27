@@ -5,7 +5,7 @@ import { buildCarModel, CAR_COLORS } from './vehicles.js';
 import { ROADS, heightAt, isLand } from '../../map.js';
 
 const BOX = [-450, 650, -900, -150];   // x0, x1, z0, z1
-const KINDS = ['sedan', 'hatch', 'suv', 'ute'];
+const KINDS = ['sedan', 'hatch', 'suv'];
 
 export function createParkedRows(G, M, { step = 7.5, fill = 0.55, seed = 11 } = {}) {
   let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
@@ -31,7 +31,7 @@ export function createParkedRows(G, M, { step = 7.5, fill = 0.55, seed = 11 } = 
   }
   // buckets: kind x 3 colours
   const group = new Group(); group.name = 'parked-rows';
-  const cols = [CAR_COLORS[0], CAR_COLORS[3 % CAR_COLORS.length], CAR_COLORS[5 % CAR_COLORS.length]];
+  const cols = [CAR_COLORS[0], CAR_COLORS[1], CAR_COLORS[2], CAR_COLORS[3], CAR_COLORS[4], CAR_COLORS[5]];
   const buckets = new Map();
   // low-poly kit cars (no scanned mesh): a whole CBD of parked cars stays a few hundred k triangles
   for (const sl of slots) { const k = KINDS[Math.floor(rnd() * KINDS.length)] + '|' + Math.floor(rnd() * cols.length); if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(sl); }

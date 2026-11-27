@@ -90,11 +90,13 @@ void main() {
 
   float tw = atmosTwilight();
   // --- clear-sky gradient: optical-mass-like falloff from horizon to zenith ---
-  float hgt = 1.0 - exp(-up * 4.2);
+  float hgt = 1.0 - exp(-up * mix(4.2, 6.5, sunset));   // low sun: blue climbs closer to the horizon (no mauve band)
   // squared tint = the deeper orange of light that crossed more air (used for everything near the low sun)
   vec3 tint2 = uSunTint * uSunTint;
   vec3 horizon = uHorizon * mix(0.6, 1.2, pow(az, 2.0) * mix(0.4, 1.0, sunset));
   horizon = mix(horizon, tint2 * 1.6, sunset * pow(az, 4.0) * 0.55);
+  // away from the sun the horizon stays cool and grey-blue, not warm
+  horizon = mix(mix(vec3(dot(horizon, vec3(0.2126, 0.7152, 0.0722))), horizon, 0.55) * vec3(0.86, 0.95, 1.12), horizon, smoothstep(0.25, 0.85, az));
   // blend in sqrt space: avoids the grey/lavender dip a linear lerp of complementary colours gives
   vec3 col = mix(sqrt(horizon), sqrt(uZenith), hgt);
   col *= col;

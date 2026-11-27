@@ -333,7 +333,7 @@ const SEA_REFL = /*glsl*/`
     vec4 rc = uReflMat * vec4(vSeaW + vec3(seaN.x, 0.0, seaN.z) * rOff, 1.0);
     vec2 ruv = clamp(rc.xy / max(rc.w, 1e-4), vec2(0.002), vec2(0.998));
     vec3 pr = textureLod(uReflTex, ruv, material.roughness * 8.0 + uReflLod).rgb;
-    radiance = mix(radiance, min(pr, vec3(60.0)), 0.85);
+    radiance = mix(radiance, min(pr, vec3(60.0)), mix(0.6, 0.88, smoothstep(40.0, 250.0, length(vSeaW - cameraPosition))));   // near water shows its own body
   } else {
     // no planar pass (low tier): fake the shoreline / skyline reflection as a dark band just above the horizon
     vec3 rw = reflect(-seaV, seaN);

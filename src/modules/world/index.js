@@ -90,7 +90,7 @@ export function create(G, { mats }) {
   const refl = createPlanarReflection(G, { height: 0 });
   refl.hide?.push(...(props.noReflect || [])); refl.maxFar = 2600;   // the mirror skips far bush and street clutter
   const sea = createSea(G, { refl, level: 0, far: 6500, waveOpts: { L0: 5.0, steep: 0.016, chop: 0.14, spread: 2.0, falloff: 0.86, detailSteep: 0.016, count: 8, detail: 12, seed: 11 },
-    scatter: [0.006, 0.026, 0.034], absorb: [0.52, 0.16, 0.12], foam: 0.4, envIntensity: 1.0 });
+    scatter: [0.008, 0.032, 0.044], absorb: [0.52, 0.16, 0.12], foam: 0.4, envIntensity: 1.0 });
 
   // far field: the Darling Scarp to the east + suburbs (all at real-ish apparent heights, fogged by the same atmosphere)
   const far = createFarfield(G, { layers: [

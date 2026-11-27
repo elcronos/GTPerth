@@ -103,7 +103,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
     vec2 pf = fract(vFUv / vec2(1.6, 1.2)); vec2 pe = min(pf, 1.0 - pf);
     float j = 1.0 - smoothstep(0.02, 0.02 + fw.x * 2.0, min(pe.x, pe.y));
     frame = mix(pal * (0.9 + 0.2 * fcH(pc * 2.3)), vec3(0.08), j * (1.0 - far));
-    frame = mix(frame, vec3(0.30, 0.28, 0.26), far);
+    frame = mix(frame, vec3(0.16, 0.16, 0.17), far);
   } else {                                            // roof
     vec2 g = vWthPos.xz * 0.5; float n = fcH(floor(g)) * 0.15;
     frame *= 0.85 + n;
@@ -151,8 +151,8 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   slab = mix(slab, style < 0.5 ? 0.18 : style < 3.5 && style > 2.5 ? 0.13 : style > 3.5 && style < 4.5 ? 0.12 : 0.0, far);
   fcGlass = glass;
   // per-panel tint/roughness variation; oil-canning tilt (faded with distance)
-  vec3 gl = vGlass * (0.95 + 0.1 * rnd2) * (0.85 + 0.3 * fcH(vec2(seed, 3.7))) * mix(1.0, 0.68, far);   // per-tower value; far glass darker (no ghost skyline)
-  fcRough = mix(0.08 + 0.05 * rnd, 0.18, far);
+  vec3 gl = vGlass * (0.95 + 0.1 * rnd2) * (0.85 + 0.3 * fcH(vec2(seed, 3.7))) * mix(1.0, 0.55, far);   // per-tower value; far glass darker (no ghost skyline)
+  fcRough = mix(0.08 + 0.05 * rnd, 0.30, far);
   fcTilt = (vec2(rnd, rnd2) - 0.5) * 0.022 * (1.0 - far);
   // ---------------- interior mapping (rooms behind the glass)
   vec3 V = normalize(vWthPos - cameraPosition);
@@ -183,7 +183,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   vec3 room = ttz <= min(ttx, tty) ? rBack : (tty <= ttx ? (d.y > 0.0 ? rCeil : rFloor) : rSide);
   float dark = 0.08 + 0.10 * rnd;
   if (shop > 0.5) { room = mix(room, room * mix(vec3(1.0), signC * 2.5 + 0.4, 0.35), step(0.5, fcH(cell + 3.3))); lampC = vec3(1.0, 0.88, 0.7); }
-  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.38 + 2.4 * uNight) : 0.24 * lampC * (0.45 + 2.2 * uNight) * (0.55 + 0.9 * fcH(cell + 5.7))) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.62 + 2.4 * uNight) : 0.24 * lampC * (0.45 + 2.2 * uNight) * (0.55 + 0.9 * fcH(cell + 5.7))) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
   vec2 zone = vec2(floor(cell.x / 5.0), cell.y);   // blinds set per tenancy zone, not per window (no pixel confetti)

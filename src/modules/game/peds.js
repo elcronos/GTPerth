@@ -11,7 +11,7 @@ import { groundAt } from './player.js';
 // walking loops and loiter spots follow the real promenades (shorelines from OSM)
 const sh = (P, x0, x1, step, inset, f) => alongShore(P, x0, x1, step, inset, f).map((p) => [p[0], p[1]]);
 const LOOPS = {
-  eq: sh(SHORE_N, -75, 330, 14, 6, (x, z) => z > -225 && z < 90),
+  eq: sh(SHORE_N, -75, 330, 14, 8.5, (x, z) => z > -225 && z < 90),   // clear of the bench / lamp line (3.5 m inset)
   landing: sh(SHORE_N, 20, 150, 9, 9, (x, z) => z < -150 && z > -230),
   west: sh(SHORE_N, -460, -70, 24, 11, (x, z) => z > -120),
   barrack: sh(SHORE_N, 140, 330, 10, 10, (x, z) => z > -40 && z < 120),
@@ -55,7 +55,7 @@ export function createPeds(G, { avatars, col }) {
   for (let i = 0; i < (busy ? 22 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
   for (let i = 0; i < (busy ? 8 : 4); i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0], w[1], 'landing'); }
   for (let i = 0; i < 3; i++) { const L = LOOPS.west, w = L[Math.floor(R() * L.length)]; add('jog', w[0], w[1], 'west', { avatar: i % 2 ? 'Sports_Male_04' : 'Sports_Female_02' }); }
-  for (let i = 0; i < (busy ? 14 : 6); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt').ch.root.userData.noReflect = true; }   // CBD walkers never reach the river mirror
+  for (let i = 0; i < (busy ? 24 : 6); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt').ch.root.userData.noReflect = true; }   // CBD walkers never reach the river mirror
   for (let i = 0; i < (busy ? 7 : 4); i++) { const L = LOOPS.barrack, w = L[Math.floor(R() * L.length)]; add('walk', w[0], w[1], 'barrack'); }
   for (let i = 0; i < 7; i++) { const L = LOOPS.south, w = L[Math.floor(R() * L.length)]; add(R() < 0.5 ? 'stroll' : 'walk', w[0], w[1], 'south'); }
   IDLE_SPOTS.forEach(([x, z, yaw], i) => { if (!busy && i >= 16) return; const g = ['photo', 'phone', 'look', null][i % 4]; add('idle', x, z, null, { yaw, gesture: g, avatar: g === 'photo' ? FEMALE[(i % 4) + 1] : g === 'phone' ? MALE[(i % 5)] : undefined }); });
@@ -79,14 +79,21 @@ export function createPeds(G, { avatars, col }) {
   S.topUp = (camPos, pl, want) => {
     const fx = pl.x - camPos.x, fz = pl.z - camPos.z, fl = Math.hypot(fx, fz) || 1, ux = fx / fl, uz = fz / fl;
     const inView = (x, z) => { const dx = x - camPos.x, dz = z - camPos.z, dep = dx * ux + dz * uz, lat = Math.abs(-dx * uz + dz * ux); return dep > 8 && dep < 55 && lat < 0.5 * dep && lat > 2.5; };
+    const depthOf = (x, z) => (x - camPos.x) * ux + (z - camPos.z) * uz;
+    const BANDS = [[8, 20, 2], [20, 35, 2], [35, 55, 3]];   // spread the crowd in depth instead of one knot
+    const count = (b) => list.filter((p) => { const q = p.ch.root.position, d = depthOf(q.x, q.z); return p.kind !== 'idle' && inView(q.x, q.z) && d >= b[0] && d < b[1]; }).length;
+    const free = (x, z) => Math.hypot(x - pl.x, z - pl.z) > 4 && !list.some((q) => Math.hypot(q.ch.root.position.x - x, q.ch.root.position.z - z) < 3.5);
     let n = list.filter((p) => p.kind !== 'idle' && inView(p.ch.root.position.x, p.ch.root.position.z)).length;
-    for (const p of list) {
-      if (n >= want) break;
-      if (!p.path || p.kind === 'idle' || p.zone === 'sgt' || inView(p.ch.root.position.x, p.ch.root.position.z)) continue;
-      const cand = (LOOPS.eq.concat(LOOPS.landing)).filter(([x, z]) => inView(x, z)); if (!cand.length) break;
-      const w = cand[Math.floor(Math.random() * cand.length)];
-      p.path = LOOPS.eq.includes(w) ? LOOPS.eq : LOOPS.landing; p.zone = p.path === LOOPS.eq ? 'eq' : 'landing'; p.wp = p.path.indexOf(w);
-      p.ch.root.position.set(w[0] + (Math.random() - 0.5) * 3, groundAt(w[0], w[1]).y, w[1] + (Math.random() - 0.5) * 3); n++;
+    for (const b of BANDS) {
+      let have = count(b);
+      for (const p of list) {
+        if (n >= want || have >= b[2]) break;
+        if (!p.path || p.kind === 'idle' || p.zone === 'sgt' || inView(p.ch.root.position.x, p.ch.root.position.z)) continue;
+        const cand = (LOOPS.eq.concat(LOOPS.landing)).filter(([x, z]) => inView(x, z) && depthOf(x, z) >= b[0] && depthOf(x, z) < b[1] && free(x, z)); if (!cand.length) break;
+        const w = cand[Math.floor(Math.random() * cand.length)];
+        p.path = LOOPS.eq.includes(w) ? LOOPS.eq : LOOPS.landing; p.zone = p.path === LOOPS.eq ? 'eq' : 'landing'; p.wp = p.path.indexOf(w); p.dir = Math.random() < 0.5 ? 1 : -1;
+        p.ch.root.position.set(w[0], groundAt(w[0], w[1]).y, w[1]); n++; have++;
+      }
     }
   };
   S.prime = (focus, camPos, camFwd) => {

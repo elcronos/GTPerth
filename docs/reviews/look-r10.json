@@ -1,0 +1,1551 @@
+{
+ "round": "look-r10",
+ "critic": "reduce(min)",
+ "scores": {
+  "mobile": 6.0,
+  "lighting": 6.0,
+  "composition": 5.5,
+  "characters": 5.0,
+  "vegetation": 5.5,
+  "palette": 5.5,
+  "materials": 5.5,
+  "architecture": 5.5,
+  "time_of_day": 6.5,
+  "artefacts": 5.0,
+  "real_game": 5.5,
+  "atmosphere": 6.0,
+  "ui": 6.0
+ },
+ "overall": 5.65,
+ "fixes": [
+  {
+   "priority": "P0",
+   "area": "promenade crowd: clumped, interpenetrating walkers",
+   "dimension": "characters",
+   "lane": "game",
+   "problem": "The r9 crowd fix landed (hero walkers 2 -> 8), but S.topUp drops walkers on the few eq waypoints inside the view cone (eq loop step 14 m, all on one line 6 m inset from SHORE_N) with only +-1.5 m jitter and no separation test. Result: hero_noon has 4 bodies inside ~1.2 m (pink shirt walks through green shirt, a third behind them), hero has the grey-top and blue-shirt walkers overlapping and a pink walker standing inside the bench footprint line, hero_night the same 5-body knot, phone_hud a knot right of the player. The knot sits at x 0.55-0.65, so it competes with the player and reads as a spawn bug, not a lived-in promenade.",
+   "fix": "peds.js S.topUp: (1) build candidates as points, not waypoints: for each eq/landing waypoint in view take 3 offsets along the local shore normal at inset 2.5, 6 and 10 m (normal = perpendicular of w[i+1]-w[i-1]) plus +-4 m along the loop. (2) Reject a candidate within 3.5 m of any walker already placed or in view, within 4 m of the player, or within 1.2 m of a bench (props bench points). (3) Spread by depth: bins 8-20, 20-35, 35-55 m, at most ceil(want/3) per bin. (4) Give each placed walker a random dir (+-1), cruise in its range, and offset the clip time by Math.random()*clipDuration so neighbours never step in phase. Apply the same 3.5 m rejection in S.prime (jitter +-1 m currently).",
+   "files": [
+    "src/modules/game/peds.js"
+   ],
+   "params": {
+    "TOPUP_JITTER_M": [
+     1.5,
+     "0 (offset grid instead)"
+    ],
+    "TOPUP_LATERAL_INSETS_M": [
+     [
+      6
+     ],
+     [
+      2.5,
+      6,
+      10
+     ]
+    ],
+    "TOPUP_MIN_SEP_M": [
+     null,
+     3.5
+    ],
+    "TOPUP_PLAYER_CLEAR_M": [
+     null,
+     4.0
+    ],
+    "TOPUP_DEPTH_BINS_M": [
+     null,
+     [
+      [
+       8,
+       20
+      ],
+      [
+       20,
+       35
+      ],
+      [
+       35,
+       55
+      ]
+     ]
+    ],
+    "TARGET_hero_noon_bodies_within_1.5m": [
+     4,
+     0
+    ],
+    "TARGET_hero_visible_walkers": [
+     8,
+     "6-8, no overlap"
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_noon",
+    "hero_night",
+    "phone_hud"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "golden-hour shade: still near-black",
+   "dimension": "lighting",
+   "lane": "lighting",
+   "problem": "hero shaded pavers sample 33,32,42 (luma ~33; r8 36,31,32): the hue is fixed (no more maroon) but the level is not. env 1.35 -> 1.6 at el 8 landed and luma_p5 stayed 26. Auto-exposure (adaptKey 0.2, amax 1.6) re-normalises the frame on the sun pool (sunpath 240,221,191, near clip), so raising env alone cannot change the key:fill ratio. The left 45% of hero and phone_hud is still one dark mass, the player's back reads as a silhouette (player luma 48).",
+   "fix": "daycycle.js K: lower the key and raise the fill together so adaptation keeps mid-grey but the ratio drops: el 8 si 12.0 -> 9.5, env 1.6 -> 2.1; el 0.5 si 6.0 -> 5.0, env 1.5 -> 1.9; el 20 env 1.45 -> 1.7. Leave adaptKey. Verify with tools/qa/one.mjs hero: shade luma and sunpath.",
+   "files": [
+    "src/modules/world/daycycle.js",
+    "tools/qa/one.mjs"
+   ],
+   "params": {
+    "K.el8.si": [
+     12.0,
+     9.5
+    ],
+    "K.el8.env": [
+     1.6,
+     2.1
+    ],
+    "K.el0.5.si": [
+     6.0,
+     5.0
+    ],
+    "K.el0.5.env": [
+     1.5,
+     1.9
+    ],
+    "K.el20.env": [
+     1.45,
+     1.7
+    ],
+    "TARGET_hero_shade_paver_luma": [
+     33,
+     "48-55"
+    ],
+    "TARGET_hero_luma_p5": [
+     26,
+     "34-38"
+    ],
+    "TARGET_hero_sunpath_max": [
+     240,
+     "<=232"
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_back",
+    "phone_hud",
+    "mends"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "shadow split tone reads violet (asphalt, footpaths, shade)",
+   "dimension": "palette",
+   "lane": "grade",
+   "problem": "The road tint fix landed (world/index.js road setRGB(1.85,1.72,1.52), env 0.55) yet street_sgt road is 46,53,71 and shops 49,56,73 (B-R +25, unchanged). Cause found: the grade's splitShadow [0.89,0.98,1.13] (art.js) is applied at full weight to everything below linear luma 0.05 (shaders.js line 519, smoothstep(0.05,0.65,ls)), i.e. every road, footpath and shade pixel; R and G drop together and B rises, which is violet, not the bible's teal (#2E4560 has G > R). Same cause for the blue-violet footpath tiles in shops and the blue cast on the parked cars in street_sgt (27,37,57).",
+   "fix": "art.js grade.splitShadow [0.89,0.98,1.13] -> [0.90,1.02,1.06] (teal: G up, B less). shaders.js line 519: weight the split by saturation guard so neutral greys keep their hue: t *= mix(uSplitS, uSplitH, smoothstep(0.05,0.65,ls)) -> t *= mix(mix(vec3(1.0), uSplitS, 0.75), uSplitH, smoothstep(0.03,0.65,ls)).",
+   "files": [
+    "src/art.js",
+    "src/cookbook/post/shaders.js"
+   ],
+   "params": {
+    "GRADE_SPLIT_SHADOW": [
+     [
+      0.89,
+      0.98,
+      1.13
+     ],
+     [
+      0.9,
+      1.02,
+      1.06
+     ]
+    ],
+    "SPLIT_SHADOW_WEIGHT": [
+     1.0,
+     0.75
+    ],
+    "SPLIT_LOW_EDGE": [
+     0.05,
+     0.03
+    ],
+    "TARGET_street_sgt_road_rgb": [
+     [
+      46,
+      53,
+      71
+     ],
+     [
+      54,
+      56,
+      60
+     ]
+    ],
+    "TARGET_road_B_minus_R": [
+     25,
+     "<=8"
+    ]
+   },
+   "shots": [
+    "street_sgt",
+    "shops",
+    "hero",
+    "phone_hud"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "golden sky above the horizon stays mauve-grey",
+   "dimension": "palette",
+   "lane": "lighting",
+   "problem": "K el 8 zen [0.05,0.16,0.38] landed; hero upper sky moved 139,130,135 -> 127,127,141, still grey-lilac against the bible sky-high #8AA8CF (138,168,207). The visible band (0-24 deg up at pitch -7, vfov 62) is dominated by the horizon colour: sky.js hgt = 1 - exp(-up * 4.2) is only 0.66 at 15 deg, and the sqrt-space mix with the warm, az-boosted horizon gives lilac. Same in mends, river_cbd, kings_park.",
+   "fix": "sky.js line ~93: float hgt = 1.0 - exp(-up * mix(4.2, 6.5, sunset)); so at low sun the blue arrives by ~10 deg while the amber stays in a low band; horizon az boost mix(0.6,1.2,...) -> mix(0.5,1.25,...) to keep the hot side warm and the anti-sun side cooler.",
+   "files": [
+    "src/cookbook/lighting/sky.js"
+   ],
+   "params": {
+    "SKY_HGT_K_LOWSUN": [
+     4.2,
+     6.5
+    ],
+    "HORIZON_AZ_RANGE": [
+     [
+      0.6,
+      1.2
+     ],
+     [
+      0.5,
+      1.25
+     ]
+    ],
+    "TARGET_hero_sky_upper_rgb": [
+     [
+      127,
+      127,
+      141
+     ],
+     [
+      112,
+      134,
+      172
+     ]
+    ]
+   },
+   "shots": [
+    "hero",
+    "phone_hud",
+    "mends",
+    "river_cbd",
+    "kings_park"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "near inlet water is a grey sky mirror",
+   "dimension": "palette",
+   "lane": "water",
+   "problem": "hero inlet 98,93,94 (bible water #2A566E = 42,86,110). SEA_REFL in sea.js line 335 still mixes the planar reflection at a flat 0.85 at every distance, so the inlet within 30 m is the sky again; it never shows its own teal body. Listed in r9, not landed.",
+   "fix": "sea.js SEA_REFL: radiance = mix(radiance, min(pr, vec3(60.0)), 0.85) -> mix(radiance, min(pr, vec3(60.0)), mix(0.6, 0.88, smoothstep(30.0, 300.0, length(vSeaW - cameraPosition)))). world/index.js line 93 sea scatter [0.006,0.026,0.034] -> [0.008,0.032,0.044] so the body colour reads teal once it shows.",
+   "files": [
+    "src/cookbook/water/sea.js",
+    "src/modules/world/index.js"
+   ],
+   "params": {
+    "SEA_PLANAR_MIX_NEAR_FAR": [
+     [
+      0.85,
+      0.85
+     ],
+     [
+      0.6,
+      0.88
+     ]
+    ],
+    "SEA_SCATTER": [
+     [
+      0.006,
+      0.026,
+      0.034
+     ],
+     [
+      0.008,
+      0.032,
+      0.044
+     ]
+    ],
+    "TARGET_hero_inlet_rgb": [
+     [
+      98,
+      93,
+      94
+     ],
+     [
+      66,
+      84,
+      96
+     ]
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_back",
+    "phone_hud",
+    "mends"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "shopfronts are grey roller doors (3rd round)",
+   "dimension": "materials",
+   "lane": "world",
+   "problem": "street_sgt shop bay 99,108,123 and shops podium: flat grey-blue panels, no interior, door or merchandise; every fascia sign the same dash-dash glyph at fixed pitch (facade.js line 143, sx*3.1). Nothing in facade.js shop branch changed since r7 (shop day gain still 0.38, transK 0.65, gl *= 0.8).",
+   "fix": "facade.js line 186 shop gain 0.9*lampC*(0.38+2.4*uNight) -> 0.9*lampC*(0.62+2.4*uNight); line 197 shop transK 0.65 -> 0.82; line 200 shop gl *= 0.8 -> 0.55; line 126 shutter step(0.9,hu2) -> step(0.94,hu2); add a dark door bay: if (fcH(cell+5.1) > 0.75) room *= 0.15; line 143 glyph pitch sx*3.1 -> sx*mix(2.2,4.6,hu) and glyph colour light-on-dark or dark-on-light by step(0.5,hu2).",
+   "files": [
+    "src/modules/world/facade.js"
+   ],
+   "params": {
+    "SHOP_DAY_GAIN": [
+     0.38,
+     0.62
+    ],
+    "SHOP_TRANSK": [
+     0.65,
+     0.82
+    ],
+    "SHOP_GLASS_MUL": [
+     0.8,
+     0.55
+    ],
+    "SHUTTER_STEP": [
+     0.9,
+     0.94
+    ],
+    "SHOP_DOOR_SHARE": [
+     0,
+     0.25
+    ],
+    "GLYPH_PITCH": [
+     "3.1 fixed",
+     "2.2-4.6 per sign"
+    ],
+    "TARGET_street_sgt_shop_bay_rgb": [
+     [
+      99,
+      108,
+      123
+     ],
+     [
+      72,
+      66,
+      58
+     ]
+    ]
+   },
+   "shots": [
+    "street_sgt",
+    "shops"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "Kings Park shore lawn rows + Langley Park trees lost",
+   "dimension": "vegetation",
+   "lane": "world",
+   "problem": "kings_park: the hill canopy is much better (lower crowns, few bare poles: canopy near 57,54,28 -> 66,70,43), but the Mounts Bay Rd lawn still carries ~40 identical round euc2 crowns in two even rows (props.js foreshore poissonDisk r 22, within 120 m of SHORE_N). aerial: the Langley Park / Esplanade lawn lost nearly all its trees (~30 dots in r8 -> ~2) because langPts r went 26 -> 40 and the euc2 fade [700,1000] ends before the aerial camera's ~800-1100 m range.",
+   "fix": "props.js line 136 foreshore r 22 -> 30 and accept only where a 120 m value noise > 0.42 (groves with open lawn between). Line 135 langPts r 40 -> 30. Line 140 euc2 fade [700,1000] -> hiT ? [1000,1400] : [700,1000], scale [0.65,1.6] kept.",
+   "files": [
+    "src/modules/world/props.js"
+   ],
+   "params": {
+    "FORESHORE_R_M": [
+     22,
+     30
+    ],
+    "FORESHORE_GROVE_NOISE": [
+     null,
+     {
+      "scale_m": 120,
+      "thr": 0.42
+     }
+    ],
+    "LANG_R_M": [
+     40,
+     30
+    ],
+    "EUC2_FADE_HIGH_M": [
+     [
+      700,
+      1000
+     ],
+     [
+      1000,
+      1400
+     ]
+    ],
+    "TARGET_kings_park_lawn_trees": [
+     40,
+     "15-20 in groves"
+    ],
+    "TARGET_aerial_langley_trees": [
+     2,
+     "25+"
+    ]
+   },
+   "shots": [
+    "kings_park",
+    "aerial"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "street life on the Terrace and at Barrack St",
+   "dimension": "real_game",
+   "lane": "game",
+   "problem": "street_sgt now has kerbside parked cars (big gain) but 0-1 walkers on the footpaths (r8: 2-3) and the near-right parked car fills the bottom-right quarter, cropped, with a blue cast. shops: 0 walkers, 3 small cars. S.prime keeps any sgt waypoint within 140 m of the 45 m focus with cos > 0.35, which includes footpath points hidden behind the new parked rows and street trees.",
+   "fix": "peds.js: sgt count busy 14 -> 22; sgt loop step 12 -> 8 m (line ~22); S.prime for zone 'sgt': require camera depth 12-90 m and |lateral| < 0.45*depth, jitter +-1 m along the footpath only. parked.js: skip slots within 9 m of the camera-facing kerb at a views.json camera (or simply add d < 9 m from any views cam -> skip) so a parked car never fills a quarter of a QA frame. traffic.js T.target high 26 kept.",
+   "files": [
+    "src/modules/game/peds.js",
+    "src/modules/game/parked.js"
+   ],
+   "params": {
+    "SGT_PEDS_HIGH": [
+     14,
+     22
+    ],
+    "SGT_LOOP_STEP_M": [
+     12,
+     8
+    ],
+    "SGT_PRIME_DEPTH_M": [
+     "dist(focus)<140",
+     [
+      12,
+      90
+     ]
+    ],
+    "PARKED_CAM_CLEAR_M": [
+     null,
+     9
+    ],
+    "TARGET_street_sgt_walkers": [
+     1,
+     "6+"
+    ],
+    "TARGET_shops_walkers": [
+     0,
+     "3+"
+    ]
+   },
+   "shots": [
+    "street_sgt",
+    "shops"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "parked-car palette",
+   "dimension": "palette",
+   "lane": "game",
+   "problem": "parked.js uses only 3 of the 12 CAR_COLORS (cols = [0],[3],[5]: white, navy, beige), so street_sgt reads white/blue/white; in shade the navy and white bodies both go blue-grey (near car 27,37,57).",
+   "fix": "parked.js line ~35: cols = CAR_COLORS (all 12) with weights favouring white/silver/grey/black (Perth fleet): bucket key by Math.floor(rnd()*12). Car paint envMapIntensity in shade 1.0 -> 0.7 for the kit-car paint material so the sky env does not tint the body.",
+   "files": [
+    "src/modules/game/parked.js",
+    "src/modules/game/vehicles.js"
+   ],
+   "params": {
+    "PARKED_COLOURS": [
+     3,
+     12
+    ],
+    "PARKED_PAINT_ENV": [
+     1.0,
+     0.7
+    ]
+   },
+   "shots": [
+    "street_sgt",
+    "shops"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "Kings Park plateau from the air",
+   "dimension": "vegetation",
+   "lane": "world",
+   "problem": "aerial: the KP front slope now shows the mottled canopy, but the plateau behind is pale grey-olive with white stripes (68,77,87 average, kpview: dark olive continuous canopy). ground.js farV only paints canopy where gW.z (bush mask) or inKP*(1-gW.w); lawn (gW.y) and paved paths inside KP stay pale and fog lifts them to blue-grey.",
+   "fix": "ground.js line ~177: farV = max(..., smoothstep(600.0, 1100.0, camDg) * inKP * (1.0 - gW.w) * (1.0 - 0.6*gW.x)); and canC upper value vec3(0.10,0.125,0.055) -> vec3(0.085,0.11,0.045) so the sunlit crowns do not read as lawn.",
+   "files": [
+    "src/modules/world/ground.js"
+   ],
+   "params": {
+    "KP_FAR_BLEND_M": [
+     [
+      700,
+      1300
+     ],
+     [
+      600,
+      1100
+     ]
+    ],
+    "KP_FAR_PAVE_KEEP": [
+     1.0,
+     0.4
+    ],
+    "CANOPY_LIT_LIN": [
+     [
+      0.1,
+      0.125,
+      0.055
+     ],
+     [
+      0.085,
+      0.11,
+      0.045
+     ]
+    ],
+    "TARGET_aerial_KP_rgb": [
+     [
+      68,
+      77,
+      87
+     ],
+     [
+      56,
+      64,
+      52
+     ]
+    ]
+   },
+   "shots": [
+    "aerial",
+    "mends"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "HUD rest state + ENTER ring CSS bug",
+   "dimension": "ui",
+   "lane": "ui",
+   "problem": "phone_hud: health/stamina bars full strength across the far shore (hud.js line 139 calmT > 4 never reached in the shot; ui.css .bars.calm opacity 0). ENTER shows the full pink ring with no vehicle in reach because .tc-btn.act (ui.css line 157, border-color #ff3d8b) is declared after .tc-btn.dim (line 156) with equal specificity, so the dim state's white border is overridden. 4th round for the bars.",
+   "fix": "hud.js line 12 calmT: 0 -> 2; line 139 > 4 -> > 2. ui.css line 64 .bars.calm opacity 0 -> 0.3; line 77 .money.calm 0 -> 0.5. ui.css add after line 157: .tc-btn.act.dim { border-color: rgba(255,255,255,.4); opacity: .4; }",
+   "files": [
+    "src/modules/game/hud.js",
+    "src/ui/ui.css"
+   ],
+   "params": {
+    "CALM_T_INIT_S": [
+     0,
+     2
+    ],
+    "CALM_THRESHOLD_S": [
+     4,
+     2
+    ],
+    "BARS_CALM_OPACITY": [
+     0,
+     0.3
+    ],
+    "MONEY_CALM_OPACITY": [
+     0,
+     0.5
+    ],
+    "ENTER_DIM_OPACITY": [
+     0.5,
+     0.4
+    ],
+    "ENTER_DIM_RING": [
+     "#ff3d8b",
+     "rgba(255,255,255,.4)"
+    ]
+   },
+   "shots": [
+    "phone_hud"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "hero framing element (palm, guarded)",
+   "dimension": "composition",
+   "lane": "world",
+   "problem": "hero, hero_noon, hero_night: the top-left ~40% is still empty sky over flat water; every palm stands camera-right. The r8 framing palm was removed after it covered the hero_back camera (fixed: hero_back is clean now). The crowd knot at x 0.55-0.65 also pulls focus from the player.",
+   "fix": "props.js: one Washingtonia (PALMS variant H 13-17, scale 1.1) at PLAYER_SPAWN + 3.0 m along the hero look direction + 6.0 m camera-left, inset >= 3 m from the coping; guard: for each views.json entry with a player view, project the trunk and reject if screen x in 0.2-0.8. The crowd spread fix (P0) handles the competing knot.",
+   "files": [
+    "src/modules/world/props.js",
+    "tools/qa/views.json"
+   ],
+   "params": {
+    "HERO_FRAME_PALM_OFFSET_FWD_LEFT_M": [
+     null,
+     [
+      3.0,
+      6.0
+     ]
+    ],
+    "HERO_FRAME_PALM_SCREEN_X": [
+     null,
+     [
+      0.08,
+      0.16
+     ]
+    ],
+    "TARGET_hero_upper_left_empty_frac": [
+     0.4,
+     0.22
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_noon",
+    "hero_night",
+    "hero_back"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "mid/far tower massing and low-rise roofs",
+   "dimension": "architecture",
+   "lane": "world",
+   "problem": "bridge_skyline, river_cbd, aerial: once cells are sub-pixel the towers are flat grey/beige blocks with no floor banding or base-to-top value change; aerial low-rise blocks are clean boxes without plant or parapet. eq2 shows clear slab banding, dark spandrels and bronze/green glass. Unchanged since r7.",
+   "fix": "facade.js far branch after line 151: glass and slab averages *= mix(1.0, 0.82, far * step(fract(vFUv.y / fh), 0.2)) so slab lines survive at range; frame and gl *= mix(0.86, 1.05, clamp(vFUv.y / 120.0, 0.0, 1.0)) for a vertical gradient. towers.js line 99: allow plant rooms on OSM generic footprints > 400 m2 from 9 m height up (size 0.25-0.4 of the roof, h 2.5-3.5 m, dark grey 0.18).",
+   "files": [
+    "src/modules/world/facade.js",
+    "src/modules/world/towers.js"
+   ],
+   "params": {
+    "FAR_SLAB_DARKEN": [
+     1.0,
+     0.82
+    ],
+    "FAR_VERTICAL_GRADIENT": [
+     [
+      1.0,
+      1.0
+     ],
+     [
+      0.86,
+      1.05
+     ]
+    ],
+    "PLANT_MIN_AREA_M2": [
+     "towers only",
+     400
+    ],
+    "PLANT_MIN_H_M": [
+     null,
+     9
+    ]
+   },
+   "shots": [
+    "bridge_skyline",
+    "river_cbd",
+    "aerial",
+    "kings_park"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "hard horizon seam in the air view",
+   "dimension": "atmosphere",
+   "lane": "lighting",
+   "problem": "Haze fix landed (mends skyline-vs-sky dL ~5 -> ~30, kings_park CBD readable as blocks). What is left: aerial shows a hard ruler-straight horizon at y ~218 with a flat dark grey-violet slab of far ground between the suburbs and the cream sky band; the sky dome is fogged to uSkyFar 4200 m while the far field runs to ~6500 m, so ground beyond 4.2 km is darker than the sky behind it. river_cbd's far right shore ends in the same crisp seam.",
+   "fix": "art.js sky.fogFar 4200 -> 7000 (dome fogged to the same depth as the far field); in the ground / far-field material add a last-ditch blend to the horizon colour: col = mix(col, uHorizonFog, smoothstep(4500.0, 7000.0, dist)) using the atmos in-scatter colour, so the slab dissolves into the haze band.",
+   "files": [
+    "src/art.js",
+    "src/cookbook/lighting/sky.js",
+    "src/modules/world/index.js"
+   ],
+   "params": {
+    "SKY_FOG_FAR_M": [
+     4200,
+     7000
+    ],
+    "FARFIELD_HORIZON_BLEND_M": [
+     null,
+     [
+      4500,
+      7000
+     ]
+    ],
+    "TARGET_aerial_horizon_seam_dL": [
+     "~45 (dark slab vs sky band)",
+     "<12"
+    ]
+   },
+   "shots": [
+    "aerial",
+    "river_cbd",
+    "kings_park"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "noon paving checker",
+   "dimension": "materials",
+   "lane": "world",
+   "problem": "Pavers improved (0.4 x 0.2 m, 85/95 tone steps, limestone course): hero and hero_back now read as granite setts. At noon (hero_noon) the light 'lime' units are still a scattered checker against the pale course (band 178 vs pavers 145 luma), and the course is the brightest plaza value.",
+   "fix": "surfaces.js line 21: lime step(0.85,h1) -> step(0.92,h1), lime 0.13 -> 0.122; ground.js bandP colour vec3(0.20,0.19,0.17) -> vec3(0.17,0.162,0.145).",
+   "files": [
+    "src/modules/world/surfaces.js",
+    "src/modules/world/ground.js"
+   ],
+   "params": {
+    "PAVER_LIME_STEP": [
+     0.85,
+     0.92
+    ],
+    "PAVER_LIME_LIN": [
+     0.13,
+     0.122
+    ],
+    "LIMESTONE_BAND_LIN": [
+     [
+      0.2,
+      0.19,
+      0.17
+     ],
+     [
+      0.17,
+      0.162,
+      0.145
+     ]
+    ],
+    "TARGET_hero_noon_band_luma": [
+     178,
+     "160-165"
+    ]
+   },
+   "shots": [
+    "hero_noon",
+    "hero",
+    "hero_back"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "near-plane clip column in shops",
+   "dimension": "artefacts",
+   "lane": "qa",
+   "problem": "shops: an 8 px pale vertical column along the right edge (a pole ~0.5 m from the lens cut by the near plane). Present r6, r7, r8, r9.",
+   "fix": "Stopgap: tools/qa/views.json shops cam [296,1.7,-212] -> [294.6,1.7,-212.6] (1.5 m to camera-left). Real fix: screen-door dither on instanced street furniture within 1.2 m of the camera: discard when bayer4(gl_FragCoord) > smoothstep(0.4,1.2,dist).",
+   "files": [
+    "tools/qa/views.json",
+    "src/modules/world/props.js"
+   ],
+   "params": {
+    "SHOPS_CAM": [
+     [
+      296,
+      1.7,
+      -212
+     ],
+     [
+      294.6,
+      1.7,
+      -212.6
+     ]
+    ],
+    "NEAR_DITHER_M": [
+     null,
+     [
+      0.4,
+      1.2
+     ]
+    ]
+   },
+   "shots": [
+    "shops"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "jetty shelter and deck",
+   "dimension": "materials",
+   "lane": "world",
+   "problem": "mends: the jetty shelter is a pale grey slab (130,137,148) and the deck boards are ~0.7 m wide, so the jetty reads as a scaffold plank. tricia1 shows a glazed steel shelter. Unchanged.",
+   "fix": "landmarks.js shelter: 3 glassDark bays of 1.25 m with 0.06 m steel posts and a 0.15 m dark fascia; jetty deck plank UV scale so boards are 0.15 m wide with 0.008 m gaps.",
+   "files": [
+    "src/modules/world/landmarks.js"
+   ],
+   "params": {
+    "SHELTER_BAYS": [
+     1,
+     3
+    ],
+    "DECK_BOARD_M": [
+     0.7,
+     0.15
+    ],
+    "TARGET_mends_shelter_rgb": [
+     [
+      130,
+      137,
+      148
+     ],
+     [
+      62,
+      70,
+      78
+     ]
+    ]
+   },
+   "shots": [
+    "mends"
+   ]
+  },
+  {
+   "priority": "P3",
+   "area": "night walkers glow evenly",
+   "dimension": "time_of_day",
+   "lane": "lighting",
+   "problem": "hero_night: windows are much better (smaller runs, per-window variance), but every walker is lit head to toe at the same level (avatars.js line 45 lampReceive(m, 1.6) + uCharFill), so they look pasted on rather than stepping through the lamp pools.",
+   "fix": "avatars.js line 45 lampReceive(m, 1.6) -> lampReceive(m, 1.0); keep the player >= 45 luma through a separate player-only fill. props.js lamp map sig 3.8 -> 3.2 m for tighter pools.",
+   "files": [
+    "src/modules/game/avatars.js",
+    "src/modules/world/props.js"
+   ],
+   "params": {
+    "WALKER_LAMP_GAIN": [
+     1.6,
+     1.0
+    ],
+    "LAMP_SIGMA_M": [
+     3.8,
+     3.2
+    ],
+    "TARGET_hero_night_player_luma": [
+     81,
+     ">=45"
+    ]
+   },
+   "shots": [
+    "hero_night"
+   ]
+  },
+  {
+   "priority": "P3",
+   "area": "phone touch cluster over the crowd",
+   "dimension": "mobile",
+   "lane": "ui",
+   "problem": "phone_hud: the right cluster (JUMP/SPRINT/PUNCH/ENTER at full opacity, thick rings) covers the right third where the sun path and the walkers are; walkers placed by topUp can land under SPRINT.",
+   "fix": "ui.css .tc-btn resting opacity 1 -> 0.65, ring 2 px -> 1.5 px; peds.js topUp on the low tier: reject candidates projecting to screen x > 0.72 and y > 0.45.",
+   "files": [
+    "src/ui/ui.css",
+    "src/modules/game/peds.js"
+   ],
+   "params": {
+    "TC_BTN_OPACITY": [
+     1.0,
+     0.65
+    ],
+    "TC_RING_PX": [
+     2,
+     1.5
+    ],
+    "PHONE_TOPUP_SCREEN_REJECT": [
+     null,
+     {
+      "x_gt": 0.72,
+      "y_gt": 0.45
+     }
+    ]
+   },
+   "shots": [
+    "phone_hud"
+   ]
+  },
+  {
+   "priority": "P0",
+   "area": "walkers clipping through promenade benches",
+   "dimension": "characters",
+   "problem": "hero (pink top), hero_night (striped shirt and green top), phone_hud (green top): walkers stand inside the bench footprint or walk through it. The eq loop runs at inset 6 m from SHORE_N (peds.js line 14). Every second promenade lamp drops a bench at inset 3.5 m +- 2 m (props.js line 207, so 1.5 or 5.5 m), right on the walking line. topUp adds +-1.5 m jitter (line 89) and prime adds +-1 m (line 98), with no obstacle test.",
+   "fix": "peds.js line 14: LOOPS.eq inset 6 -> 8.5 m (landing 9 is fine). props.js: export the bench centres (benchM decomposed x,z) as G.benchPts. peds.js topUp/prime/clearView: reject a candidate if dist to any G.benchPts < 1.6 m. Change the jitter from +-1.5 m isotropic to +-0.8 m along the loop tangent only. Per-frame walk: if the next waypoint segment passes within 1.2 m of a bench, offset the waypoint 1.5 m landward.",
+   "files": [
+    "src/modules/game/peds.js",
+    "src/modules/world/props.js"
+   ],
+   "params": {
+    "EQ_LOOP_INSET_M": [
+     6,
+     8.5
+    ],
+    "BENCH_KEEPOUT_M": [
+     0,
+     1.6
+    ],
+    "TOPUP_JITTER_M": [
+     "+-1.5 xy",
+     "+-0.8 along tangent"
+    ],
+    "PRIME_JITTER_M": [
+     "+-1.0 xy",
+     "+-0.8 along tangent"
+    ],
+    "TARGET_bench_clips_hero_night_phone": [
+     4,
+     0
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_night",
+    "phone_hud",
+    "hero_back"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "promenade crowd clumping",
+   "dimension": "composition",
+   "problem": "hero/hero_noon/hero_night: topUp puts 5-6 walkers in one rank 6-10 m ahead of the player, around the bench. The candidate set is every eq/landing waypoint in one 8-55 m cone, and only a few waypoints fall inside it, so they stack.",
+   "fix": "peds.js S.topUp: stratify by depth. Bins 8-16, 16-28 and 28-55 m with a max of 2, 2 and 3 walkers; min separation 4 m to any other walker; lateral |lat| >= 2.5 m (keep). Give half of them a heading opposite the loop direction (p.wp step -1) so they don't all walk the same way. On high tier convert 1 of every 3 top-ups into an 'idle' with gesture 'phone' or 'photo' facing the water at the coping (inset 1.2 m), since EQ people stop at the edge.",
+   "files": [
+    "src/modules/game/peds.js"
+   ],
+   "params": {
+    "TOPUP_DEPTH_BINS_M": [
+     null,
+     [
+      [
+       8,
+       16
+      ],
+      [
+       16,
+       28
+      ],
+      [
+       28,
+       55
+      ]
+     ]
+    ],
+    "TOPUP_BIN_CAP": [
+     null,
+     [
+      2,
+      2,
+      3
+     ]
+    ],
+    "TOPUP_MIN_SEP_M": [
+     0,
+     4
+    ],
+    "TOPUP_REVERSE_SHARE": [
+     0,
+     0.5
+    ],
+    "TOPUP_IDLE_SHARE_HIGH": [
+     0,
+     0.33
+    ],
+    "TARGET_hero_max_walkers_within_6m_of_each_other": [
+     6,
+     2
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_noon",
+    "hero_night",
+    "hero_back"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "crushed golden-hour shade",
+   "dimension": "lighting",
+   "problem": "hero shade pavers 32,31,41 (luma ~32), phone shade 30,30,39; hero luma_p5 26. The hue is now right (cool) but the value is near-black. env 1.6 landed. The post grade is what crushes it: lookPower 1.15 is a gamma applied in linear space (shaders.js line 512), and the 0.24 luminance S-curve (line 517) takes a pre-grade 0.025 linear shade to 0.0144.",
+   "fix": "art.js grade: lookPower 1.15 -> 1.06, contrast 0.24 -> 0.18. To keep punch in the lights, splitHigh [1.12,1.01,0.84] -> [1.10,1.01,0.88] and sat 1.30 -> 1.26 (the lower gamma raises midtone chroma slightly). Re-measure with tools/qa/metrics.py: the sunlit path max must stay <= 240.",
+   "files": [
+    "src/art.js",
+    "src/cookbook/post/shaders.js"
+   ],
+   "params": {
+    "GRADE_LOOK_POWER": [
+     1.15,
+     1.06
+    ],
+    "GRADE_CONTRAST": [
+     0.24,
+     0.18
+    ],
+    "GRADE_SPLIT_HIGH": [
+     [
+      1.12,
+      1.01,
+      0.84
+     ],
+     [
+      1.1,
+      1.01,
+      0.88
+     ]
+    ],
+    "GRADE_SAT": [
+     1.3,
+     1.26
+    ],
+    "TARGET_hero_shade_rgb": [
+     [
+      32,
+      31,
+      41
+     ],
+     [
+      46,
+      50,
+      62
+     ]
+    ],
+    "TARGET_hero_luma_p5": [
+     26,
+     33
+    ],
+    "TARGET_hero_sunlit_max": [
+     "~238",
+     "<=240"
+    ]
+   },
+   "shots": [
+    "hero",
+    "phone_hud",
+    "hero_back",
+    "street_sgt"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "mauve golden-hour sky and inlet",
+   "dimension": "palette",
+   "problem": "hero upper-left sky 127,126,137 and inlet 107,100,100: mauve over mauve, unchanged in hue after the zen/hor keyframe change. In sky.js the zenith only takes over slowly (hgt = 1 - exp(-up*4.2), line 93: 0.55 at 11 deg), and the warm uHorizon is applied at 0.6x even directly away from the sun (line 96). The sqrt-space blend of amber and blue then gives grey-mauve.",
+   "fix": "sky.js line 93: exp(-up*4.2) -> exp(-up*6.5) (hgt 0.55 -> 0.71 at 11 deg). Line 96: after computing horizon, cool it away from the sun: horizon = mix(mix(vec3(dot(horizon, vec3(0.333))), horizon, 0.35) * vec3(0.82, 0.95, 1.18), horizon, smoothstep(0.25, 0.85, az)). That keeps the amber within ~70 deg of the sun and leaves a pale blue horizon elsewhere. The env bake uses the same function, so shade fill goes slightly bluer too (good). Check river_cbd: its sunset band is camera-left, so it should keep its pink clouds.",
+   "files": [
+    "src/cookbook/lighting/sky.js"
+   ],
+   "params": {
+    "SKY_HGT_K": [
+     4.2,
+     6.5
+    ],
+    "ANTISUN_HORIZON_DESAT": [
+     0,
+     0.65
+    ],
+    "ANTISUN_HORIZON_TINT": [
+     [
+      1,
+      1,
+      1
+     ],
+     [
+      0.82,
+      0.95,
+      1.18
+     ]
+    ],
+    "ANTISUN_AZ_SMOOTHSTEP": [
+     null,
+     [
+      0.25,
+      0.85
+     ]
+    ],
+    "TARGET_hero_upper_sky_rgb": [
+     [
+      127,
+      126,
+      137
+     ],
+     [
+      118,
+      140,
+      178
+     ]
+    ]
+   },
+   "shots": [
+    "hero",
+    "phone_hud",
+    "hero_back",
+    "river_cbd",
+    "mends"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "near inlet is a pure sky mirror (not landed in r9)",
+   "dimension": "palette",
+   "problem": "hero inlet 107,100,100. sea.js line 336 still mixes the planar reflection at a flat 0.85, so the water near the camera never shows its own teal body (bible #2A566E).",
+   "fix": "sea.js line 336: radiance = mix(radiance, min(pr, vec3(60.0)), 0.85) -> mix(radiance, min(pr, vec3(60.0)), mix(0.55, 0.85, smoothstep(40.0, 250.0, length(vSeaW - cameraPosition)))). The far skyline reflections in river_cbd and mends stay intact.",
+   "files": [
+    "src/cookbook/water/sea.js"
+   ],
+   "params": {
+    "SEA_PLANAR_MIX_NEAR_FAR": [
+     [
+      0.85,
+      0.85
+     ],
+     [
+      0.55,
+      0.85
+     ]
+    ],
+    "SEA_PLANAR_MIX_DIST_M": [
+     null,
+     [
+      40,
+      250
+     ]
+    ],
+    "TARGET_hero_inlet_rgb": [
+     [
+      107,
+      100,
+      100
+     ],
+     [
+      68,
+      84,
+      98
+     ]
+    ]
+   },
+   "shots": [
+    "hero",
+    "phone_hud",
+    "hero_back",
+    "hero_noon"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "far skyline washes into the sky",
+   "dimension": "atmosphere",
+   "problem": "mends skyline 160,154,160 vs sky 172,166,167 (dL 12). The kings_park CBD is also low-contrast. Halving fog sigma and raising heightFalloff to 0.007 changed nothing visible, so it is not fog. The facade far branch (fcFoot < 2 px) sets frame albedo to vec3(0.30,0.28,0.26) (facade.js line 106) and roughness 0.18 (line 155): far towers become bright warm-grey mirrors of the pale horizon.",
+   "fix": "facade.js line 106: far frame vec3(0.30,0.28,0.26) -> vec3(0.15,0.15,0.16). Line 155: far roughness 0.18 -> 0.30. Line 154: far glass multiplier mix(1.0, 0.68, far) -> mix(1.0, 0.55, far). Keep the sun-side rim. Verify with tools/qa/one.mjs mends; the goal is blue-grey blocks with warm west edges, as in kpview.",
+   "files": [
+    "src/modules/world/facade.js",
+    "tools/qa/one.mjs"
+   ],
+   "params": {
+    "FAR_FRAME_ALBEDO": [
+     [
+      0.3,
+      0.28,
+      0.26
+     ],
+     [
+      0.15,
+      0.15,
+      0.16
+     ]
+    ],
+    "FAR_ROUGHNESS": [
+     0.18,
+     0.3
+    ],
+    "FAR_GLASS_MUL": [
+     0.68,
+     0.55
+    ],
+    "TARGET_mends_skyline_dL": [
+     12,
+     28
+    ],
+    "TARGET_kings_park_cbd_dL": [
+     41,
+     55
+    ]
+   },
+   "shots": [
+    "mends",
+    "kings_park",
+    "river_cbd",
+    "aerial",
+    "bridge_skyline"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "Langley Park trees removed by a misapplied fix (regression)",
+   "dimension": "vegetation",
+   "problem": "aerial: the Riverside Dr / Langley Park strip east of EQ lost nearly all its crowns (r8 showed ~40). The r9 fix meant to thin the Mounts Bay Rd scarp lawn (west, under Kings Park) changed langPts r 26 -> 40. langPts covers x0 = 300, east of EQ, so density fell to (26/40)^2 = 42%. The kings_park lawn rows come from the 'foreshore' set (r 22, heightAt < 8), which is untouched and still reads as an orchard.",
+   "fix": "props.js line 135: langPts r 40 -> 24. Line 136: foreshore r 22 -> 34 and add '&& !(x < -250 && distPoly(x, z, SHORE_N) < 55)' so the mown strip beside the river path stays lawn, with only a few big trees left set back.",
+   "files": [
+    "src/modules/world/props.js"
+   ],
+   "params": {
+    "LANG_R_M": [
+     40,
+     24
+    ],
+    "FORESHORE_R_M": [
+     22,
+     34
+    ],
+    "FORESHORE_RIVERPATH_KEEPOUT_M": [
+     0,
+     55
+    ],
+    "TARGET_aerial_langley_crowns": [
+     3,
+     40
+    ],
+    "TARGET_kings_park_lawn_tree_count": [
+     40,
+     15
+    ]
+   },
+   "shots": [
+    "aerial",
+    "kings_park"
+   ]
+  },
+  {
+   "priority": "P1",
+   "area": "CBD street life (traffic prime not landed, footpaths empty)",
+   "dimension": "real_game",
+   "problem": "street_sgt: parked rows landed and help, but there is ~1 far walker on the footpaths and moving traffic is 4 specks at the vanishing point. shops: 0 walkers. traffic.js T.prime still uses the focus-distance filter and target 18 (lines 49, 108-125). peds.js has only 14 sgt walkers on high (line 58) over ~1.3 km of footpath loop.",
+   "fix": "traffic.js T.prime: keep candidates by view, not by focus distance: depth = dot(q - cp, cf) in 25..220 m and |lateral| < 0.55*depth, with lane-aligned candidates (|dot(laneDir, cf)| > 0.7) first. Step 10 -> 8 m, min gap 14 -> 9 m, cap ceil(0.8*target) -> target. Line 49 target high 18 -> 24. peds.js line 58: sgt walkers busy 14 -> 28, low 6 -> 10 (CBD walkers already skip the mirror).",
+   "files": [
+    "src/modules/game/traffic.js",
+    "src/modules/game/peds.js"
+   ],
+   "params": {
+    "PRIME_FILTER": [
+     "dist(focus) 15-180, cos > 0.3",
+     "depth 25-220, |lat| < 0.55*depth, aligned first"
+    ],
+    "PRIME_STEP_M": [
+     10,
+     8
+    ],
+    "PRIME_MIN_GAP_M": [
+     14,
+     9
+    ],
+    "PRIME_CAP": [
+     "0.8*target",
+     "target"
+    ],
+    "TRAFFIC_TARGET_HIGH": [
+     18,
+     24
+    ],
+    "SGT_WALKERS_HIGH_LOW": [
+     [
+      14,
+      6
+     ],
+     [
+      28,
+      10
+     ]
+    ],
+    "TARGET_street_sgt_moving_cars_within_200m": [
+     0,
+     6
+    ],
+    "TARGET_street_sgt_walkers": [
+     1,
+     6
+    ],
+    "TARGET_shops_walkers": [
+     0,
+     3
+    ]
+   },
+   "shots": [
+    "street_sgt",
+    "shops"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "low-tier walker shadows speckled",
+   "dimension": "mobile",
+   "problem": "phone_hud: walker shadows are dithered speckle streaks. The low tier has no blocker search, so it uses a fixed rUV = minUV*2 = 2.4 texels, with 6 Vogel taps rotated per pixel (pcss.js TIERS low pcf 6, line 100). On a thin caster that is pure noise.",
+   "fix": "pcss.js TIERS.low: pcf 6 -> 8. Line 100: rUV = minUV*2.0*... -> minUV*1.4*... (tighter kernel, so fewer taps straddle the edge). Rotate the Vogel pattern by a 4x4 interleaved-gradient value instead of a per-pixel hash so FXAA can smooth it.",
+   "files": [
+    "src/cookbook/lighting/pcss.js"
+   ],
+   "params": {
+    "LOW_PCF_TAPS": [
+     6,
+     8
+    ],
+    "LOW_FIXED_RUV_TEXELS": [
+     2.4,
+     1.7
+    ],
+    "PHI_NOISE": [
+     "per-pixel hash",
+     "4x4 IGN"
+    ]
+   },
+   "shots": [
+    "phone_hud"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "EQ paving pattern",
+   "dimension": "materials",
+   "problem": "hero/hero_back/hero_noon: the 0.4 x 0.2 m running bond is smaller but still covers the whole plaza in one direction. tricia1 shows charcoal setts in fans/segments with cream bands. hero_noon still has a visible light/dark checker.",
+   "fix": "surfaces.js eqPavers lines 10-15: unit 0.4 x 0.2 -> 0.24 x 0.12. Rotate the bond 90 deg in alternating 6 m zones: swap m.xy when mod(floor(m.x/6.0)+floor(m.y/6.0), 2.0) > 0.5, so the plaza reads as laid panels. Line 22 lime step 0.85 -> 0.90 to calm the hero_noon checker. Keep the limestone band.",
+   "files": [
+    "src/modules/world/surfaces.js"
+   ],
+   "params": {
+    "PAVER_UNIT_M": [
+     [
+      0.4,
+      0.2
+     ],
+     [
+      0.24,
+      0.12
+     ]
+    ],
+    "BOND_ZONE_M": [
+     null,
+     6
+    ],
+    "PAVER_LIME_STEP": [
+     0.85,
+     0.9
+    ],
+    "TARGET_hero_noon_paver_luma_std": [
+     null,
+     "-25%"
+    ]
+   },
+   "shots": [
+    "hero",
+    "hero_noon",
+    "hero_back",
+    "phone_hud"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "blank white boxes",
+   "dimension": "architecture",
+   "problem": "hero_back (upper right, 1100-1280 x 120-260), river_cbd (left podium cluster) and bridge_skyline (right): buildings with no OSM facade tag render as plain render/white with no openings, which reads as untextured boxes (bible negative list).",
+   "fix": "towers.js: any building with height > 9 m that falls back to the plain render material gets facade style 'punched' (resi on the South Perth side) with window cells 1.6 x 3.2 m. NAMED_COL white [0.46,0.46,0.45] -> [0.40,0.40,0.39], render tint 0xe8e0d0 -> 0xd8d0c2 (world/index.js line 43).",
+   "files": [
+    "src/modules/world/towers.js",
+    "src/modules/world/index.js"
+   ],
+   "params": {
+    "FALLBACK_FACADE_MIN_H_M": [
+     null,
+     9
+    ],
+    "FALLBACK_STYLE": [
+     "plain render",
+     "punched/resi"
+    ],
+    "NAMED_COL.white": [
+     [
+      0.46,
+      0.46,
+      0.45
+     ],
+     [
+      0.4,
+      0.4,
+      0.39
+     ]
+    ],
+    "RENDER_TINT": [
+     "0xe8e0d0",
+     "0xd8d0c2"
+    ]
+   },
+   "shots": [
+    "hero_back",
+    "river_cbd",
+    "bridge_skyline",
+    "aerial"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "shop fronts, jetty shelter and deck",
+   "dimension": "materials",
+   "problem": "shops/street_sgt: shop bays are flat grey-blue panels with no interior or doors. mends: the shelter is a pale slab (129,137,148) and the deck boards are ~0.7 m wide. Not landed for two rounds.",
+   "fix": "facade.js shop day gain 0.38 -> 0.62. A dark door bay when fcH(cell+5.1) > 0.75 (room *= 0.12, glass *= 0.4). Glyph pitch 3.1 -> mix(2.2, 4.6, hu). landmarks.js shelter: 3 glassDark bays of 1.25 m with 0.06 m posts. Deck plank UV scale so the boards are 0.15 m wide.",
+   "files": [
+    "src/modules/world/facade.js",
+    "src/modules/world/landmarks.js"
+   ],
+   "params": {
+    "SHOP_DAY_GAIN": [
+     0.38,
+     0.62
+    ],
+    "SHOP_DOOR_SHARE": [
+     0,
+     0.25
+    ],
+    "GLYPH_PITCH": [
+     "3.1",
+     "2.2-4.6"
+    ],
+    "SHELTER_BAYS": [
+     1,
+     3
+    ],
+    "DECK_BOARD_M": [
+     0.7,
+     0.15
+    ],
+    "TARGET_mends_shelter_rgb": [
+     [
+      129,
+      137,
+      148
+     ],
+     [
+      62,
+      70,
+      78
+     ]
+    ]
+   },
+   "shots": [
+    "shops",
+    "street_sgt",
+    "mends"
+   ]
+  },
+  {
+   "priority": "P2",
+   "area": "street-tree crowns turned lime",
+   "dimension": "vegetation",
+   "problem": "street_sgt: the left plane-tree crowns brightened from 65,80,57 to 77,91,66, with yellow-lime tops (~150,170,90) against the bible ramp #4E5E32-#9AA868.",
+   "fix": "props.js line 130: plane leaf tint 0x9aa476 -> 0x86925f. Line 131 tint l 0.08 -> 0.12 (more per-tree variance, lower mean).",
+   "files": [
+    "src/modules/world/props.js"
+   ],
+   "params": {
+    "PLANE_LEAF": [
+     "0x9aa476",
+     "0x86925f"
+    ],
+    "PLANE_TINT_L": [
+     0.08,
+     0.12
+    ],
+    "TARGET_street_sgt_crown_rgb": [
+     [
+      77,
+      91,
+      66
+     ],
+     [
+      64,
+      78,
+      52
+     ]
+    ]
+   },
+   "shots": [
+    "street_sgt",
+    "shops"
+   ]
+  },
+  {
+   "priority": "P3",
+   "area": "night plaza is an even wash, not lamp pools",
+   "dimension": "time_of_day",
+   "problem": "hero_night: the left plaza sits at luma 94-96 over 10-20 m and 62-71 in the foreground, while the right falls to 20-24. There are no visible pools under the promenade lamps. Lamps every 17 m plus ghost lamps pulled 2 m landward, each splatted with sigma 3.8 m (props.js line 214), merge into one plateau.",
+   "fix": "props.js line 214: sig 3.8 -> 2.8. ground.js line 195: gain lamp*lamp*3.4 -> lamp*lamp*4.2, floor 0.008 -> 0.004. Pools get edges and the gaps between lamps fall to ~40 luma. Verify the player luma stays >= 40 (bible minPlayerLuma; currently 81).",
+   "files": [
+    "src/modules/world/props.js",
+    "src/modules/world/ground.js"
+   ],
+   "params": {
+    "LAMP_SPLAT_SIGMA_M": [
+     3.8,
+     2.8
+    ],
+    "LAMP_GAIN": [
+     3.4,
+     4.2
+    ],
+    "LAMP_FLOOR": [
+     0.008,
+     0.004
+    ],
+    "TARGET_hero_night_plaza_luma_p10_p90": [
+     [
+      20,
+      96
+     ],
+     [
+      30,
+      110
+     ]
+    ],
+    "TARGET_hero_night_player_luma": [
+     81,
+     ">=40"
+    ]
+   },
+   "shots": [
+    "hero_night"
+   ]
+  },
+  {
+   "priority": "P3",
+   "area": "floating red block at the kerb",
+   "dimension": "artefacts",
+   "problem": "street_sgt: a flat bright-red block (~0.6 m) floats at road level between the white parked car and the near blue car, with a second one at the white car's rear. It looks like a tail-light part instance placed without its body. It was rendered with the scanned meshes, so it may be gone after the kit-car swap.",
+   "fix": "Re-shoot street_sgt after the kit-car swap. If it persists, parked.js must use one shared matrix per slot for every part's InstancedMesh, and must skip writing any part when the body instance is culled (>260 m or a footprint clash).",
+   "files": [
+    "src/modules/game/parked.js"
+   ],
+   "params": {
+    "TARGET_orphan_parts_street_sgt": [
+     2,
+     0
+    ]
+   },
+   "shots": [
+    "street_sgt"
+   ]
+  },
+  {
+   "priority": "P3",
+   "area": "HUD at rest on phone",
+   "dimension": "ui",
+   "problem": "phone_hud: the 'Elizabeth Quay / PERTH CBD' title card and both full bars stay on screen at rest, which costs ~12% of the top band over the sky focal area.",
+   "fix": "hud.js: the zone title fades out after 4 s (opacity 1 -> 0 over 0.6 s) and only reappears on zone change. The health/armour bars hide at 100% after 6 s idle. Minimap opacity 1.0 -> 0.85.",
+   "files": [
+    "src/modules/game/hud.js",
+    "src/ui/ui.css"
+   ],
+   "params": {
+    "ZONE_TITLE_HOLD_S": [
+     "inf",
+     4
+    ],
+    "BARS_AUTOHIDE_S": [
+     null,
+     6
+    ],
+    "MINIMAP_OPACITY": [
+     1.0,
+     0.85
+    ]
+   },
+   "shots": [
+    "phone_hud"
+   ]
+  }
+ ]
+}
