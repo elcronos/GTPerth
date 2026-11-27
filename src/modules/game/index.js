@@ -23,6 +23,7 @@ export async function create(G, { input, world, fx, quality }) {
   await loadModels();
   const col = createCollision(world.colliders);
   const M = makeCarMaterials(), BM = boatMaterials();
+  (G.nightMats ||= []).push({ mat: M.light, day: 0.3, night: 6 }, { mat: M.tail, day: 0.25, night: 3 });
   const hud = createHUD(G, { col, footprints: world.towers.footprints });
   const audio = createAudio(G); G.mods = { audio };
   const player = createPlayer(G, { avatars, input, col, hud });

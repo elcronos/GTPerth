@@ -2,7 +2,7 @@
 // street lights, benches, bollards, moored boats, black swans, Fifteen The Esplanade hoarding, the Landing carousel.
 import {
   Group, InstancedMesh, Matrix4, Quaternion, Vector3, Euler, MeshStandardMaterial, DoubleSide, CanvasTexture, SRGBColorSpace,
-  Color, BufferGeometry, Float32BufferAttribute, Mesh,
+  Color, BufferGeometry, Float32BufferAttribute, Mesh, BoxGeometry, ConeGeometry,
 } from 'three';
 import { scatter, treeGeo, leafTexture, foliagePatch, poissonDisk, bushGeo } from '../../cookbook/geo/scatter.js';
 import { Kit, tube, lathe, roundedBox, mergeGeos, normalizeGeo } from '../../cookbook/geo/kit.js';
@@ -117,10 +117,47 @@ export function create(G, { mats, roads, footprints = [] }) {
   const parkPts = poissonDisk({ x0: -900, z0: 560, w: 1700, h: 950, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, [[-860, 590], [-620, 862], [-430, 1102], [-232, 1260], [0, 1300], [420, 1354], [800, 1406]]) > 14 && distPoly(x, z, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480]]) < 90 && !(x > -260 && x < -120 && z > 1250 && z < 1340) });
   const langPts = poissonDisk({ x0: 300, z0: -200, w: 1100, h: 230, r: 30, rng, accept: (x, z) => isLand(x, z) && (z < -80 ? x < 420 : z < 15 && z > -60) });
   const foreshore = poissonDisk({ x0: -900, z0: -150, w: 760, h: 420, r: 24, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, ROADS.find((r) => r.name === 'Mounts Bay Road').pts) > 12 });
-  const em = leafMat(euTex, 0x98a882), eb = barkMat(); eb.color.set(0xb8aa98);
+  const em = leafMat(euTex, 0x7c8a5c), eb = barkMat(); eb.color.set(0xb8aa98);   // eucalypt olive / grey-green (photo-matched)
   group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: [900, 1300], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
-  const em2 = leafMat(euTex, 0xb4c098), eb2 = barkMat(); eb2.color.set(0xa89a88);
+  const em2 = leafMat(euTex, 0x8c9a6c), eb2 = barkMat(); eb2.color.set(0xa89a88);
   group.add(scatter(G, { parts: [{ geo: euc2.trunk, material: eb2 }, { geo: euc2.leaves, material: em2 }], points: [...langPts, ...foreshore, ...parkPts.slice(Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.8, 1.2], tint: { color: 0xffffff, l: 0.1 }, fade: [700, 1000], cell: 80, seed: 9, sway: { amp: 0.05, freq: 0.8, height: 11 } }).group);
+  // Kings Park bushland as photographed from the city: a closed, lumpy olive canopy over the whole of Mount Eliza
+  // and the escarpment, with a dark shrub understorey. Dense low-cost canopy clumps fill between the full trees.
+  const mounts = ROADS.find((r) => r.name === 'Mounts Bay Road').pts;
+  const kpAccept = (x, z) => heightAt(x, z) > 6 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 55 && distPoly(x, z, mounts) > 12;
+  const clumpPts = poissonDisk({ x0: -1500, z0: -800, w: 1200, h: 1150, r: 8.5, rng, accept: kpAccept });
+  const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: 64, leafSize: 3.0 });   // 15–20 m jarrah / marri / tuart crowns
+  clump.translate(0, 7.5, 0);
+  const stem = lathe([[0.3, 0], [0.18, 8], [0, 8.6]], { seg: 4, crease: 89 });
+  const cm = leafMat(euTex, 0x6e7c50), cb = barkMat(); cb.color.set(0xb0a490);
+  group.add(scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.75, 1.45], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: [1100, 1600], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group);
+  const shrubPts = poissonDisk({ x0: -1500, z0: -800, w: 1200, h: 1150, r: 8, rng, accept: kpAccept });
+  const shrub = bushGeo({ seed: 23, radius: 1.5, height: 1.6, cards: 36, leafSize: 1.1 });
+  const sm = leafMat(euTex, 0x5f6a44);
+  group.add(scatter(G, { parts: [{ geo: shrub, material: sm }], points: shrubPts, heightAt, scale: [0.7, 1.4], tint: { color: 0xffffff, l: 0.12 }, fade: [450, 650], cell: 70, seed: 29 }).group);
+  // South Perth: street trees and garden trees through the suburbs behind Mill Point Road, plus a band of
+  // shady trees along the foreshore path of Sir James Mitchell Park
+  const spAccept = (x, z) => isLand(x, z) && z > 700 && distPoly(x, z, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480], [800, 1520], [1400, 1560]]) > 16 && !inFoot(x, z);
+  const spTrees = poissonDisk({ x0: -1100, z0: 800, w: 2400, h: 1100, r: 15, rng, accept: (x, z) => spAccept(x, z) && (x > -1000) });
+  const cb2 = barkMat(); cb2.color.set(0xb0a490);
+  group.add(scatter(G, { parts: [{ geo: stem, material: cb2 }, { geo: clump, material: leafMat(euTex, 0x7a8a58) }], points: spTrees, heightAt, scale: [0.8, 1.6], scaleY: [0.9, 1.5], tint: { color: 0xffffff, l: 0.14, h: 0.03 }, fade: [1500, 2200], cell: 120, seed: 31 }).group);
+  // low-rise South Perth houses (single/double storey, hipped tile or Colorbond roofs) between the trees
+  const houseKits = [0, 1, 2, 3].map((v) => { // ~22 tris each: plain box walls + 4-sided hip roof
+    const k = new Kit(); const w = 11 + v * 1.5, d = 14 - v, h = v === 3 ? 5.8 : 3.0;
+    k.add(new BoxGeometry(w, h, d).toNonIndexed(), v % 2 ? 'render' : 'brick', { at: [0, h / 2, 0] });
+    const roof = new ConeGeometry(Math.SQRT2 / 2, 1, 4, 1, true); roof.rotateY(Math.PI / 4); roof.scale(w + 1.2, 2.4, d + 1.2); roof.translate(0, h + 1.2, 0);
+    k.add(roof.toNonIndexed(), v === 2 ? 'roofMetal' : 'tile');
+    return k;
+  });
+  const houseM = [[], [], [], []];
+  for (let x = -980; x < 1300; x += 24) for (let z = 900; z < 2000; z += 24) {
+    const jx = x + (rng() - 0.5) * 8, jz = z + (rng() - 0.5) * 8;
+    if (!isLand(jx, jz) || inFoot(jx, jz) || inFoot(jx + 9, jz) || inFoot(jx - 9, jz)) continue;
+    if (distPoly(jx, jz, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480], [800, 1520], [1400, 1560]]) < 150) continue;
+    if (Math.abs(jx + 185) < 20 || rng() < 0.12) continue;
+    houseM[(rng() * 4) | 0].push(M(jx, heightAt(jx, jz), jz, Math.round(rng() * 2) * (Math.PI / 2) + (rng() - 0.5) * 0.1));
+  }
+  houseKits.forEach((k, i) => { if (houseM[i].length) group.add(instanced(G, k, mats, houseM[i], 'houses' + i)); });
   // Washingtonia palms: Barrack Square, Riverside Drive median, Mends Street, South Perth Esplanade
   const palm = palmGeo(5);
   const fm = new MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: DoubleSide, vertexColors: true, roughness: 0.7 }); foliagePatch(fm, { trans: 0.4 }); fm.name = 'fronds';
@@ -149,6 +186,7 @@ export function create(G, { mats, roads, footprints = [] }) {
   const ring = [[-58, -10], [-58, -60], [-58, -110], [-58, -138], [-30, -164], [20, -164], [60, -164], [80, -138], [80, -100], [80, -50], [-120, 12], [-200, 26], [-300, 40], [120, 28], [160, 30], [300, 34]];
   for (const [x, z] of ring) { lampM.push(M(x + (x < 0 ? -3 : 3), PROMENADE_Y, z, x < 0 ? 0 : Math.PI)); benchM.push(M(x + (x < 0 ? -1.8 : 1.8), PROMENADE_Y, z + 6, x < 0 ? Math.PI / 2 : -Math.PI / 2)); }
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
+  (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));
   group.add(instanced(G, benchGeo(), mats, benchM, 'benches'));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }

@@ -142,3 +142,6 @@ html.shot .ui { display: none !important; }
 .letterbox.on::before { top: 0; } .letterbox.on::after { bottom: 0; }
 .hud.cine .bars, .hud.cine .tr, .hud.cine .minimap { opacity: 0 !important; }
 .noscript { color: #fff; font: 16px sans-serif; padding: 2em; }
+
+/* in-game clock (GTA VI shows it on the phone; we keep a small always-on readout over the cash) */
+.clock { font: 700 17px var(--cond); letter-spacing: .08em; text-align: right; opacity: .88; text-shadow: var(--shadow); margin-bottom: 2px; }

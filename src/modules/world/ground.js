@@ -92,7 +92,7 @@ function paintMask() {
   const step = 6;
   for (let x = -1500; x < -330; x += step) for (let z = -900; z < 450; z += step) {
     const h = heightAt(x, z);
-    if (h > 9) { ctx.fillStyle = h > 22 ? BUSH : '#7f8000'; ctx.fillRect(X(x), Z(z), step * s + 1, step * s + 1); }
+    if (h > 7) { ctx.fillStyle = h > 14 ? BUSH : '#40c000'; ctx.fillRect(X(x), Z(z), step * s + 1, step * s + 1); }
   }
   // lawns around the State War Memorial and Fraser Avenue
   ctx.fillStyle = LAWN; ctx.beginPath(); ctx.ellipse(X(-955), Z(120), 110 * s, 80 * s, 0.4, 0, Math.PI * 2); ctx.fill();
@@ -115,7 +115,7 @@ function paintMask() {
   line([[-860, 590], [-740, 662], [-620, 862], [-430, 1102], [-320, 1198], [-232, 1260]], 9, SAND);
   line([[0, 1300], [200, 1324], [420, 1354], [800, 1406], [1400, 1462]], 8, SAND);
   line([[-760, 690], [-630, 880], [-500, 1030], [-380, 1150], [-260, 1258], [-150, 1300], [0, 1318], [300, 1350], [800, 1420]], 4, PAVE);
-  poly([[-760, 800], [-690, 900], [-520, 1110], [-370, 1250], [-240, 1350], [-188, 1405], [0, 1440], [800, 1500], [1500, 1520], [1500, 1900], [-1500, 1900], [-1500, 900]], PAVE);
+  // (suburbs beyond Mill Point Road stay lawn/garden: roads, houses and trees are drawn on top)
   rect(-240, 1268, -140, 1300, PAVE);                   // Mends Street plaza
   ctx.filter = 'blur(1.6px)'; ctx.drawImage(c, 0, 0); ctx.filter = 'none';
   const t = new CanvasTexture(c); t.flipY = false; t.colorSpace = NoColorSpace; t.minFilter = LinearMipmapLinearFilter; t.magFilter = LinearFilter; t.generateMipmaps = true;
@@ -155,11 +155,11 @@ vec4 gW; vec2 gXZ; float gRock;
   float wl = mk.r, wb = mk.g, ws = mk.b;
   float tot = wl + wb + ws; if (tot > 1.0) { wl /= tot; wb /= tot; ws /= tot; }
   gW = vec4(max(0.0, 1.0 - wl - wb - ws), wl, wb, ws);
-  gRock = smoothstep(0.5, 0.3, normalize(vWthN).y) * (1.0 - gW.x) * (0.55 + 0.45 * vnoise3(vec3(gXZ * 0.05, 9.0)));
+  gRock = smoothstep(0.34, 0.18, normalize(vWthN).y) * (1.0 - gW.x) * (1.0 - 0.8 * gW.z) * (0.55 + 0.45 * vnoise3(vec3(gXZ * 0.05, 9.0)));
   vec3 aP = texture2D(tPA, gXZ * uSc.x).rgb, aL = texture2D(tLA, gXZ * uSc.y).rgb;
   vec3 aB = texture2D(tBA, gXZ * uSc.z).rgb, aS = texture2D(tSA, gXZ * uSc.w).rgb;
   vec3 aR = texture2D(tRA, vec2(gXZ.x + gXZ.y, vWthPos.y) * 0.25).rgb;
-  vec3 alb = aP * gW.x + aL * gW.y + aB * gW.z + aS * gW.w;
+  vec3 alb = aP * gW.x + aL * gW.y + aB * vec3(0.62, 0.7, 0.5) * gW.z + aS * gW.w;   // bush floor under canopy shade: olive, dark
   alb = mix(alb, aR, gRock);
   float macro = vnoise3(vec3(gXZ * 0.012, 3.1)) * 0.6 + vnoise3(vec3(gXZ * 0.06, 5.3)) * 0.4;
   alb *= 0.82 + 0.36 * macro;

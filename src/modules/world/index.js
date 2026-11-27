@@ -1,4 +1,5 @@
 // World assembly: materials, land + shore, roads, skyline, landmarks, Perth Water, far field, props.
+import { patch } from '../../cookbook/engine/patch.js';
 import { MeshStandardMaterial, Color, DoubleSide, Group, Vector3, Box3 } from 'three';
 import { makeMaterial } from '../../cookbook/materials/library.js';
 import { createSea } from '../../cookbook/water/sea.js';
@@ -17,6 +18,14 @@ export { registerSurfaces };
 function std(color, rough, metal, extra = {}) { const m = new MeshStandardMaterial({ color: new Color().setRGB(...color), roughness: rough, metalness: metal, vertexColors: true, ...extra }); return m; }
 function vc(m) { m.vertexColors = true; return m; }
 
+// copper shingle cladding (as photographed): horizontal seams every 0.6 m, vertical joints every 2.4 m
+function seamed(m) {
+  patch(m, 'seam', (sh) => {
+    sh.vertexShader = 'varying vec2 vSeamUv;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSeamUv = uv;');
+    sh.fragmentShader = 'varying vec2 vSeamUv;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n{ float f = fract(vSeamUv.y / 0.6); float seam = smoothstep(0.0, 0.07, f) * smoothstep(1.0, 0.95, f); float g = fract(vSeamUv.x / 2.4); seam *= smoothstep(0.0, 0.02, g); diffuseColor.rgb *= 0.66 + 0.34 * seam; }');
+  });
+  return m;
+}
 export function makeWorldMaterials() {
   const m = {
     quayWall: vc(makeMaterial('concrete', { tint: 0xb8b4aa })),
@@ -39,9 +48,13 @@ export function makeWorldMaterials() {
     steel: vc(makeMaterial('galvanised')),
     roofMetal: vc(makeMaterial('galvanised', { tint: 0x9aa0a4 })),
     rubber: vc(makeMaterial('rubber')),
-    tile: vc(makeMaterial('brick', { tint: 0xb85a3a, scale: 1.2 })),
+    brick: vc(makeMaterial('brick', { tint: 0xd8a088, scale: 1 })),
+    canopyBlue: std([0.12, 0.26, 0.68], 0.3, 0.15, { emissive: new Color(0.5, 0.18, 1.0), emissiveIntensity: 0 }),
+    ledPurple: std([0.3, 0.2, 0.4], 0.4, 0, { emissive: new Color(0.62, 0.16, 1.0), emissiveIntensity: 0 }),
+    archWhite: std([0.86, 0.87, 0.88], 0.35, 0.1, { emissive: new Color(0.55, 0.2, 0.95), emissiveIntensity: 0 }),
+    tile: vc(makeMaterial('brick', { tint: 0xf08050, scale: 0.8 })),   // red Marseille tiles
     granite: std([0.06, 0.055, 0.05], 0.45, 0),
-    copper: std([0.50, 0.20, 0.10], 0.42, 0.7),
+    copper: seamed(std([0.30, 0.11, 0.065], 0.55, 0.35)),
     teal: std([0.16, 0.42, 0.44], 0.05, 0.8),
     deckSteel: std([0.42, 0.44, 0.46], 0.5, 0.6),
     glass: std([0.18, 0.22, 0.24], 0.04, 0.9),

@@ -183,29 +183,34 @@ export const NAMED = [
 
 // South Perth (Mill Point Road): 1960s-2020s residential towers, white render + balconies; Civic Heart (37 fl, 147.5 m)
 export const SOUTH_PERTH = [
-  { name: 'Civic Heart', x: -140, z: 1452, style: 'resi', pw: 1.6, fh: 3.2, frame: FR.white, glass: GL.grey, seed: 50, tiers: [{ w: 44, d: 36, h: 12, style: 'curtain' }, { w: 30, d: 26, cr: 6, h: 147 }] },
+  { name: 'Civic Heart', x: -140, z: 1452, style: 'resi', pw: 1.6, fh: 3.2, frame: FR.white, glass: GL.grey, seed: 50, tiers: [{ w: 44, d: 36, h: 12, style: 'curtain' }, { w: 30, d: 26, cr: 6, h: 105 }] },
 ];
 function southPerthFill(rng) {
+  // South Perth as seen from the city: Sir James Mitchell Park (65 ha of lawn) runs east from Mends Street with
+  // Mill Point Road behind it; the high-rise flats (12–30 floors, cream/white balconies) cluster from Mill Point
+  // to just east of Mends Street, then the frontage drops to 3–8 storey flats among trees.
   const out = [];
-  const path = [[-700, 900], [-610, 1010], [-500, 1135], [-390, 1245], [-290, 1335], [-60, 1420], [150, 1442], [380, 1468]];
-  for (const row of [0, 1]) for (let i = 0; i < path.length - 1; i++) {
+  const path = [[-780, 760], [-700, 860], [-610, 990], [-480, 1140], [-360, 1260], [-250, 1360], [-188, 1420], [0, 1450], [300, 1480], [800, 1520], [1400, 1560]];
+  for (const row of [0, 1, 2]) for (let i = 0; i < path.length - 1; i++) {
     const a = path[i], b = path[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    let d = 10 + rng() * 20;
+    let d = 6 + rng() * 14;
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-    while (d < L - 10) {
+    while (d < L - 8) {
       const t = d / L;
-      const off = row === 0 ? 30 + rng() * 16 : -(30 + rng() * 40);
+      const off = -(row === 0 ? 20 + rng() * 10 : row === 1 ? 62 + rng() * 20 : 110 + rng() * 30);   // inland (south) of Mill Point Road
       const x = a[0] + (b[0] - a[0]) * t + Math.sin(ang) * off, z = a[1] + (b[1] - a[1]) * t - Math.cos(ang) * off;
-      const w = 14 + rng() * 26, dd = 12 + rng() * 16;
-      d += w + 8 + rng() * 30;
-      if (Math.abs(x + 190) < 60 && z > 1300) continue;   // Mends Street plaza
+      const w = 16 + rng() * 18, dd = 14 + rng() * 12;
+      d += w + 10 + rng() * 22;
+      if (Math.abs(x + 190) < 34 && z < 1520) continue;   // Mends Street itself
+      const towerZone = x < 60 && x > -760;                // Mill Point → Mends: the high-rise strip
       const r = rng();
-      const h = row === 0 ? (r < 0.12 ? 75 + rng() * 45 : r < 0.5 ? 30 + rng() * 30 : 12 + rng() * 16) : (r < 0.2 ? 40 + rng() * 40 : 10 + rng() * 22);
-      const resi = rng() < 0.65;
-      const tone = 0.62 + rng() * 0.14;
-      const b0 = { name: 'South Perth apartments', x, z, rot: ang + (rng() - 0.5) * 0.3, style: resi ? 'resi' : rng() < 0.5 ? 'punched' : 'ribbon', pw: 1.3 + rng() * 0.8, fh: 2.9 + rng() * 0.4,
-        frame: resi ? [tone, tone * 0.98, tone * 0.92] : [tone * 0.95, tone * 0.9, tone * 0.82], glass: [GL.grey, GL.dark, GL.teal, GL.clear][Math.floor(rng() * 4)], seed: 60 + out.length };
-      b0.tiers = h > 45 && rng() < 0.5 ? [{ w: w * 1.15, d: dd * 1.2, h: 8, style: 'curtain' }, { w, d: dd, cr: rng() < 0.4 ? 5 : 0, h: h * 0.82 }, { w: w * 0.75, d: dd * 0.75, h }] : [{ w, d: dd, cr: rng() < 0.25 ? 4 : 0, h }];
+      let h;
+      if (towerZone) h = row === 0 ? (r < 0.38 ? 45 + rng() * 50 : r < 0.7 ? 20 + rng() * 18 : 9 + rng() * 8) : row === 1 ? (r < 0.15 ? 36 + rng() * 36 : 10 + rng() * 14) : 8 + rng() * 10;
+      else h = row === 0 ? (r < 0.15 ? 30 + rng() * 25 : 10 + rng() * 14) : 8 + rng() * 10;
+      const tone = 0.7 + rng() * 0.14;
+      const b0 = { name: 'South Perth apartments', x, z, rot: ang + (rng() - 0.5) * 0.25, style: rng() < 0.7 ? 'resi' : 'punched', pw: 1.3 + rng() * 0.8, fh: 2.9 + rng() * 0.3,
+        frame: [tone, tone * 0.98, tone * 0.93], glass: [GL.grey, GL.dark, GL.teal, GL.clear][Math.floor(rng() * 4)], seed: 60 + out.length };
+      b0.tiers = h > 45 && rng() < 0.5 ? [{ w: w * 1.15, d: dd * 1.2, h: 7, style: 'curtain' }, { w, d: dd, cr: rng() < 0.4 ? 5 : 0, h: h * 0.85 }, { w: w * 0.8, d: dd * 0.8, h }] : [{ w, d: dd, cr: rng() < 0.3 ? 4 : 0, h }];
       out.push(b0);
     }
   }

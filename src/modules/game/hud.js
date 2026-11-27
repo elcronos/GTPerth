@@ -132,6 +132,7 @@ export function createHUD(G, { col, footprints }) {
     // cash counter roll
     H.shownCash += (H.cash - H.shownCash) * Math.min(1, 6 * dt); if (Math.abs(H.cash - H.shownCash) < 1) H.shownCash = H.cash;
     B.cash.textContent = '$' + Math.round(H.shownCash).toLocaleString('en-AU');
+    if (B.clock && G.clock) { const l = G.clock.label(); if (B.clock.textContent !== l) B.clock.textContent = l; }
     B.money.classList.toggle('calm', H.calmT > 6 && H.cash === H.shownCash);
     // wanted
     const stars = B.wanted.querySelectorAll('.stars i');

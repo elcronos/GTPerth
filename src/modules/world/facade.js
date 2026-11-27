@@ -8,9 +8,11 @@
 // Glass is a coloured mirror (metalness 1, F0 = aGlass) with per-panel "oil-canning" normal tilt so reflections
 // break up panel by panel; behind it, an interior-mapped office room (floor, ceiling lights, walls, blinds) is
 // added as emission weighted by (1 - Fresnel). Everything fades to its pixel-footprint average to stay alias-free.
+import { sharedUniform as _shU } from '../../cookbook/engine/patch.js';
 import { MeshStandardMaterial } from 'three';
 import { patch } from '../../cookbook/engine/patch.js';
 import { ensureWorldVaryings } from '../../cookbook/materials/weathering.js';
+_shU('uNight', 'float', 0);   // 0 day → 1 night (driven by daycycle.js)
 
 export function facadeMaterial(name = 'facade') {
   const mat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.0, vertexColors: true });
@@ -104,7 +106,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   vec3 tt = vec3((d.x > 0.0 ? (pw - p0.x) : -p0.x) / (d.x + 1e-5), (d.y > 0.0 ? (fh - p0.y) : -p0.y) / (d.y + 1e-5), depth / max(d.z, 1e-3));
   float t = min(min(abs(tt.x), abs(tt.y)), tt.z);
   vec3 hp = p0 + d * t;
-  float lit = step(0.8, fcH(cell * 0.73 + seed));
+  float lit = step(0.8 - 0.24 * uNight, fcH(cell * 0.73 + seed));
   vec3 lampC = mix(vec3(1.0, 0.86, 0.66), vec3(0.85, 0.92, 1.0), step(0.5, fcH(cell + 9.1)));
   vec3 room;
   if (t == tt.z) { // back wall: partitions / furniture silhouettes
@@ -117,12 +119,12 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     } else { room = mix(vec3(0.22, 0.2, 0.19), vec3(0.32, 0.27, 0.22), rnd2); }  // carpet
   } else { room = vec3(0.62, 0.6, 0.57); }
   float dark = 0.08 + 0.10 * rnd;
-  room *= lit > 0.5 ? (0.32 * lampC) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  room *= lit > 0.5 ? (0.32 * lampC * (0.45 + 3.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
   float blind = step(1.0 - fcH(cell + 4.2) * 0.7, f.y) * step(0.45, fcH(cell + 2.3));
   room = mix(room, vec3(0.42, 0.42, 0.40) * (lit > 0.5 ? 0.8 : 0.25), blind);
-  vec3 roomAvg = vec3(0.04, 0.038, 0.035) + 0.06 * lampC;
+  vec3 roomAvg = vec3(0.04, 0.038, 0.035) + (0.06 + 0.3 * uNight) * lampC;
   room = mix(room, roomAvg * 0.6, far);
   float NdV = clamp(dot(-V, Nw), 0.0, 1.0);
   float F0 = dot(gl, vec3(0.333));

@@ -18,8 +18,8 @@ void surf(vec2 uv, inout Surf s) {
   float joint = 1.0 - smoothstep(0.0025, 0.0045, dJ);
   float bevel = 1.0 - smoothstep(0.0, 0.012, dJ);
   float fine = nfbm(uv, 60.0, 3, 2.0), mid = nfbm(uv, 3.0, 4, 4.0), speck = step(0.78, nval(uv, 220.0, 5.0));
-  vec3 granite = vec3(0.40, 0.40, 0.39), lime = vec3(0.60, 0.57, 0.50), dark = vec3(0.30, 0.30, 0.30);
-  vec3 col = mix(granite, lime, step(0.55, h1));
+  vec3 granite = vec3(0.22, 0.22, 0.22), lime = vec3(0.34, 0.33, 0.31), dark = vec3(0.13, 0.13, 0.135);   // EQ granite setts: charcoal + mid grey (photo-matched)
+  vec3 col = mix(mix(granite, lime, step(0.55, h1)), dark, step(0.86, h1));
   col = mix(col, dark, step(0.93, h2) * 0.8);
   col *= (0.94 + 0.1 * h2) * (0.92 + 0.12 * fine);
   col = mix(col, col * vec3(0.55, 0.55, 0.6), speck * 0.35);
@@ -62,11 +62,11 @@ void surf(vec2 uv, inout Surf s) {
   vec4 lv = nvor(uv, 14.0, 1.0, 4.0);
   float leaf = (1.0 - smoothstep(0.15, 0.32, lv.x)) * step(0.35, lv.w);
   vec4 sh = nvor(uv, 1.4, 1.0, 6.0);
-  float shrub = (1.0 - smoothstep(0.2, 0.55, sh.x)) * step(0.45, sh.w);
-  vec3 sand = vec3(0.36, 0.33, 0.28) * (0.85 + 0.25 * fine);
+  float shrub = (1.0 - smoothstep(0.25, 0.8, sh.x)) * step(0.12, sh.w);   // dense understorey: from afar the bush reads as dark canopy
+  vec3 sand = vec3(0.26, 0.24, 0.2) * (0.85 + 0.25 * fine);
   vec3 litter = mix(vec3(0.22, 0.14, 0.08), vec3(0.32, 0.25, 0.14), lv.w);
   vec3 col = mix(sand, litter, leaf * 0.85);
-  col = mix(col, vec3(0.04, 0.07, 0.03) * (0.7 + 0.6 * fine), shrub * 0.92);
+  col = mix(col, mix(vec3(0.045, 0.065, 0.03), vec3(0.08, 0.095, 0.05), big) * (0.7 + 0.6 * fine), shrub * 0.95);
   col *= 0.85 + 0.3 * mid;
   col = mix(col, col * vec3(1.05, 0.95, 0.85), smoothstep(0.5, 0.8, big) * 0.4);
   s.albedo = col; s.height = 0.4 + 0.2 * fine + 0.3 * shrub + 0.1 * leaf;

@@ -16,6 +16,7 @@ import { createEnvFromSky } from './cookbook/lighting/env-from-sky.js';
 import { initMaterials } from './cookbook/materials/library.js';
 import { createFX } from './cookbook/fx/index.js';
 import { createPost } from './cookbook/post/pipeline.js';
+import { createDayCycle } from './modules/world/daycycle.js';
 import { ART } from './art.js';
 import { POSES, PATH, WORLD, PLAYER, SEED } from './contracts.js';
 import { STUBS } from './modules/_stub.js';
@@ -37,9 +38,11 @@ async function main() {
   await stage('pcss', () => { installPCSS({ G, tier: G.quality.tier, lightSize: 0.010 }); return {}; }, { msg: 'Softening the shadows', at: 0.06 });
   await stage('atmos', () => installAtmos(G) || {}, { critical: true, msg: 'Mixing the sea breeze', at: 0.09 });
   const sky = await stage('sky', () => own(createSky(G, { far: 8000 })), { msg: 'Painting the sunset', at: 0.12 });
-  await stage('env', () => own(createEnvFromSky(G, sky)), { msg: 'Catching the golden hour', at: 0.15 });
+  const env = await stage('env', () => own(createEnvFromSky(G, sky)), { msg: 'Catching the golden hour', at: 0.15 });
 
   const mats = await stage('materials', () => { World.registerSurfaces(); initMaterials(G); return World.makeWorldMaterials(); }, { critical: true, msg: 'Quarrying limestone', at: 0.22 });
+  mats.glassLight.emissive.setRGB(1.0, 0.9, 0.72);
+  (G.nightMats ||= []).push({ mat: mats.canopyBlue, night: 1.6 }, { mat: mats.ledPurple, night: 7 }, { mat: mats.archWhite, night: 0.45 }, { mat: mats.glassLight, night: 1.4 });
   const world = await stage('world', () => World.create(G, { mats }), { critical: true, msg: 'Building Elizabeth Quay', at: 0.4 });
   G.world = world;
   finalizeMaterials(G, G.scene);
@@ -70,6 +73,7 @@ async function main() {
   const input = await stage('input', () => createInput(G, { root: document.getElementById('ui'), bindings: { ...DEFAULT_BINDINGS, interact: ['KeyF', 'KeyE'], horn: ['KeyH'], fire: ['Mouse0', 'KeyJ'] } }), { critical: true, msg: 'Finding the controls', at: 0.65 });
   await stage('game', () => Game.create(G, { input, world, mats, fx, quality: Q, shadows, stage }), { msg: 'Waking up Perth', at: 0.7 });
 
+  await stage('daycycle', () => createDayCycle(G, { sky, env, shadows }), { msg: 'Setting the clock to midday', at: 0.9 });
   finalizeMaterials(G, G.scene);
   G.camera.position.fromArray(POSES[0]); G.camera.lookAt(POSES[0][3], POSES[0][4], POSES[0][5]);
   await stage('warmup', () => Q.warmup({ extras: G.warmExtras || [] }), { msg: 'Compiling shaders', at: 0.95 });

@@ -6,36 +6,46 @@
 //  Mends Street Jetty (South Perth)                       The Narrows Bridge (3 parallel decks)
 //  Old Mill (1835 tower mill)                             State War Memorial obelisk (Kings Park)
 import { CatmullRomCurve3, Vector3, CanvasTexture, SRGBColorSpace, Mesh, PlaneGeometry, MeshBasicMaterial } from 'three';
-import { Kit, lathe, tube, roundedBox, sweep } from '../../cookbook/geo/kit.js';
+import { Kit, lathe, tube, roundedBox, sweep, extrudeBevel } from '../../cookbook/geo/kit.js';
+import { boxSweep, sailBlade } from './shapes.js';
 import { heightAt, PLACES, ISLAND, NARROWS, PROMENADE_Y } from '../../map.js';
 
 const V = (x, y, z) => new Vector3(x, y, z);
 
 function bellTower(k) {
-  // From photos: a teal glass needle (square section, ribbed, banded by steel "spokes") rising from the plaza;
-  // its lower 38 m is wrapped by two great copper shells meeting in an ogive point, open front and back so the
-  // glass shows through a vertical slot. Copper is warm red-brown; a silver needle tops the glass at 82.5 m.
+  // Photo-matched (Commons refs, N / S / street views): an octagonal teal glass shaft ~10 m across that holds its
+  // width to ~25 m then tapers to 65 m, banded by steel balcony rings low down and a lit bell-chamber band at
+  // ~31 m; a silver needle carries it to 82.5 m. Two copper "sail" groups (east + west), each three fanned
+  // ogive blades with sharp tips (36 / 31 / 27 m) that lean in onto the glass; open slots face N and S.
   const [x, z] = PLACES.bellTower, y = heightAt(x, z);
   k.push(x, y, z, 0.0);
   k.cyl(17, 0.6, 'limestone', { at: [0, 0.3, 0], seg: 48 });
   k.cyl(14.5, 0.2, 'water', { at: [0, 0.68, 0], seg: 48 });
-  const y0 = 0.6, top = 82.5 - y0;
-  const R = (h) => 6.2 * Math.pow(Math.max(0, 1 - h / 72), 1.05) + 0.25;
-  const prof = []; for (let i = 0; i <= 18; i++) { const h = (i / 18) * 72; prof.push([R(h), h]); }
-  prof.unshift([0, 0]); prof.push([0, 72]);
-  k.add(lathe(prof, { seg: 8, phi0: Math.PI / 8, crease: 20 }), 'teal', { at: [0, y0, 0], occ: false });
-  for (let h = 2; h < 70; h += 2.6) { const r = R(h); k.add(lathe([[r + 0.02, h], [r + 0.16, h + 0.1], [r + 0.02, h + 0.2]], { seg: 8, phi0: Math.PI / 8 }), 'steel', { at: [0, y0, 0], occ: false }); }
-  for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i / 8) * Math.PI * 2; const pts = []; for (let h = 0; h <= 72; h += 6) { const r = R(h) + 0.05; pts.push([Math.cos(a) * r, y0 + h, Math.sin(a) * r]); } k.add(tube(pts, 0.06, { radial: 4 }), 'steel', { occ: false }); }
-  k.add(lathe([[0.35, 0], [0.12, 8], [0.02, top - 72]], { seg: 8 }), 'steel', { at: [0, y0 + 72, 0] });
-  // copper shells (east + west), ogive profile, each spanning 120°, with thickness and a rolled edge
-  const cp = [[8.0, 0], [8.7, 5], [8.6, 11], [8.0, 17], [6.9, 23], [5.3, 29], [3.4, 34], [1.3, 38]];
+  const y0 = 0.6;
+  const SH = [[5.0, 0], [5.0, 4], [4.9, 12], [4.65, 22], [4.25, 30], [3.65, 38], [2.7, 47], [1.6, 56], [0.55, 65]];
+  const R = (h) => { for (let i = 1; i < SH.length; i++) if (h <= SH[i][1]) { const a = SH[i - 1], b = SH[i], t = (h - a[1]) / (b[1] - a[1]); return a[0] + (b[0] - a[0]) * t; } return 0.5; };
+  k.add(lathe([[0, 0], ...SH, [0, 65]], { seg: 8, phi0: Math.PI / 8, crease: 20 }), 'teal', { at: [0, y0, 0], occ: false });
+  // bell chamber: a lighter glazed band (lit at night)
+  k.add(lathe([[R(29.2) + 0.06, 29.2], [R(33.6) + 0.06, 33.6]], { seg: 8, phi0: Math.PI / 8 }), 'glassLight', { at: [0, y0, 0], occ: false });
+  // balcony rings low on the shaft, lighter transoms higher up
+  for (let h = 3.4; h < 30; h += 3.6) { const r = R(h); k.add(lathe([[r + 0.02, h - 0.12], [r + 0.55, h - 0.08], [r + 0.55, h + 0.08], [r + 0.02, h + 0.12]], { seg: 8, phi0: Math.PI / 8, crease: 40 }), 'steel', { at: [0, y0, 0], occ: false }); }
+  for (let h = 34; h < 64; h += 2.4) { const r = R(h); k.add(lathe([[r + 0.02, h], [r + 0.12, h + 0.08], [r + 0.02, h + 0.16]], { seg: 8, phi0: Math.PI / 8 }), 'steel', { at: [0, y0, 0], occ: false }); }
+  for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i / 8) * Math.PI * 2; const pts = []; for (let h = 0; h <= 65; h += 5) { const r = R(h) + 0.04; pts.push([Math.sin(a) * r, y0 + h, Math.cos(a) * r]); } k.add(tube(pts, 0.07, { radial: 4 }), 'steel', { occ: false }); }
+  // diagonal lattice on the upper glass (the photographed diamond grid)
+  for (let i = 0; i < 8; i++) for (const sg of [-1, 1]) { const pts = []; for (let h = 34; h <= 64; h += 1.5) { const a = Math.PI / 8 + (i / 8) * Math.PI * 2 + sg * (h - 34) * 0.045; const r = R(h) + 0.05; pts.push([Math.sin(a) * r, y0 + h, Math.cos(a) * r]); } k.add(tube(pts, 0.035, { radial: 3 }), 'steel', { occ: false }); }
+  // silver needle
+  k.add(lathe([[0.62, 0], [0.42, 4], [0.3, 8], [0.18, 12.5], [0.03, 17.5]], { seg: 10 }), 'alu', { at: [0, y0 + 65, 0] });
+  for (const h of [2.5, 6, 9.5]) k.cyl(0.62 - h * 0.036, 0.18, 'alu', { at: [0, y0 + 65 + h, 0], seg: 10 });
+  // copper sails
   for (const az of [Math.PI / 2, -Math.PI / 2]) {
-    k.add(lathe(cp, { seg: 18, phi0: az - 0.92, phiLen: 1.84, crease: 80 }), 'copper', { at: [0, y0, 0] });
-    k.add(lathe(cp.map(([r, h]) => [Math.max(0.2, r - 0.45), h]).reverse(), { seg: 18, phi0: az - 0.92, phiLen: 1.84, crease: 80 }), 'copper', { at: [0, y0, 0] });
-    for (const ed of [az - 0.92, az + 0.92]) { const pts = cp.map(([r, h]) => [Math.sin(ed) * (r - 0.22), y0 + h, Math.cos(ed) * (r - 0.22)]); k.add(tube(pts, 0.24, { radial: 6, curve: true, samples: 24 }), 'copper', { occ: false }); }
+    const south = -Math.sign(az);
+    for (const [Ht, dc, hw0, off] of [[36, 0, 1.0, 0], [31.5, 0.42 * south, 0.8, 0.3], [27.5, -0.42 * south, 0.8, 0.3]]) {
+      // egg profile: r 7.6 at the plaza, widest (8.9) ~6 m up, ogive onto the glass at the tip
+      const rr = (h) => { const u = Math.min(1, h / Ht); const ogive = Math.pow(Math.cos(u * Math.PI / 2), 0.8); return R(h) + 0.5 + 0.9 * Math.pow(Math.min(1, h / Ht), 1.5) + off + (8.4 - R(0)) * ogive * (0.86 + 0.42 * Math.sin(Math.min(1, u * 3.2) * Math.PI / 2) * (1 - u * 0.6)); };
+      const hw = (h) => hw0 * Math.pow(Math.max(0, 1 - Math.pow(h / Ht, 2.2)), 0.6) + 0.012;
+      k.add(sailBlade({ H: Ht, r: rr, c: () => az + dc, hw, thick: 0.22, rows: 44, cols: 20 }), 'copper', { at: [0, y0, 0] });
+    }
   }
-  // glazed entrance pavilion at the foot
-  k.box(10, 4, 4, 'glassLight', { at: [0, y0 + 2, 8.5], r: 0.05 });
   k.pop();
 }
 
@@ -78,26 +88,34 @@ function eqBridge(k) {
   for (const edge of [left, right]) {
     k.add(tube(edge.map((p) => [p[0], p[1] + 1.15, p[2]]), 0.04, { radial: 8 }), 'steel', { occ: false });
     k.add(tube(edge.map((p) => [p[0], p[1] + 0.12, p[2]]), 0.03, { radial: 6 }), 'steel', { occ: false });
+    k.add(tube(edge.map((p) => [p[0], p[1] - 0.05, p[2]]), 0.06, { radial: 5 }), 'ledPurple', { occ: false });   // LED strip (purple at night)
     for (let i = 0; i < edge.length; i += 2) k.bar([edge[i][0], edge[i][1] + 0.1, edge[i][2]], [edge[i][0], edge[i][1] + 1.15, edge[i][2]], 0.04, 0.04, 'steel');
   }
   // the two arches: A from the west landing to the centre pier leaning north, B from the centre pier to the island leaning south
-  const P0 = C.getPointAt(0.04), Pm = C.getPointAt(0.5), P1 = C.getPointAt(0.95);
-  const arch = (A, B, lean) => {
-    const pts = []; const ax = new Vector3().subVectors(B, A); const L = ax.length(); ax.normalize();
-    const n = new Vector3(ax.z, 0, -ax.x); // horizontal normal
-    for (let s = 0; s <= 30; s++) {
-      const t = s / 30, h = 19.5 * Math.pow(Math.sin(Math.PI * t), 0.82);
-      const p = A.clone().lerp(B, t); p.y = 2.6 + h * Math.cos(lean); p.addScaledVector(n, h * Math.sin(lean));
-      pts.push([p.x, p.y, p.z]);
+  const P0 = C.getPointAt(0.19), Pm = C.getPointAt(0.5), P1 = C.getPointAt(0.81);
+  const arch = (A, B, lean, H) => {
+    // photo-matched: white rectangular box section (1.5 m wide x 1.0 m deep at the crown, deeper at the feet),
+    // springing from white steel piers just above the water, leaning slightly off vertical
+    const pts = [], vp = []; const ax = new Vector3().subVectors(B, A); ax.y = 0; ax.normalize();
+    const n = new Vector3(ax.z, 0, -ax.x);
+    for (let s = 0; s <= 48; s++) {
+      const t = s / 48, h = H * Math.pow(Math.max(0, 1 - (2 * t - 1) ** 2), 0.56);
+      const p = A.clone().lerp(B, t); p.y = 0.6 + h * Math.cos(lean); p.addScaledVector(n, h * Math.sin(lean));
+      pts.push([p.x, p.y, p.z]); vp.push(p);
     }
-    k.add(tube(pts, (r) => 0.42 - 0.12 * Math.sin(Math.PI * r), { radial: 12, curve: true, samples: 60 }), 'white', { occ: false });
+    const side = n.clone().multiplyScalar(Math.cos(lean)).add(new Vector3(0, -Math.sin(lean), 0)).normalize();
+    k.add(boxSweep(vp, side, (t) => 1.5 + 0.5 * Math.pow(Math.abs(t - 0.5) * 2, 3), (t) => 1.0 + 1.1 * Math.pow(Math.abs(t - 0.5) * 2, 3)), 'archWhite', { occ: false });
+    for (const P of [A, B]) { // faceted white pier under each foot
+      k.add(lathe([[1.6, 0], [1.25, 1.0], [0.9, 1.4], [0, 1.4]], { seg: 4, phi0: Math.PI / 4, crease: 30 }), 'white', { at: [P.x, -0.6, P.z] });
+      k.cyl(1.7, 2.2, 'bridgeConc', { at: [P.x, -1.4, P.z], seg: 4 });
+    }
     return { pts, A, B, n };
   };
-  const a1 = arch(V(P0.x, 0, P0.z), V(Pm.x, 0, Pm.z), 0.13);
-  const a2 = arch(V(Pm.x, 0, Pm.z), V(P1.x, 0, P1.z), -0.13);
+  const a1 = arch(V(P0.x, 0, P0.z), V(Pm.x, 0, Pm.z), 0.12, 21.5);
+  const a2 = arch(V(Pm.x, 0, Pm.z), V(P1.x, 0, P1.z), -0.12, 23.5);
   // cable hangers from each arch down to the nearest deck edge
   for (const a of [a1, a2]) {
-    for (let s = 2; s <= 28; s += 1) {
+    for (let s = 3; s <= 45; s += 2) {
       const ap = a.pts[s];
       let best = 0, bd = 1e9; for (let i = 0; i <= N; i++) { const e = (a === a1 ? left : right)[i]; const d = (e[0] - ap[0]) ** 2 + (e[2] - ap[2]) ** 2; if (d < bd) { bd = d; best = i; } }
       const e = (a === a1 ? left : right)[best];
@@ -105,7 +123,7 @@ function eqBridge(k) {
     }
   }
   // concrete piers framing the navigation channel + centre pier
-  for (const t of [0.39, 0.61]) { const p = C.getPointAt(t); const y = bridgeDeckY(t); k.box(1.1, y + 2.4, 1.8, 'bridgeConc', { at: [p.x, (y - 2.4) / 2 - 0.7, p.z], r: 0.15 }); }
+  // (deck carried by the arch-foot piers)
   return { left, right };
 }
 
@@ -122,16 +140,41 @@ function firstContact(k) {
 }
 
 function kiosk(k) {
+  // Florence Hummerston Kiosk (1928, rebuilt on the island): Federation Arts & Crafts — red face brick with
+  // arched multi-pane timber windows, a roughcast frieze, red Marseille-tile hipped roofs with flanking wings,
+  // and a central octagonal clerestory lantern with its own tiled cap. Photo-matched (Commons, Feb 2016).
   const x = ISLAND.x + 2, z = ISLAND.z - 1, y = PROMENADE_Y;
   k.push(x, y, z, 0.1);
-  k.box(15, 0.4, 10, 'limestone', { at: [0, 0.2, 0], r: 0.03 });
-  k.box(13, 4.2, 8, 'render', { at: [0, 2.5, 0], r: 0.05 });
-  for (let i = -2; i <= 2; i++) k.box(1.3, 2.0, 0.08, 'glassDark', { at: [i * 2.4, 2.2, 4.03], r: 0.01 });
-  for (let i = -2; i <= 2; i++) k.box(1.3, 2.0, 0.08, 'glassDark', { at: [i * 2.4, 2.2, -4.03], r: 0.01 });
-  // hipped terracotta roof
-  k.add(lathe([[9.6, 0], [7.2, 1.4], [2.0, 3.0], [0, 3.1]], { seg: 4, phi0: Math.PI / 4, crease: 10 }).scale(1, 1, 0.72), 'tile', { at: [0, 4.6, 0] });
-  // verandah posts
-  for (let i = -3; i <= 3; i++) for (const s of [-1, 1]) k.cyl(0.09, 3.2, 'white', { at: [i * 2.1, 2.0, s * 5.0] });
+  k.box(23, 0.3, 14, 'limestone', { at: [0, 0.15, 0], r: 0.03 });
+  const block = (cx, cz, w, d, h, roofH, eave) => {
+    k.box(w, h, d, 'brick', { at: [cx, 0.3 + h / 2, cz], r: 0.04 });
+    k.box(w + 0.12, 0.7, d + 0.12, 'render', { at: [cx, 0.3 + h - 0.35, cz], r: 0.03 });          // roughcast frieze
+    k.box(w + 0.2, 0.18, d + 0.2, 'brick', { at: [cx, 0.3 + 0.9, cz], r: 0.02 });                 // sill course
+    k.add(lathe([[Math.SQRT2 * (Math.max(w, d) / 2 + eave), 0], [Math.SQRT2 * (Math.max(w, d) / 2 + eave) * 0.08, roofH], [0, roofH]], { seg: 4, phi0: Math.PI / 4, crease: 10 })
+      .scale(w >= d ? 1 : (w + 2 * eave) / (d + 2 * eave), 1, w >= d ? (d + 2 * eave) / (w + 2 * eave) : 1), 'tile', { at: [cx, 0.3 + h, cz] });
+    // arched windows on the long faces
+    const n = Math.max(1, Math.floor(w / 2.6));
+    for (let i = 0; i < n; i++) for (const s of [-1, 1]) {
+      const wx = cx - w / 2 + (i + 0.5) * (w / n), wz = cz + s * (d / 2 + 0.02);
+      k.box(1.3, 1.5, 0.1, 'glassDark', { at: [wx, 1.95, wz], r: 0.01 });
+      k.cyl(0.65, 0.1, 'glassDark', { at: [wx, 2.7, wz], rot: [Math.PI / 2, 0, 0], seg: 16 });
+      k.cyl(0.8, 0.06, 'brick', { at: [wx, 2.7, wz - s * 0.03], rot: [Math.PI / 2, 0, 0], seg: 16 });
+      for (const mx of [-0.33, 0, 0.33]) k.box(0.05, 2.1, 0.12, 'woodDark', { at: [wx + mx, 2.2, wz], r: 0.005 });
+      k.box(1.35, 0.06, 0.12, 'woodDark', { at: [wx, 2.35, wz], r: 0.005 });
+    }
+  };
+  block(0, 0, 11, 9, 3.6, 2.6, 0.7);                 // main hall
+  block(-8.2, 0.6, 6, 7, 3.1, 2.2, 0.6);             // west wing
+  block(8.2, 0.6, 6, 7, 3.1, 2.2, 0.6);              // east wing
+  // octagonal clerestory lantern on the main ridge
+  const ly = 0.3 + 3.6 + 1.6;
+  k.add(lathe([[0, 0], [2.6, 0], [2.6, 1.7], [0, 1.7]], { seg: 8, phi0: Math.PI / 8, crease: 20 }), 'render', { at: [0, ly, 0] });
+  k.add(lathe([[2.64, 0.35], [2.64, 1.45]], { seg: 8, phi0: Math.PI / 8 }), 'glassDark', { at: [0, ly, 0], occ: false });
+  for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i / 8) * Math.PI * 2 + Math.PI / 8; k.box(0.12, 1.2, 0.12, 'woodDark', { at: [Math.sin(a) * 2.62, ly + 0.9, Math.cos(a) * 2.62], r: 0.01 }); }
+  k.add(lathe([[3.4, 0], [0.3, 1.3], [0, 1.35]], { seg: 8, phi0: Math.PI / 8, crease: 10 }), 'tile', { at: [0, ly + 1.7, 0] });
+  // brick piers + verandah on the river (south) side
+  for (let i = -2; i <= 2; i++) k.box(0.55, 3.2, 0.55, 'brick', { at: [i * 2.4, 1.9, 5.3], r: 0.03 });
+  k.box(12.4, 0.35, 1.9, 'tile', { at: [0, 3.65, 5.0], r: 0.05, rot: [-0.22, 0, 0] });
   k.pop();
 }
 
@@ -142,7 +185,12 @@ function eqJetty(k) {
   k.box(5, 1.0, 46, 'concrete', { at: [0, 0.2, 0], r: 0.08 });
   k.box(4.6, 0.06, 45.6, 'timberDeck', { at: [0, 0.73, 0], r: 0.01 });
   for (let i = -3; i <= 3; i++) { k.cyl(0.35, 3.0, 'concrete', { at: [2.8, -0.8, i * 7] }); k.cyl(0.12, 3.2, 'steel', { at: [-2.0, 2.3, i * 7] }); k.cyl(0.12, 3.2, 'steel', { at: [2.0, 2.3, i * 7] }); }
-  k.box(5.6, 0.25, 46, 'canopy', { at: [0, 3.95, 0], r: 0.1 });
+  for (let i = 0; i < 12; i++) { // cambered fins, alternately tilted, rising and falling like a wave
+    const fz = -20.9 + i * 3.8, fy = 3.9 + 0.55 * Math.sin(i * 0.9), tilt = (i % 2 ? 1 : -1) * 0.16;
+    const fin = []; for (let j = 0; j <= 10; j++) { const u = j / 10 - 0.5; fin.push([u * 7.4, 0.55 * (1 - 4 * u * u) + 0.25 * u]); }
+    for (let j = 10; j >= 0; j--) { const u = j / 10 - 0.5; fin.push([u * 7.4, 0.55 * (1 - 4 * u * u) + 0.25 * u - 0.12 - 0.1 * (1 - 4 * u * u)]); }
+    k.add(extrudeBevel(fin, { depth: 4.3, bevel: 0.04, bevelSeg: 2 }), 'canopyBlue', { at: [0.3, fy, fz], rot: [tilt, 0.06 * Math.sin(i), 0] });
+  }
   k.box(5.0, 1.0, 0.1, 'sign', { at: [0, 3.2, 23.1], r: 0.02 });
   // fenders on the berth face
   for (let i = -10; i <= 10; i++) k.box(0.3, 0.8, 0.6, 'rubber', { at: [2.6, 0.5, i * 2.1] });
