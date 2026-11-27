@@ -1,0 +1,36 @@
+{
+  "rubric": "look-first-3d vision critic",
+  "scale": "1-10 per dimension",
+  "anchorMode": "reference until G2, golden frames after G2",
+  "anchors": {
+    "10": "indistinguishable in mood and quality from the anchor at game resolution",
+    "7": "a player would screenshot this; minor issues only",
+    "5": "competent tech demo; the style is recognisable but generic",
+    "3": "primitive, broken or off-style"
+  },
+  "dimensions": [
+    {"id": "lighting", "ask": "Key direction, warmth and elevation vs bible; shadow softness and tint; rim; fill not flattening form."},
+    {"id": "time_of_day", "ask": "At every hour shot: player, path and entrances readable; every lamp-like emissive casts visible light; dusk not darker than midnight; morning not washed out."},
+    {"id": "palette", "ask": "Frame palette vs bible palette for that hour; no colours from the avoid list; accents used sparingly."},
+    {"id": "materials", "ask": "Material families read correctly (stone, timber, glass...); texture scale; no emissive placeholders; no flat 'wallpaper' interiors."},
+    {"id": "vegetation", "ask": "Card size and softness vs bible; no dark fringes or rims, no lichen noise, no edge-on slivers; density not cluttered."},
+    {"id": "architecture", "ask": "Silhouette language from the bible; plinths, eaves, mullions; not a box on a plinth."},
+    {"id": "characters", "ask": "Adult proportions; identity matches persona (name, gender, role); no clipping; no outline speckle at dialogue distance; natural idle, no foot sliding."},
+    {"id": "composition", "ask": "Bible targets (focal height %, player x, horizon, empty sky); brightest value is the focal point; clear leading line; simplification honoured."},
+    {"id": "atmosphere", "ask": "Depth via fog and aerial perspective without milky wash; sky quality; particles subtle and not reading as UI artefacts."},
+    {"id": "ui", "ask": "Every visible panel, prompt, map and menu: legible (contrast over the actual backdrop), minimal, consistent with the bible."},
+    {"id": "mobile", "ask": "Phone frames: framing in portrait, touch controls not covering the focal point, text legible at interaction distance."},
+    {"id": "artefacts", "ask": "z-fighting or flicker, light leaks, black surfaces, popping, floating meshes, hard shadow-frustum edges, unrequested text or logos."},
+    {"id": "real_game", "ask": "Overall: does this read as a shipped game rather than a demo?"}
+  ],
+  "rules": [
+    "Cite a shot id for every claim.",
+    "At least one fix per dimension scored below 7.",
+    "Every fix: {priority P0-P3, area, problem, fix, files, params} with numbers where possible.",
+    "Re-measure; never accept a builder's or integrator's claim without looking.",
+    "List regressions vs the previous round explicitly.",
+    "A dimension below 5 for two consecutive rounds is P0.",
+    "Excluded elements from triage are not penalised for being absent."
+  ],
+  "pass": {"overallMin": 7.5, "dimensionMin": 6, "plateauDelta": 0.5, "plateauRounds": 2}
+}

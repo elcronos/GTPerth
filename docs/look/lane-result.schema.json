@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "look-first-3d/lane-result.schema.json",
+  "title": "What every builder / fixer lane returns to the orchestrator",
+  "type": "object",
+  "required": ["lane", "summary", "filesChanged", "verification", "knownIssues"],
+  "properties": {
+    "lane": {"type": "string"},
+    "summary": {"type": "string"},
+    "fixesAddressed": {"type": "array", "items": {"type": "string"}, "description": "e.g. docs/reviews/look-r2.json fixes[4]"},
+    "filesChanged": {"type": "array", "items": {"type": "string"}},
+    "publicApi": {"type": "array", "items": {"type": "string"}, "description": "exports / props / hook additions other lanes rely on"},
+    "needs": {"type": "array", "items": {"type": "object", "properties": {"file": {"type": "string"}, "change": {"type": "string"}}}, "description": "edits in files this lane does not own; the integrator applies and verifies them"},
+    "verification": {"type": "object", "properties": {"typecheck": {"type": "string"}, "tests": {"type": "string"}, "shots": {"type": "array", "items": {"type": "string"}}, "numbers": {"type": "object"}}},
+    "knownIssues": {"type": "array", "items": {"type": "string"}},
+    "extraDepsNeeded": {"type": "array", "items": {"type": "string"}},
+    "licences": {"type": "array", "items": {"type": "string"}, "description": "ledger ids added or changed"},
+    "costTokens": {"type": "integer"}
+  }
+}

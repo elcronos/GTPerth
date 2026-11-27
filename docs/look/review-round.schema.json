@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "look-first-3d/review-round.schema.json",
+  "title": "Critic output for one look-dev or wave round (docs/reviews/<round>.json)",
+  "type": "object",
+  "required": ["round", "critic", "scores", "overall", "fixes"],
+  "properties": {
+    "round": {"type": "string", "examples": ["look-r3", "wave-2"]},
+    "critic": {"type": "string", "examples": ["visual-A", "visual-B", "qa", "ux", "perf", "content"]},
+    "anchor": {"enum": ["reference", "golden"]},
+    "buildHash": {"type": "string"},
+    "shotsIndex": {"type": "string", "description": "path to shots.jsonl used"},
+    "scores": {"type": "object", "additionalProperties": {"type": "number", "minimum": 1, "maximum": 10}},
+    "overall": {"type": "number"},
+    "evidence": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}, "description": "dimension -> shot ids"},
+    "measurements": {"type": "object", "description": "re-measured numbers (composition, luma, draw calls...)"},
+    "fixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["priority", "area", "problem", "fix"],
+        "properties": {
+          "priority": {"enum": ["P0", "P1", "P2", "P3"]},
+          "area": {"type": "string"},
+          "dimension": {"type": "string"},
+          "problem": {"type": "string"},
+          "fix": {"type": "string"},
+          "files": {"type": "array", "items": {"type": "string"}},
+          "params": {"type": "object", "description": "numeric parameters, e.g. {\"SUN_ELEVATION_DEG\": [14, 9]}"},
+          "shots": {"type": "array", "items": {"type": "string"}},
+          "lane": {"type": "string"}
+        }
+      }
+    },
+    "regressions": {"type": "array", "items": {"type": "object", "properties": {"what": {"type": "string"}, "since": {"type": "string"}, "shots": {"type": "array", "items": {"type": "string"}}}}},
+    "issues": {"type": "array", "description": "QA critics: {severity, area, repro, expected, actual, fix, files}", "items": {"type": "object"}},
+    "verdict": {"enum": ["continue", "plateau", "pass", "blocked"]}
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "approvedAt": null,
+  "project": "Grand Theft Perth — GTA VI tribute on a real-scale Elizabeth Quay / Perth Water",
+  "references": [
+    {"file": "style: GTA VI reveal trailers (Rockstar, 2023/2025) — quality + mood target only, never shipped", "role": "primary-style", "isConceptArt": false},
+    {"file": "docs/look/refs/eq2.jpg", "role": "location: EQ from the bridge (skyline, Spanda, jetty)", "isConceptArt": false},
+    {"file": "docs/look/refs/tricia1.jpg", "role": "location: ferry at the EQ jetty, bridge arches", "isConceptArt": false},
+    {"file": "docs/look/refs/bell_c.jpg", "role": "location: Bell Tower", "isConceptArt": false},
+    {"file": "docs/look/refs/kpview.jpg", "role": "location: CBD from Kings Park", "isConceptArt": false}
+  ],
+  "simplificationPct": 15,
+  "triage": [
+    {"element": "low, warm, back-lit sun; long soft shadows; hot specular glints on water and glass", "tag": "mood", "action": "reproduce"},
+    {"element": "humid aerial haze: warm toward the sun, cool blue in shadow and distance", "tag": "mood", "action": "reproduce"},
+    {"element": "dense palms / street trees, people and traffic everywhere (lived-in city)", "tag": "mood", "action": "reproduce"},
+    {"element": "wet / glossy surfaces with mirror reflections (water, glass, polished stone)", "tag": "mood", "action": "reproduce"},
+    {"element": "filmic grade: rich saturation in sunlit areas, teal shadows, gentle bloom, grain", "tag": "mood", "action": "reproduce"},
+    {"element": "Vice City / Miami buildings, signage, brands, characters (Jason, Lucia)", "tag": "literal-prop", "action": "drop"},
+    {"element": "Rockstar logos, GTA VI wordmark, HUD art", "tag": "branding-text", "action": "drop"},
+    {"element": "GTA VI HUD language (minimap, wanted stars, phone, social feed)", "tag": "ui-chrome", "action": "reproduce-as-tribute (already built)"},
+    {"element": "real Perth landmarks, OSM geometry, Transperth ferry", "tag": "layout", "action": "reproduce (the location is the concept)"}
+  ],
+  "palette": {
+    "colors": [
+      {"hex": "#E9B073", "role": "sunlit warm surface / skin of glass at golden hour", "share": 0.14},
+      {"hex": "#2F5F7A", "role": "Swan River water body (deep teal-blue, not cyan)", "share": 0.22},
+      {"hex": "#8FB4D8", "role": "sky high", "share": 0.16},
+      {"hex": "#F5C48E", "role": "sky near sun / haze", "share": 0.08},
+      {"hex": "#4B5A6E", "role": "shadow blue-grey", "share": 0.14},
+      {"hex": "#5E6F3F", "role": "eucalypt / lawn olive green", "share": 0.08},
+      {"hex": "#3A3D42", "role": "charcoal granite pavers / asphalt", "share": 0.1}
+    ],
+    "accents": ["#FF3D8B", "#FFB060", "#9B5BFF"],
+    "avoid": ["pure white pavers", "cyan swimming-pool water", "flat grey overcast at golden hour", "blown-out sky", "pastel/toy colours"],
+    "timeOfDay": [
+      {"hour": 12, "name": "midday", "sunColor": "#FFF4E6", "colors": ["#D9D2C4", "#2F6A88", "#7FB0E0", "#CFE0F0", "#55657A", "#6E7F45", "#45484D"]},
+      {"hour": 16, "name": "afternoon", "sunColor": "#FFE2B8", "colors": ["#E4C09A", "#2F627E", "#86B0DA", "#F0D2AA", "#4F5E72", "#66773F", "#404349"]},
+      {"hour": 18, "name": "golden", "sunColor": "#FFB066", "colors": ["#E9A86A", "#2A566E", "#8AA8CF", "#F7B97C", "#46526A", "#5A6A38", "#3A3D42"]},
+      {"hour": 19.3, "name": "dusk", "sunColor": "#FF7A45", "colors": ["#B8756A", "#22384E", "#5E6D9C", "#F08C64", "#33384E", "#3E4A2E", "#2C2E36"]},
+      {"hour": 21, "name": "night", "sunColor": "#000000", "colors": ["#2A2E40", "#101C2C", "#1A2238", "#FFB060", "#1C2030", "#202818", "#18191E"]},
+      {"hour": 0, "name": "midnight", "sunColor": "#000000", "colors": ["#22263A", "#0C1624", "#121A2E", "#FFA850", "#161A28", "#1A2014", "#141518"]}
+    ]
+  },
+  "light": {
+    "dynamicTimeOfDay": true,
+    "heroHour": 18,
+    "startHour": 17.25,
+    "dayLengthMinutes": 24,
+    "key": {"elevationDeg": 9, "azimuthRelCamera": "into the sun, sun camera-right / behind the skyline", "color": "#FFB066", "shadowHardness": "soft, contact-hardening", "shadowTint": "#46526A"},
+    "fillRatio": "5:1",
+    "fillTint": "#8AA8CF",
+    "rim": {"enabled": true, "color": "#FFC890", "subjects": ["characters", "palms", "bridge arches"]},
+    "aoTint": "#1A2030",
+    "toneMapping": "AgX/ACES mix",
+    "grade": {"highlightTint": "#FFE0B8", "shadowTint": "#2E4560", "saturation": 1.18, "contrast": 1.12, "bloom": "sun glints, glass, lamps", "vignette": 0.28},
+    "fog": {"near": 60, "far": 2400, "heightFalloff": 0.004, "warmTowardSun": true},
+    "night": {"moonColor": "#9CB0E0", "minPlayerLuma": 40, "lampsCastLight": true}
+  },
+  "camera": {"mode": "third-person", "fovDeg": 62, "heightM": 1.85, "distanceM": 4.4, "shoulderOffsetM": 0.0, "pitchDeg": -7,
+             "portrait": {"fovDeg": 70, "distanceM": 5.0, "shoulderOffsetM": 0.0}},
+  "characters": {"style": "photoreal adult (Rocketbox)", "headToBody": 7.5, "ageRead": "adult 20-50", "heightRangeM": [1.6, 1.85], "outline": {"enabled": false}, "shading": "PBR, SSS-ish warm terminator"},
+  "vegetation": {"style": "dense photoreal palms, eucalypts, planes; soft alpha cards, no dark fringes", "densityPerM2": 0.02, "colorRamp": ["#4E5E32", "#6E7F45", "#9AA868"]},
+  "materials": [
+    {"family": "granite setts (EQ)", "albedo": "#4A4C50", "roughness": 0.7, "notes": "charcoal + mid-grey mix; never the brightest value"},
+    {"family": "limestone coping / walls", "albedo": "#BDB3A0", "roughness": 0.75},
+    {"family": "curtain-wall glass", "albedo": "#20303E", "roughness": 0.05, "notes": "mirror the sky, warm sun glints, interiors at night"},
+    {"family": "river water", "albedo": "#2A566E", "roughness": 0.03, "notes": "planar reflection of skyline; sun glitter path"},
+    {"family": "white steel (bridge, Spanda)", "albedo": "#E6E6E2", "roughness": 0.35},
+    {"family": "copper (Bell Tower)", "albedo": "#6E3A26", "roughness": 0.5}
+  ],
+  "architecture": {"silhouette": "real OSM footprints + heights; towers with crowns/spires; podiums with shopfronts", "details": ["mullions", "spandrels", "shopfront glazing at street level", "rooftop plant"], "interiorGlow": true},
+  "composition": {
+    "view": "hero",
+    "focalBox": "player",
+    "targets": {"focalHeightPct": 28, "focalTolerancePct": 8, "playerX": 0.4, "playerXTolerance": 0.08, "horizon": 0.45, "maxEmptySkyPct": 35, "brightestIsFocal": false},
+    "description": "The Landing at Elizabeth Quay, golden hour: player on the granite promenade, the inlet leading the eye SSW to the white EQ Bridge arches and Perth Water, Spanda framing the right, ferry at the terminal, low sun glittering on the water"
+  },
+  "negative": ["toy-like flat lighting", "plain untextured boxes", "white paving", "cyan water", "empty streets", "visible tiling", "floating objects", "unrequested text or logos", "foot sliding"],
+  "qa": {"luma_floor": {"player": 40, "path": 45, "interior": 35}, "palette_de_max": 22, "dusk_vs_midnight_margin": 5, "player_luma_neighbour_drop": 0.3, "contrast_min": 4.5, "text_min_css_px": 12, "phone_profiles": ["phone"]}
+}

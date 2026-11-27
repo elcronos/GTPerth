@@ -40,7 +40,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     if (want > 0.05) {
       // camera-relative direction (camera looks along camYaw+π)
       const fwdYaw = P.camYaw + Math.PI;
-      const dirYaw = fwdYaw + Math.atan2(mv.x, mv.y);
+      const dirYaw = fwdYaw - Math.atan2(mv.x, mv.y);   // yaw decreases to the viewer's right (x east, z south)
       P.moveYaw = dirYaw;
       target = P.swimming ? 1.6 : sprint ? PLAYER.sprint : want > 0.7 ? PLAYER.run : PLAYER.walk + (PLAYER.run - PLAYER.walk) * (want - 0.2) / 0.5;
     }
