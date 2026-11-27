@@ -147,7 +147,7 @@ export function depthFor(material, sway, fade) {
 
 // ------------------------------------------------------------------ scatter
 // Per-tier thinning (fraction of points kept) and fade-distance scale, applied by scatter() unless tiered:false.
-export const SCATTER_TIERS = { low: { keep: 0.22, fade: 0.42 }, med: { keep: 0.7, fade: 0.8 }, high: { keep: 1, fade: 1 }, ultra: { keep: 1, fade: 1.25 } };
+export const SCATTER_TIERS = { low: { keep: 0.22, fade: 0.34 }, med: { keep: 0.7, fade: 0.8 }, high: { keep: 1, fade: 1 }, ultra: { keep: 1, fade: 1.25 } };
 const _m = new Matrix4(), _q = new Quaternion(), _q2 = new Quaternion(), _p = new Vector3(), _s = new Vector3(), _n = new Vector3(), _up = new Vector3(0, 1, 0), _c = new Color();
 // opts:
 //  parts: [{geo, material}] — all share the instance transforms (trunk + leaves, rock, ...)
@@ -308,7 +308,7 @@ export function leafTexture({ size = 256, seed = 5, leaves = 70, kind = 'broad' 
   g.translate(size / 2, size / 2);
   for (let i = 0; i < leaves; i++) { // leaves arranged on a twig fan: denser in the middle
     const a = rnd() * TAU, r = Math.pow(rnd(), 0.7) * size * 0.4, x = Math.cos(a) * r, y = Math.sin(a) * r;
-    const L = size * (kind === 'needle' ? 0.16 : 0.1) * (0.7 + 0.6 * rnd()), W = L * (kind === 'needle' ? 0.12 : 0.45);
+    const L = size * (kind === 'needle' ? 0.12 : 0.1) * (0.7 + 0.6 * rnd()), W = L * (kind === 'needle' ? 0.12 : 0.45);
     const lv = 0.75 + 0.5 * rnd();
     g.save(); g.translate(x, y); g.rotate(a + (rnd() - 0.5) * 1.2 + Math.PI / 2);
     g.fillStyle = `rgb(${(76 * lv) | 0},${(90 * lv) | 0},${(50 * lv) | 0})`;

@@ -3,6 +3,7 @@
 // by bone name). Each instance is a SkeletonUtils clone with its own AnimationMixer.
 import { AnimationClip, Vector3, Box3, Sphere, Color } from 'three';
 import { patch, sharedUniform } from '../../cookbook/engine/patch.js';
+import { lampReceive } from '../world/lampmap.js';
 // people: a Fresnel rim (warm back-light by day, moon-blue at night) + a small night fill so the player and peds
 // stay readable against dark water / paving. Driven by daycycle.js.
 const uRim = sharedUniform('uCharRim', 'vec3', new Color(0, 0, 0)), uFill = sharedUniform('uCharFill', 'float', 0);
@@ -12,7 +13,7 @@ function charPatch(m) {
   patch(m, 'char-rim', (sh) => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
   { float ndv = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
-    totalEmissiveRadiance += uCharRim * pow(1.0 - ndv, 4.5) + diffuseColor.rgb * uCharFill; }`);
+    totalEmissiveRadiance += uCharRim * pow(1.0 - ndv, 4.5) + max(diffuseColor.rgb, vec3(0.06)) * uCharFill; }`);
   });
 }
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -41,7 +42,7 @@ export async function loadAvatars(G, onProgress) {
       if (o.isMesh) {
         o.castShadow = true; o.receiveShadow = true;
         const ms = Array.isArray(o.material) ? o.material : [o.material];
-        for (const m of ms) { m.userData.noWeather = true; m.envMapIntensity = 0.85; if (m.name === 'head') m.roughness = 0.55; charPatch(m); }
+        for (const m of ms) { m.userData.noWeather = true; m.envMapIntensity = 0.85; if (m.name === 'head') m.roughness = 0.55; charPatch(m); lampReceive(m, 1.6); }
       }
       if (o.name === 'Bip01') restHips = o.getWorldPosition(new Vector3()).y;
     });

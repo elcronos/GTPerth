@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+import { startServer } from '/home/claude/perth/tools/serve.mjs';
+const s = await startServer('/home/claude/perth/dist/index.html');
+const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] });
+const ctx = await b.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+const p = await ctx.newPage();
+await p.goto(s.url + '?shot=1&autostart=1&dynres=0&q=low');
+await p.waitForFunction(() => window.__ready === true, null, { timeout: 1200000 });
+const r = await p.evaluate(() => { const G = window.__G; const P = G.game.player; P.teleport(112, -168, Math.atan2(-134, 150)); G.camLocked = false; P.camYaw = P.yaw + Math.PI; P.camPitch = 0.1; for (let i = 0; i < 40; i++) P.updateCamera(1/30, 'foot');
+  G.renderer.info.autoReset = false; G.renderer.info.reset(); G.renderer.render(G.scene, G.camera); const total = G.renderer.info.render.triangles;
+  const out = {}; const walk = (o, path) => { if (!o.visible) return; if (o.isMesh || o.isPoints) { const g = o.geometry; const n = (g.index ? g.index.count : g.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); const k = path; out[k] = (out[k] || 0) + n; } for (const c of o.children) walk(c, path.split('/').length < 3 ? path + '/' + (c.name || c.type) : path); };
+  walk(G.scene, 'scene'); const top = Object.entries(out).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => k + ' ' + (v / 1e6).toFixed(2) + 'M');
+  return { total, top }; });
+console.log(JSON.stringify(r, null, 1)); await b.close(); s.close();

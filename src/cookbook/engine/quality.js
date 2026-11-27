@@ -30,7 +30,7 @@ import { Mesh, InstancedMesh, Points, BoxGeometry, BufferGeometry, Float32Buffer
 export const TIERS = {
 // Post-chain specifics (msaa, AO taps, vol steps actually used) are decided by POST_TIERS in post/pipeline.js;
 // the values here are what non-post systems should size themselves from. minScale = dynres floor for the tier.
-  low:   { pixelCap: 1.0, minScale: 0.6, shadow: 1024, pcssTaps: 0,  volSteps: 16, ao: false, bloomMips: 4, msaa: 0, aniso: 2,  particles: 0.4, drawDist: 0.6, lights: 2 },
+  low:   { pixelCap: 1.0, minScale: 0.6, shadow: 1024, pcssTaps: 0,  volSteps: 16, ao: false, bloomMips: 4, msaa: 0, aniso: 2,  particles: 0.4, drawDist: 0.42, lights: 2 },
   med:   { pixelCap: 1.5, minScale: 0.6, shadow: 2048, pcssTaps: 8,  volSteps: 16, ao: true,  bloomMips: 5, msaa: 2, aniso: 4,  particles: 0.7, drawDist: 0.8, lights: 4 },
   high:  { pixelCap: 2.3, minScale: 0.7, shadow: 2048, pcssTaps: 16, volSteps: 20, ao: true,  bloomMips: 6, msaa: 4, aniso: 8,  particles: 1.0, drawDist: 1.0, lights: 6 },
   ultra: { pixelCap: 3.7, minScale: 0.8, shadow: 4096, pcssTaps: 32, volSteps: 24, ao: true,  bloomMips: 6, msaa: 4, aniso: 16, particles: 1.3, drawDist: 1.2, lights: 8 },

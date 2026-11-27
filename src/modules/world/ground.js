@@ -8,6 +8,7 @@ import {
 } from 'three';
 import { NORTH_LAND, SOUTH_LAND, ISLAND, ISLAND_POLY, HEIRISSON, SHORE_N, SHORE_S, ROADS, heightAt, isLand, PROMENADE_Y } from '../../map.js';
 import { OSM_MASK } from '../../assets/osm_mask.js';
+import './lampmap.js';
 import { patch } from '../../cookbook/engine/patch.js';
 import { getSurfaceSet } from '../../cookbook/materials/library.js';
 import { ensureWorldVaryings, ensureNoise } from '../../cookbook/materials/weathering.js';
@@ -170,7 +171,9 @@ vec4 gW; vec2 gXZ; float gRock;
   alb *= 0.88 + 0.22 * macro;
   // bushland beyond the tree draw distance: paint a mottled eucalypt canopy (crowns ~8-12 m, sunlit tops vs dark gaps)
   // so Kings Park still reads as dense bush from the river, Mends St and the air
-  float farV = smoothstep(260.0, 650.0, length(vWthPos - cameraPosition)) * gW.z;
+  float camDg = length(vWthPos - cameraPosition);
+  float inKP = step(-2000.0, gXZ.x) * step(gXZ.x, -650.0) * step(-950.0, gXZ.y) * step(gXZ.y, 750.0);
+  float farV = max(smoothstep(260.0, 650.0, camDg) * gW.z, smoothstep(800.0, 1400.0, camDg) * inKP * (1.0 - gW.w) * 0.95);   // Kings Park reads as canopy once its trees fade
   if (farV > 0.001) {
     float can = smoothstep(0.38, 0.62, vnoise3(vec3(gXZ * 0.11, 2.0)) * 0.65 + vnoise3(vec3(gXZ * 0.31, 4.0)) * 0.35);
     vec3 canC = mix(vec3(0.028, 0.036, 0.022), vec3(0.10, 0.11, 0.065), can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));

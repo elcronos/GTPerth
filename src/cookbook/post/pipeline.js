@@ -58,7 +58,7 @@ export function createPost(G, opts = {}) {
     // eye adaptation: exposure = clamp(adaptKey / avgLum, adaptMin, adaptMax) * exposure
     adaptKey: opts.adaptKey ?? 0.20, adaptMin: grade.adaptMin, adaptMax: grade.adaptMax, adaptTau: grade.adaptTau,
     // SSAO (metres)
-    aoRadius: 0.9, aoIntensity: 2.6, aoBias: 0.06, aoStrength: 1.0,
+    aoRadius: 0.9, aoIntensity: 1.9, aoBias: 0.06, aoStrength: 1.0,
     // volumetrics: density per metre at baseHeight, exp height falloff, HG g, march length
     // ART.vol.density is the sea-level scattering coefficient; 0.55x keeps CONTRACT's 0.020 from going milky
     volDensity: vol.density * 0.55, volG: vol.g, volStrength: vol.strength, volFalloff: fog.heightFalloff,

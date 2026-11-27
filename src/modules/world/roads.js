@@ -3,6 +3,7 @@
 // zebra crossings. Also exposes the lane graph used by traffic AI.
 import { BufferGeometry, Float32BufferAttribute, Mesh } from 'three';
 import { ROADS, heightAt } from '../../map.js';
+import './lampmap.js';
 import { patch } from '../../cookbook/engine/patch.js';
 import { ensureWorldVaryings } from '../../cookbook/materials/weathering.js';
 

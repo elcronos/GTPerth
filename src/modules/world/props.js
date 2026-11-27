@@ -5,9 +5,12 @@ import {
   Color, BufferGeometry, Float32BufferAttribute, Mesh, BoxGeometry, ConeGeometry, PlaneGeometry, ShaderMaterial, AdditiveBlending, DataTexture, RedFormat, UnsignedByteType, LinearFilter, Vector4,
 } from 'three';
 import { patchUniforms, patch, sharedUniform } from '../../cookbook/engine/patch.js';
+import { lampReceive } from './lampmap.js';
 import { scatter, treeGeo, leafTexture, foliagePatch, poissonDisk, bushGeo } from '../../cookbook/geo/scatter.js';
 import { Kit, tube, lathe, roundedBox, mergeGeos, normalizeGeo } from '../../cookbook/geo/kit.js';
 import { rngFrom } from '../../cookbook/geo/noise.js';
+import { PLAYER } from '../../contracts.js';
+const PLAYER_SPAWN = PLAYER.spawn;
 import { heightAt, isLand, ROADS, PLACES, PROMENADE_Y, distPoly, ISLAND, SHORE_N, SHORE_S, nearRoad, alongShore } from '../../map.js';
 
 // ---------------------------------------------------------------- palm
@@ -46,7 +49,7 @@ function palmGeo(seed, H = 14, lo = false) {
   const n = lo ? 14 : 28;
   for (let k = 0; k < n; k++) card((k / n) * Math.PI * 2 + rnd() * 0.3, 0.2 + rnd() * 0.9, 4.8 + rnd() * 1.4, 2.3, 0, [1, 1, 1]);
   // dead fronds hanging against the trunk (Washingtonia petticoat remnants), straw-brown
-  if (!lo) for (let k = 0; k < 10; k++) card((k / 10) * Math.PI * 2 + rnd() * 0.5, 2.4 + rnd() * 0.6, 2.2, 1.2, -0.5, [1.55, 1.05, 0.55], 0.2);
+  if (!lo) for (let k = 0; k < 14; k++) card((k / 14) * Math.PI * 2 + rnd() * 0.5, 0.7 + rnd() * 0.3, 1.5, 1.7, -0.35, [0.95, 0.62, 0.34], 0.1);   // compact skirt of dead fronds under the crown
   const fg = new BufferGeometry();
   fg.setAttribute('position', new Float32BufferAttribute(cards.p, 3)); fg.setAttribute('normal', new Float32BufferAttribute(cards.n, 3));
   fg.setAttribute('uv', new Float32BufferAttribute(cards.u, 2)); fg.setAttribute('color', new Float32BufferAttribute(cards.c, 3)); fg.setIndex(cards.i); normalizeGeo(fg);
@@ -95,12 +98,12 @@ function boatKit(k, len, color, kind) {
 export function create(G, { mats, roads, footprints = [] }) {
   const group = new Group(); group.name = 'props';
   const rng = rngFrom(31);
-  const hiT = G.quality.tier === 'high' || G.quality.tier === 'ultra';
+  const hiT = G.quality.tier === 'high' || G.quality.tier === 'ultra', lo = G.quality.tier === 'low';
   const NR = [], nr = (o) => { group.add(o); NR.push(o); return o; };   // groups the river mirror skips (street trees, bush, shrubs, benches, lamp pools): far from the water, costly to redraw
   const colliders = [];
   // ----- trees
   const leafTex = leafTexture({ size: 256, seed: 5, kind: 'broad' });
-  const euTex = leafTexture({ size: 256, seed: 7, kind: 'needle', leaves: 120 });
+  const euTex = leafTexture({ size: 256, seed: 7, kind: 'needle', leaves: 200 });
   const leafMat = (tex, tint) => { const m = new MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: DoubleSide, vertexColors: true, roughness: 0.75, color: new Color(tint) }); foliagePatch(m, { trans: 0.22 }); m.name = 'leaves'; return m; };
   const barkMat = () => {
     const m = new MeshStandardMaterial({ color: 0x6f655a, roughness: 0.9, vertexColors: true }); m.name = 'bark';
@@ -113,19 +116,19 @@ export function create(G, { mats, roads, footprints = [] }) {
     float streak = 0.88 + 0.12 * sin(a * 14.0 + bkN(vec2(a, vBarkP.y * 0.6)) * 6.0);
     diffuseColor.rgb *= camo * streak * mix(0.75, 1.0, smoothstep(0.0, 0.6, vBarkP.y)); }`);
     });
-    return m;
+    return lampReceive(m);
   };
   const plane = treeGeo({ seed: 3, height: 12, trunkR: 0.3, branches: 10, leafSize: 2.0, density: 1.6 });
   const euc = treeGeo({ seed: 8, height: 16, trunkR: 0.34, branches: 8, leafSize: 2.0, density: 1.1, lean: 0.9 });
   const euc2 = treeGeo({ seed: 12, height: 11, trunkR: 0.25, branches: 7, leafSize: 1.7, density: 1.3, lean: 0.7 });
   const lineTrees = (P, spacing, off, oneSide) => { const pts = []; for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const tx = (b[0] - a[0]) / L, tz = (b[1] - a[1]) / L; for (let d = spacing / 2; d < L; d += spacing) for (const s of (oneSide ? [1] : [-1, 1])) pts.push(a[0] + tx * d + tz * off * s, a[1] + tz * d - tx * off * s); } return pts; };
   // London planes on Barrack Street + The Esplanade, Moreton Bay fig-like big trees around One The Esplanade
-  const planePts = []; for (const r of ROADS) { if ((r.cls !== 'p' && r.cls !== 's') || r.oneway && r.lanes < 2 || !r.pts.some((p) => p[1] < -150 && p[1] > -900 && p[0] > -450 && p[0] < 650)) continue; planePts.push(...lineTrees(r.pts, 22, r.w / 2 + 3.0, r.oneway)); }
+  const planePts = []; for (const r of ROADS) { if ((r.cls !== 'p' && r.cls !== 's') || r.oneway && r.lanes < 2 || !r.pts.some((p) => p[1] < -150 && p[1] > -900 && p[0] > -450 && p[0] < 650)) continue; planePts.push(...lineTrees(r.pts, 18, r.w / 2 + 2.2, r.oneway)); }
   { const ok = []; for (let i = 0; i < planePts.length; i += 2) if (!nearRoad(planePts[i], planePts[i + 1])) ok.push(planePts[i], planePts[i + 1]); planePts.length = 0; planePts.push(...ok); }   // never in a carriageway
   const inFoot = (x, z) => footprints.some((f) => { const P = f.pts; let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; } return c; });
   const keep = (arr, pad = 0) => { const o = []; for (let i = 0; i < arr.length; i += 2) if (!inFoot(arr[i], arr[i + 1]) && !inFoot(arr[i] + pad, arr[i + 1]) && !inFoot(arr[i] - pad, arr[i + 1]) && !inFoot(arr[i], arr[i + 1] + pad) && !inFoot(arr[i], arr[i + 1] - pad)) o.push(arr[i], arr[i + 1]); return o; };
   const pm = leafMat(leafTex, 0x9aa476), pb = barkMat();
-  nr((scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: keep(planePts, 4), heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [380, 520], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group));
+  nr((scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: keep(planePts, 1.2), heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [380, 520], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group));
   // eucalypts: Kings Park bushland (dense), foreshores, Langley Park, South Perth park
   const eucPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && !nearRoad(x, z) && !inFoot(x, z); } });
   const parkPts = poissonDisk({ x0: -900, z0: 520, w: 2900, h: 1300, r: 24, rng, accept: (x, z) => isLand(x, z) && z > 520 && distPoly(x, z, SHORE_S) > 10 && distPoly(x, z, SHORE_S) < 170 && !nearRoad(x, z) && !inFoot(x, z) && !(x > -300 && x < -130 && z > 1250 && z < 1400) });
@@ -139,10 +142,10 @@ export function create(G, { mats, roads, footprints = [] }) {
   // and the escarpment, with a dark shrub understorey. Dense low-cost canopy clumps fill between the full trees.
   const kpAccept = (x, z) => heightAt(x, z) > 6 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 55 && !nearRoad(x, z) && !inFoot(x, z);
   const clumpPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: G.quality.tier === 'high' || G.quality.tier === 'ultra' ? 7.5 : 9.5, rng, accept: kpAccept });
-  const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: 48, leafSize: 3.3 });   // 15–20 m jarrah / marri / tuart crowns
+  const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: hiT ? 64 : lo ? 28 : 48, leafSize: hiT ? 2.5 : lo ? 4.0 : 3.3 });   // 15–20 m jarrah / marri / tuart crowns
   clump.translate(0, 7.5, 0);
   const stem = lathe([[0.2, 0], [0.11, 7.2], [0, 7.8]], { seg: 4, crease: 89 });   // ends inside the crown
-  const cm = leafMat(euTex, 0x5c6844), cb = barkMat(); cb.color.set(0x463f37);
+  const cm = leafMat(euTex, 0x56604a), cb = barkMat(); cb.color.set(0x463f37);
   nr((scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: hiT ? [1100, 1500] : [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group));
   const shrubPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 10, rng, accept: kpAccept });
   const shrub = bushGeo({ seed: 23, radius: 1.5, height: 1.6, cards: 36, leafSize: 1.1 });
@@ -155,7 +158,6 @@ export function create(G, { mats, roads, footprints = [] }) {
   const cb2 = barkMat(); cb2.color.set(0x6e6458);
   group.add(scatter(G, { parts: [{ geo: stem, material: cb2 }, { geo: clump, material: leafMat(euTex, 0x66744c) }], points: spTrees, heightAt, scale: [0.8, 1.6], scaleY: [0.9, 1.5], tint: { color: 0xffffff, l: 0.14, h: 0.03 }, fade: [900, 1300], cell: 120, seed: 31 }).group);
   // Washingtonia palms: Barrack Square, Riverside Drive median, Mends Street, South Perth Esplanade
-  const lo = G.quality.tier === 'low';
   const fm = new MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: DoubleSide, vertexColors: true, roughness: 0.7 }); foliagePatch(fm, { trans: 0.16 }); fm.color.set(0xb4bca0); fm.name = 'fronds';
   const trunkMat = (H) => {
     const tm = new MeshStandardMaterial({ color: 0x8c7c68, roughness: 0.95, vertexColors: true }); tm.name = 'palm-trunk';
@@ -168,15 +170,17 @@ export function create(G, { mats, roads, footprints = [] }) {
     fib *= mix(0.8, 1.0, smoothstep(0.0, 1.2, vPalmP.y));
     diffuseColor.rgb *= ring * fib * mix(1.0, 0.6, smoothstep(${(H - 1.6).toFixed(1)}, ${(H - 0.6).toFixed(1)}, vPalmP.y)); }`);
     });
-    return tm;
+    return lampReceive(tm);
   };
   const PALMS = (lo ? [[5, 14]] : [[5, 14], [9, 11], [13, 17]]).map(([sd, H]) => ({ H, g: palmGeo(sd, H, lo), tm: trunkMat(H) }));
-  const palmPts = [];
+  const palmPts = [], eqPalms = [];
   for (const p of alongShore(SHORE_N, 150, 1100, 14, 14, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // EQ promenade: a palm every 18 m around the inlet, set back from the lamps and benches
-  for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z), 8.5)) palmPts.push(p[0], p[1]);   // alternate with the lamps
+  for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z) && Math.hypot(x - PLAYER_SPAWN[0], z - PLAYER_SPAWN[2]) > 9, 8.5)) eqPalms.push(p[0], p[1]);   // alternate with the lamps
   for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
   for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
+  // the inlet palms frame the hero view: never thinned by the phone tier
+  group.add(scatter(G, { parts: [{ geo: PALMS[0].g.trunk, material: PALMS[0].tm }, { geo: PALMS[0].g.fronds, material: fm }], points: eqPalms, heightAt, scale: [0.85, 1.15], fade: lo ? [160, 240] : [500, 700], cell: 400, seed: 7, tiered: false, sway: { amp: 0.12, freq: 0.8, height: PALMS[0].H, flutter: 0.4 } }).group);
   PALMS.forEach((V, vi) => {   // varied heights: every 3rd palm per variant
     const pts = []; for (let i = 0; i < palmPts.length; i += 2) if ((i / 2) % PALMS.length === vi) pts.push(palmPts[i], palmPts[i + 1]);
     group.add(scatter(G, { parts: [{ geo: V.g.trunk, material: V.tm }, { geo: V.g.fronds, material: fm }], points: pts, heightAt, scale: [0.85, 1.15], fade: [800, 1100], cell: 220, seed: 2 + vi, sway: { amp: 0.12, freq: 0.8, height: V.H, flutter: 0.4 } }).group);
@@ -197,7 +201,9 @@ export function create(G, { mats, roads, footprints = [] }) {
   }
   // EQ promenade lights + benches around the inlet
   let bi = 0;
-  for (const p of alongShore(SHORE_N, -110, 330, 17, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z))) { lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); if (bi++ % 2 === 0) benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
+  // keep the spawn-to-EQ-Bridge sightline clear of lamp poles (they split the arches in the opening frame)
+  const sightOK = (x, z) => { const ax = PLAYER_SPAWN[0], az = PLAYER_SPAWN[2], vx = -ax, vz = -10 - az, l2 = vx * vx + vz * vz, t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / l2)); return Math.hypot(ax + vx * t - x, az + vz * t - z) > 3 || t > 0.5; };
+  for (const p of alongShore(SHORE_N, -110, 330, 17, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z) && sightOK(x, z))) { lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); if (bi++ % 2 === 0) benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
   (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));
@@ -221,6 +227,7 @@ export function create(G, { mats, roads, footprints = [] }) {
     sharedUniform('uLampMap', 'sampler2D', null).value = tex;
     sharedUniform('uLampBox', 'vec4', new Vector4()).value.set(box[0], box[1], box[2], box[3]);
   }
+  lampReceive(mats.timber); lampReceive(mats.steel);
   nr((instanced(G, benchGeo(), mats, benchM, 'benches')));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }
 

@@ -167,6 +167,10 @@ void main() {
 
   // env mode: clamp fireflies (sun lobe) so the PMREM stays stable
   if (uEnv > 0.5) {
+    // fill light: real skylight is less saturated than the sky colour reads (multiple scattering, city haze, bounce):
+    // desaturate the upper hemisphere, warm the lower one, so shadowed streets go grey-blue rather than navy
+    float ly = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = rd.y > 0.0 ? mix(vec3(ly), col, 0.6) : col * vec3(1.08, 1.0, 0.9);
     float l = max(max(col.r, col.g), col.b);
     col *= min(1.0, uGlow.z / max(l, 1e-4));
   }

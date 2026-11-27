@@ -66,11 +66,11 @@ void surf(vec2 uv, inout Surf s) {
   vec3 sand = vec3(0.26, 0.24, 0.2) * (0.85 + 0.25 * fine);
   vec3 litter = mix(vec3(0.22, 0.14, 0.08), vec3(0.32, 0.25, 0.14), lv.w);
   vec3 col = mix(sand, litter, leaf * 0.85);
-  col = mix(col, mix(vec3(0.045, 0.065, 0.03), vec3(0.08, 0.095, 0.05), big) * (0.7 + 0.6 * fine), shrub * 0.95);
+  col = mix(col, mix(vec3(0.06, 0.08, 0.04), vec3(0.10, 0.115, 0.065), big) * (0.75 + 0.5 * fine), shrub * 0.9);
   col *= 0.85 + 0.3 * mid;
   col = mix(col, col * vec3(1.05, 0.95, 0.85), smoothstep(0.5, 0.8, big) * 0.4);
   s.albedo = col; s.height = 0.4 + 0.2 * fine + 0.3 * shrub + 0.1 * leaf;
-  s.rough = 0.92; s.ao = mix(1.0, 0.6, shrub); s.mask = 1.0;
+  s.rough = 0.92; s.ao = mix(1.0, 0.78, shrub); s.mask = 1.0;
 }`;
 
 // Exposed limestone (Kings Park escarpment, quay copings): creamy, pitted, layered.
