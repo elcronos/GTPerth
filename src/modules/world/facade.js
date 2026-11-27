@@ -142,7 +142,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
     shopSign = step(0.35, hu2) * (1.0 - smoothstep(2.4, 2.45, sx)) * (1.0 - smoothstep(0.26, 0.28, sy));
     frame = mix(frame, vec3(0.85, 0.82, 0.75), shopSign * 0.6);
   }
-  float avgGlass = style < 0.5 ? 0.88 : style < 1.5 ? 0.54 : style < 2.5 ? 0.58 : style < 3.5 ? 0.74 : style < 4.5 ? 0.76 : 0.0;
+  float avgGlass = style < 0.5 ? 0.80 : style < 1.5 ? 0.54 : style < 2.5 ? 0.58 : style < 3.5 ? 0.74 : style < 4.5 ? 0.76 : 0.0;
   if (shop > 0.5) avgGlass = 0.6;
   glass = mix(glass, avgGlass, far);
   slab = mix(slab, style < 0.5 ? 0.18 : style < 3.5 && style > 2.5 ? 0.13 : style > 3.5 && style < 4.5 ? 0.12 : 0.0, far);
@@ -176,10 +176,11 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   vec3 rCeil = vec3(0.6) + panel * lit * 1.6 * lampC;
   vec3 rFloor = mix(vec3(0.22, 0.2, 0.19), vec3(0.32, 0.27, 0.22), rnd2);
   vec3 rSide = vec3(0.62, 0.6, 0.57);
+  if (shop > 0.5) { rBack = mix(vec3(0.10, 0.09, 0.08), signC * 0.8 + 0.05, 0.4) * (0.5 + 0.5 * step(0.5, fract(hp.y * 1.4))); rSide *= 0.45; }   // shelving, merchandise
   vec3 room = ttz <= min(ttx, tty) ? rBack : (tty <= ttx ? (d.y > 0.0 ? rCeil : rFloor) : rSide);
   float dark = 0.08 + 0.10 * rnd;
   if (shop > 0.5) { room = mix(room, room * mix(vec3(1.0), signC * 2.5 + 0.4, 0.35), step(0.5, fcH(cell + 3.3))); lampC = vec3(1.0, 0.88, 0.7); }
-  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (1.1 + 2.0 * uNight) : 0.32 * lampC * (0.45 + 2.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.38 + 2.4 * uNight) : 0.32 * lampC * (0.45 + 2.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
   vec2 zone = vec2(floor(cell.x / 5.0), cell.y);   // blinds set per tenancy zone, not per window (no pixel confetti)
@@ -190,10 +191,10 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   float NdV = clamp(dot(-V, Nw), 0.0, 1.0);
   float F0 = dot(gl, vec3(0.333));
   float Fr = F0 + (1.0 - F0) * pow(1.0 - NdV, 5.0);
-  float transK = (1.0 - Fr) * (1.0 - slab) * (shop > 0.5 ? 0.85 : 0.55);
+  float transK = (1.0 - Fr) * (1.0 - slab) * (shop > 0.5 ? 0.65 : 0.55);
   fcEmit = room * transK * glass + shopSign * signC * (0.6 + 6.0 * uNight) * (1.0 - far * 0.5) + shopSign * vec3(1.0, 0.95, 0.85) * 2.2 * uNight;
   // final albedo / metal
-  if (shop > 0.5) gl *= 0.6;   // shop glass: darker, less mirror, interiors read
+  if (shop > 0.5) gl *= 0.8;   // shop glass: darker, less mirror, interiors read
   vec3 spandrel = gl * 0.6;
   frame *= mix(1.0, 0.65, uNight * (1.0 - shop));   // unlit cladding drops away at night
   vec3 glassAlb = mix(gl, spandrel, slab);

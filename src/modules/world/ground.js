@@ -172,11 +172,11 @@ vec4 gW; vec2 gXZ; float gRock;
   // bushland beyond the tree draw distance: paint a mottled eucalypt canopy (crowns ~8-12 m, sunlit tops vs dark gaps)
   // so Kings Park still reads as dense bush from the river, Mends St and the air
   float camDg = length(vWthPos - cameraPosition);
-  float inKP = step(-2000.0, gXZ.x) * step(gXZ.x, -650.0) * step(-950.0, gXZ.y) * step(gXZ.y, 750.0);
-  float farV = max(smoothstep(260.0, 650.0, camDg) * gW.z, smoothstep(800.0, 1400.0, camDg) * inKP * (1.0 - gW.w) * 0.95);   // Kings Park reads as canopy once its trees fade
+  float inKP = step(-2800.0, gXZ.x) * step(gXZ.x, -650.0) * step(-1100.0, gXZ.y) * step(gXZ.y, 900.0);
+  float farV = max(smoothstep(260.0, 650.0, camDg) * gW.z, smoothstep(700.0, 1300.0, camDg) * inKP * (1.0 - gW.w));   // Kings Park reads as canopy once its trees fade
   if (farV > 0.001) {
     float can = smoothstep(0.38, 0.62, vnoise3(vec3(gXZ * 0.11, 2.0)) * 0.65 + vnoise3(vec3(gXZ * 0.31, 4.0)) * 0.35);
-    vec3 canC = mix(vec3(0.028, 0.036, 0.022), vec3(0.10, 0.11, 0.065), can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));
+    vec3 canC = mix(vec3(0.024, 0.032, 0.02), vec3(0.075, 0.085, 0.05), can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));
     alb = mix(alb, canC, farV * 0.9);
   }
   float ao = mix(1.0, texture2D(tPO, gXZ * uSc.x).r, gW.x);
@@ -188,7 +188,7 @@ roughnessFactor = mix(roughnessFactor, 0.85, gRock);`)
   { // street-lamp light map (props.js): albedo-lit warm pools at night
     vec2 luv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
     float lamp = texture2D(uLampMap, luv).r * step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
-    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 2.8 + 0.03) * uNight;
+    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 3.4 + 0.03) * uNight;
   }
 #include <aomap_fragment>`)
       .replace('#include <normal_fragment_maps>', `{

@@ -103,7 +103,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
       const m = night;
       G.sun.dir.copy(sunV).lerp(moonDir, m).normalize();
       G.sun.color.setRGB(lerp(k.sun[0], 0.55, m), lerp(k.sun[1], 0.65, m), lerp(k.sun[2], 1.0, m));
-      G.sun.intensity = lerp(k.si, 1.5, m);
+      G.sun.intensity = lerp(k.si, 0.8, m);
     }
     syncAtmos(G);
     U.uZenith.value.fromArray(k.zen); U.uHorizon.value.fromArray(k.hor); U.uSunTint.value.fromArray(k.sun);
@@ -121,7 +121,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
       const bk = Math.min(1, Math.max(0, ((fw.x * sunV.x + fw.z * sunV.z) / (fl * sl) + 0.1) / 0.8)); const back = bk * bk * (3 - 2 * bk);
       const dr = (0.08 + 0.32 * back) * day, nr = 0.22 * nb;
       patchUniforms.uCharRim.value.setRGB(1.0 * dr + 0.61 * nr, 0.78 * dr + 0.69 * nr, 0.56 * dr + 0.88 * nr);
-      patchUniforms.uCharFill.value = 0.20 * uNight.value + 0.12 * back * day;   // lift a back-lit player
+      patchUniforms.uCharFill.value = 0.24 * uNight.value + 0.12 * back * day;   // lift a back-lit player
     }
     for (const n of G.nightMats) {
       const t = n.curve ? n.curve(uNight.value) : uNight.value;

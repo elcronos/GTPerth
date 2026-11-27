@@ -168,7 +168,7 @@ body.touch .bars { top: calc(124px + env(safe-area-inset-top)); left: calc(16px 
 body.touch .phone-stack { top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); right: auto; left: 50%; transform: translateX(-50%) scale(.8); transform-origin: bottom center; }
 body.touch .live { transform: scale(.75); transform-origin: top left; top: calc(200px + env(safe-area-inset-top)); }
 body.touch .objective { bottom: auto; top: calc(14px + env(safe-area-inset-top)); font-size: 16px; max-width: 46vw; }
-body.touch .loc { right: auto; left: 50%; bottom: auto; top: calc(40px + env(safe-area-inset-top)); transform: translateX(-50%) scale(.68); text-align: center; align-items: center; }
+body.touch .loc { right: auto; left: 50%; bottom: auto; top: calc(40px + env(safe-area-inset-top)); transform: translateX(-50%) scale(.82); text-align: center; align-items: center; }
 body.touch .prompt3d kbd { display: none; }
 body.touch .hud .tr { right: calc(70px + env(safe-area-inset-right)); transform: scale(.8); transform-origin: top right; }
 body.touch .controls-desktop, body.touch .hint-desktop { display: none !important; }

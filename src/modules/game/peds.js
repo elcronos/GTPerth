@@ -25,6 +25,7 @@ const LOOPS = {
 };
 const IDLE_SPOTS = alongShore(SHORE_N, -70, 300, 37, 2.2, (x, z) => z > -215 && z < 90).concat(alongShore(SHORE_S, -320, -100, 30, 3))
   .map((p) => [p[0], p[1], Math.atan2(-p[3], -p[4])]).filter((_, i) => i % 2 === 0).slice(0, 24);
+let VIS_R = 220, SHADOW_R = 60;
 export function createPeds(G, { avatars, col }) {
   const list = [];
   const pool = [...FEMALE.filter((n) => n !== PLAYER_AVATAR), ...MALE];
@@ -47,7 +48,8 @@ export function createPeds(G, { avatars, col }) {
   }
   // populate
   const R = () => Math.random();
-  const busy = G.quality.tier === 'high' || G.quality.tier === 'ultra';   // lived-in promenade on desktop; phones keep the light crowd
+  const busy = G.quality.tier === 'high' || G.quality.tier === 'ultra';
+  VIS_R = busy ? 220 : 140; SHADOW_R = busy ? 60 : 30;   // lived-in promenade on desktop; phones keep the light crowd
   for (let i = 0; i < (busy ? 16 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
   for (let i = 0; i < (busy ? 8 : 4); i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0], w[1], 'landing'); }
   for (let i = 0; i < 3; i++) { const L = LOOPS.west, w = L[Math.floor(R() * L.length)]; add('jog', w[0], w[1], 'west', { avatar: i % 2 ? 'Sports_Male_04' : 'Sports_Female_02' }); }
@@ -90,8 +92,10 @@ export function createPeds(G, { avatars, col }) {
     for (const p of list) {
       const ch = p.ch, pos = ch.position;
       const d2p = Math.hypot(pos.x - px, pos.z - pz);
-      const vis = d2p < 340; ch.root.visible = vis;
+      const vf = G.camLocked && G.focus ? Math.hypot(pos.x - G.focus.x, pos.z - G.focus.z) : d2p;   // photo cams: visibility follows the view
+      const vis = vf < VIS_R; ch.root.visible = vis;
       if (!vis) continue;
+      const sh = vf < SHADOW_R; if (ch._sh !== sh) { ch._sh = sh; ch.inst.obj.traverse((o) => { if (o.isMesh) o.castShadow = sh; }); }   // only near people cast sun shadows (shadow-pass calls)
       if (ch.state !== 'ok') { ch.update(dt, groundAt(pos.x, pos.z, pos.y).y); continue; }
       // danger: fast vehicle heading at them, or the player sprinting at them with a car
       let target = 0;
@@ -117,6 +121,9 @@ export function createPeds(G, { avatars, col }) {
       let nx = pos.x + Math.sin(p.yaw) * p.speed * dt, nz = pos.z + Math.cos(p.yaw) * p.speed * dt;
       const c = col.circleVsWorld(nx, nz, 0.3); if (c.hit) { nx = c.x; nz = c.z; if (p.state === 'flee') p.yaw += 0.6; }
       if (!isLand(nx, nz) && !onBridge(nx, nz)) { nx = pos.x; nz = pos.z; p.yaw += Math.PI * 0.5; if (p.path) p.wp = (p.wp + p.dir + p.path.length) % p.path.length; }
+      // camera bubble: walkers step around the lens instead of filling it (GTA keeps a clear near field)
+      { const cp = G.camera.position, cx = nx - cp.x, cz = nz - cp.z, cd = Math.hypot(cx, cz);
+        if (cd < 3.5 && cd > 1e-3) { const k = (3.5 - cd) * 0.8 * dt; nx += (cx / cd) * k * 3; nz += (cz / cd) * k * 3; p.speed *= 0.97; } }
       // separation from other peds
       for (const o of list) if (o !== p && o.ch.root.visible) { const ox = nx - o.ch.position.x, oz = nz - o.ch.position.z, od = Math.hypot(ox, oz); if (od < 0.7 && od > 1e-3) { nx += (ox / od) * (0.7 - od) * 0.5; nz += (oz / od) * (0.7 - od) * 0.5; } }
       pos.x = nx; pos.z = nz;

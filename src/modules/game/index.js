@@ -257,7 +257,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (!G.camLocked) player.updateCamera(rawDt, mode);
     if (G.camLocked) { G.camera.getWorldDirection(_b); tmpFocus.set(G.camera.position.x + _b.x * 45, 0, G.camera.position.z + _b.z * 45); }   // photo/fly cams: shadows + traffic follow the view
     else tmpFocus.set(player.vehicle ? player.vehicle.x : player.x, 0, player.vehicle ? player.vehicle.z : player.z);
-    G.focus = tmpFocus; G.shadowRadius = (player.vehicle === ferry ? 170 : 120) * (G.quality.tier === 'low' ? 0.42 : 1);
+    G.focus = tmpFocus; G.shadowRadius = (player.vehicle === ferry ? 170 : 90) * (G.quality.tier === 'low' ? 0.55 : 1);
     // prompts
     let p3 = null;
     if (!player.vehicle && state.mode === 'playing') {
