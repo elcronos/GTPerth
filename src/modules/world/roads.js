@@ -129,9 +129,12 @@ export function create(G, { mats }) {
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   g.setAttribute('aRoad', new Float32BufferAttribute(road, 4)); g.setIndex(idx); g.computeVertexNormals();
+  // the road/kerb materials use vertex colours: without a colour attribute WebGL reads (0,0,0) and the bitumen renders black
+  g.setAttribute('color', new Float32BufferAttribute(new Float32Array(pos.length).fill(1), 3));
   const m = new Mesh(g, mats.road); m.name = 'roads'; m.receiveShadow = true; m.renderOrder = -1;
   const kg = new BufferGeometry();
   kg.setAttribute('position', new Float32BufferAttribute(kpos, 3)); kg.setAttribute('uv', new Float32BufferAttribute(kuv, 2)); kg.setIndex(kidx); kg.computeVertexNormals();
+  kg.setAttribute('color', new Float32BufferAttribute(new Float32Array(kpos.length).fill(1), 3));
   const km = new Mesh(kg, mats.kerb); km.name = 'kerbs'; km.receiveShadow = true;
   return { meshes: [m, km], lanes };
 }

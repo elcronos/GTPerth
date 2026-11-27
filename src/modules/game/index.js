@@ -289,6 +289,7 @@ export async function create(G, { input, world, fx, quality }) {
     debugBusted: () => fail('busted'),
     boardFerry: () => { player.teleport(14, -126, Math.PI / 2); enterVehicle(ferry); },
     teleport: (x, z) => player.teleport(x, z, player.yaw),
+    groundY: (x, z) => groundAt(x, z, 999).y,
     start: startGame,
   };
   return { update() {} };

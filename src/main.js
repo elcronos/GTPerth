@@ -42,7 +42,7 @@ async function main() {
 
   const mats = await stage('materials', () => { World.registerSurfaces(); initMaterials(G); return World.makeWorldMaterials(); }, { critical: true, msg: 'Quarrying limestone', at: 0.22 });
   mats.glassLight.emissive.setRGB(1.0, 0.9, 0.72);
-  (G.nightMats ||= []).push({ mat: mats.canopyBlue, night: 1.6 }, { mat: mats.ledPurple, night: 7 }, { mat: mats.archWhite, night: 0.45 }, { mat: mats.glassLight, night: 1.4 });
+  (G.nightMats ||= []).push({ mat: mats.canopyBlue, night: 0.35 }, { mat: mats.ledPurple, night: 4 }, { mat: mats.archWhite, night: 0.6 }, { mat: mats.glassLight, night: 1.4 });
   const world = await stage('world', () => World.create(G, { mats }), { critical: true, msg: 'Building Elizabeth Quay', at: 0.4 });
   G.world = world;
   finalizeMaterials(G, G.scene);

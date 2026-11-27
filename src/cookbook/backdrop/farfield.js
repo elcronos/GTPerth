@@ -61,6 +61,7 @@ uniform vec3 uBody;
 uniform vec3 uBodyTop;
 uniform vec3 uWinColor;
 uniform float uRough;
+uniform float uFade;
 ` + ATMOS_DECL + ATMOS_GLSL + /*glsl*/`
 float ffHash(float n) { return fract(sin(n * 127.1 + uSeed * 311.7) * 43758.5453); }
 float ffHash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uSeed * 74.7) * 43758.5453); }
@@ -154,7 +155,7 @@ void main() {
   // fog at an apparent distance (art knob uFogScale) along the true view ray
   vec3 fw = cameraPosition + (vW - cameraPosition) * uFogScale;
   col = atmosApply(col, fw, cameraPosition);
-  gl_FragColor = vec4(col, cov);
+  gl_FragColor = vec4(col, cov * uFade);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
@@ -196,7 +197,7 @@ export function createFarfield(G, { layers = FARFIELD_PRESETS.industrial, center
         uHeight: { value: L.height }, uSeed: { value: L.seed ?? i * 3 + 1 }, uWindows: { value: L.windows ?? 0 }, uRim: { value: L.rim ?? 1 },
         uFogScale: { value: L.fogScale ?? 1 }, uBody: { value: new Color().fromArray(L.body || [0.05, 0.05, 0.06]) },
         uBodyTop: { value: new Color().fromArray(L.top || [0.1, 0.1, 0.11]) }, uWinColor: { value: new Color().fromArray(L.winColor || winColor) },
-        uRough: { value: L.rough ?? 1 },
+        uRough: { value: L.rough ?? 1 }, uFade: { value: 1 },
       },
     });
     mat.userData.noAtmos = true;
@@ -208,7 +209,9 @@ export function createFarfield(G, { layers = FARFIELD_PRESETS.industrial, center
   if (add && G?.scene) G.scene.add(group);
   const update = () => { // allocation-free: rings follow the camera by their follow factor
     const c = G.camera.position;
-    for (let i = 0; i < items.length; i++) { const it = items[i]; it.m.position.x = center[0] + c.x * it.follow; it.m.position.z = center[1] + c.z * it.follow; }
+    for (let i = 0; i < items.length; i++) { const it = items[i]; it.m.position.x = center[0] + c.x * it.follow; it.m.position.z = center[1] + c.z * it.follow;
+      // seen from high above, a ring reads as a band floating at the horizon: fade it out as the camera climbs
+      const h = it.L.height; const t = Math.min(1, Math.max(0, (c.y - h * 1.5) / (h * 2.5))); it.m.material.uniforms.uFade.value = 1 - t * t * (3 - 2 * t); it.m.visible = t < 0.999; }
   };
   if (G?.on) G.on('update', update);
   update();

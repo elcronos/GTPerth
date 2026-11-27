@@ -62,9 +62,12 @@ void main() {
   if (z > uFar * 0.99 || z < 0.06) { gl_FragColor = vec4(1.0); return; }
   vec3 c = viewPos((vec2(p) + 0.25) / uRes, z, uTanH);
   vec3 l = P(p + ivec2(-1, 0)), r = P(p + ivec2(1, 0)), d = P(p + ivec2(0, -1)), u = P(p + ivec2(0, 1));
-  vec3 dx = abs(r.z - c.z) < abs(c.z - l.z) ? r - c : c - l;
-  vec3 dy = abs(u.z - c.z) < abs(c.z - d.z) ? u - c : c - d;
-  vec3 n = normalize(cross(dx, dy));
+  ivec2 mx = ivec2(uRes) - 1;
+  // at the frame border the clamped neighbour equals c: take the in-bounds side only
+  vec3 dx = p.x == 0 ? r - c : p.x == mx.x ? c - l : (abs(r.z - c.z) < abs(c.z - l.z) ? r - c : c - l);
+  vec3 dy = p.y == 0 ? u - c : p.y == mx.y ? c - d : (abs(u.z - c.z) < abs(c.z - d.z) ? u - c : c - d);
+  vec3 cr = cross(dx, dy);
+  vec3 n = dot(cr, cr) > 1e-12 ? normalize(cr) : vec3(0.0, 0.0, 1.0);
   // world radius -> pixels at this depth (clamped: huge radii thrash the cache, tiny ones alias)
   float rpx = clamp(uRadius * uRes.y * 0.5 / (z * uTanH.y), 2.0, 64.0);
   float rot = ign(gl_FragCoord.xy) * 6.2831853;
@@ -83,6 +86,8 @@ void main() {
     ao += max(0.0, dot(v, n) * inversesqrt(vv + 1e-6) - uBias) * fall;
   }
   ao = clamp(1.0 - uIntensity * ao / float(AO_TAPS), 0.0, 1.0);
+  float edge = float(min(min(p.x, p.y), min(mx.x - p.x, mx.y - p.y)));
+  ao = mix(1.0, ao, smoothstep(0.0, 6.0, edge));   // no half-hemisphere darkening along the frame border
   gl_FragColor = vec4(ao, ao, ao, 1.0);
 }
 `;

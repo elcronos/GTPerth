@@ -321,10 +321,16 @@ const SEA_STATE = /*glsl*/`
 const SEA_REFL = /*glsl*/`
 #if defined( RE_IndirectSpecular )
   if (uReflOn > 0.5) {
-    vec4 rc = uReflMat * vec4(vSeaW + vec3(seaN.x, 0.0, seaN.z) * 1.5, 1.0);
+    float rOff = mix(0.25, 0.9, smoothstep(10.0, 300.0, length(vSeaW - cameraPosition)));   // small near the eye: no zig-zag smear
+    vec4 rc = uReflMat * vec4(vSeaW + vec3(seaN.x, 0.0, seaN.z) * rOff, 1.0);
     vec2 ruv = clamp(rc.xy / max(rc.w, 1e-4), vec2(0.002), vec2(0.998));
     vec3 pr = textureLod(uReflTex, ruv, material.roughness * 8.0 + uReflLod).rgb;
     radiance = mix(radiance, min(pr, vec3(60.0)), 0.85);
+  } else {
+    // no planar pass (low tier): fake the shoreline / skyline reflection as a dark band just above the horizon
+    vec3 rw = reflect(-seaV, seaN);
+    float hb = 1.0 - smoothstep(0.0, 0.07 + 0.05 * sin(atan(rw.z, rw.x) * 23.0) * sin(atan(rw.z, rw.x) * 7.0), rw.y);
+    radiance *= mix(1.0, 0.32, hb * 0.85);
   }
 #endif
 `;
@@ -336,7 +342,7 @@ const SEA_END = /*glsl*/`
     float fwd = pow(clamp(dot(Vd, uSeaSunDir), 0.0, 1.0), 4.0);
     float crest = clamp(vSeaP.y * 0.9 + 0.35, 0.0, 1.0);
     float sunUp = smoothstep(-0.02, 0.1, uSeaSunDir.y);
-    reflectedLight.indirectDiffuse += uSeaSunCol * vec3(0.10, 0.55, 0.45) * uSeaScatter * fwd * crest * sunUp * (1.0 - seaFoamA) * 1.5;
+    reflectedLight.indirectDiffuse += uSeaSunCol * vec3(0.10, 0.42, 0.50) * uSeaScatter * fwd * crest * sunUp * (1.0 - seaFoamA) * 1.5;
     reflectedLight.directSpecular = min(reflectedLight.directSpecular, vec3(80.0));
   }
 `;

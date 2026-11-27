@@ -35,7 +35,7 @@ const STYLE = { curtain: 0, punched: 1, ribbon: 2, fins: 3, resi: 4, solid: 5, r
 // walls of one extruded ring. P local CCW; xform(local) → world [x,z]; smooth: per-vertex normals (circles)
 function walls(A, P, y0, y1, T, o, smooth, yTop) {
   const n = P.length; let u = 0;
-  const fac = [o.pw || 1.5, o.fh || 3.6, STYLE[o.style] ?? 0, o.seed || 0];
+  const fac = [o.pw || 1.5, o.fh || 3.6, STYLE[o.style] ?? 0, o.shop ? -(o.seed || 0) - 1 : o.seed || 0];   // negative seed = street-level shopfronts
   const W = P.map((p) => T(p));
   for (let i = 0; i < n; i++) {
     const a = W[i], b = W[(i + 1) % n];
@@ -81,14 +81,14 @@ export function addBuilding(A, b, footprints) {
     // orient so that the wall normal formula [tz,0,-tx] points outward: for x-east/z-south that needs CW order seen from above
     P = ensureCCW(P);
     const y1 = base + t.h;
-    const o = { pw: t.pw ?? b.pw, fh: t.fh ?? b.fh, style: t.style ?? b.style, seed: (b.seed ?? 1) + ti, base, frame: t.frame ?? b.frame, glass: t.glass ?? b.glass, roofCol: b.roofCol };
+    const o = { pw: t.pw ?? b.pw, fh: t.fh ?? b.fh, style: t.style ?? b.style, seed: (b.seed ?? 1) + ti, base, shop: ti === 0 && b.shop !== false && !!b.shop, frame: t.frame ?? b.frame, glass: t.glass ?? b.glass, roofCol: b.roofCol };
     const yTop = t.slope ? (p) => { const lx = (p[0] - b.x) * c + (p[1] - b.z) * s, lz = -(p[0] - b.x) * s + (p[1] - b.z) * c; const k = t.slope.axis === 'x' ? lx : lz; return y1 + (k * t.slope.k); } : null;
     walls(A, P, ti === 0 ? base - 2 : y, y1, T, o, !!t.r, yTop);
     if (!t.noCap) cap(A, P, y1, T, o, yTop);
     // parapet ring on the top of every tier that has a flat roof
     if (!t.slope && t.parapet !== 0) {
-      const ph = t.parapet ?? 1.1;
-      walls(A, P, y1, y1 + ph, T, { ...o, style: 'solid', frame: o.frame.map((v) => v * 0.9), fh: 4, pw: 3 }, !!t.r);
+      const ph = t.parapet ?? (y1 - base > 80 ? 2.4 : 1.1);   // towers: tall screened roof edge
+      walls(A, P, y1, y1 + ph, T, { ...o, shop: false, style: 'solid', frame: o.frame.map((v) => v * 0.9), fh: 4, pw: 3 }, !!t.r);
       cap(A, insetPts(P, 0.35), y1 + ph, T, { ...o, roofCol: o.frame.map((v) => v * 0.8) });
     }
     if (ti === 0 && footprints) footprints.push({ pts: P.map(T), name: b.name, h: t.h });
@@ -129,11 +129,11 @@ function insetPts(P, d) {
 // ---------------------------------------------------------------- the skyline
 // Perth's CBD reads as deep blue/blue-grey reflective glass (photo-matched); frames are mid-grey, not white
 const GL = {
-  silver: [0.2, 0.25, 0.31], blue: [0.09, 0.17, 0.32], green: [0.1, 0.2, 0.19], grey: [0.13, 0.18, 0.24],
+  silver: [0.14, 0.19, 0.26], blue: [0.05, 0.12, 0.30], green: [0.1, 0.2, 0.19], grey: [0.13, 0.18, 0.24],
   bronze: [0.22, 0.17, 0.12], clear: [0.13, 0.19, 0.25], dark: [0.07, 0.09, 0.11], teal: [0.1, 0.21, 0.25],
 };
-const FR = { white: [0.5, 0.51, 0.52], alu: [0.36, 0.38, 0.4], lightAlu: [0.5, 0.52, 0.53], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
-  granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.68, 0.64, 0.56], precast: [0.5, 0.48, 0.44] };
+const FR = { white: [0.42, 0.43, 0.44], alu: [0.36, 0.38, 0.4], lightAlu: [0.5, 0.52, 0.53], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
+  granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.56, 0.52, 0.45], precast: [0.44, 0.42, 0.39] };
 
 export const NAMED = [
   // ---- Elizabeth Quay (positions from OSM; podiums are the mapped footprints, towers raked with the city grid)
@@ -205,13 +205,13 @@ const NAMED_STYLE = [
   [/140 St Georges/, { style: 'punched', frame: FR.precast, glass: GL.dark }],
   [/Bankwest/, { style: 'curtain', frame: FR.alu, glass: GL.green }],
 ];
-const NAMED_COL = { white: [0.8, 0.8, 0.78], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
-  red: [0.5, 0.16, 0.1], yellow: [0.72, 0.6, 0.3], cream: [0.75, 0.7, 0.58], black: [0.08, 0.08, 0.08], blue: [0.15, 0.25, 0.45], green: [0.2, 0.32, 0.22], orange: [0.7, 0.35, 0.15], sandstone: FR.sandstone };
+const NAMED_COL = { white: [0.56, 0.56, 0.54], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
+  red: [0.5, 0.16, 0.1], yellow: [0.72, 0.6, 0.3], cream: [0.6, 0.56, 0.47], black: [0.08, 0.08, 0.08], blue: [0.15, 0.25, 0.45], green: [0.2, 0.32, 0.22], orange: [0.7, 0.35, 0.15], sandstone: FR.sandstone };
 function osmColour(c) {
   if (!c) return null; c = c.trim().toLowerCase();
   if (NAMED_COL[c]) return NAMED_COL[c];
   const m = c.match(/^#?([0-9a-f]{6})$/); if (!m) return null;
-  const v = parseInt(m[1], 16), lin = (x) => Math.pow(x / 255, 2.2);
+  const v = parseInt(m[1], 16), lin = (x) => Math.min(0.6, Math.pow(x / 255, 2.2));   // no paper-white cladding
   return [lin((v >> 16) & 255), lin((v >> 8) & 255), lin(v & 255)];
 }
 const HOUSE = /^(house|detached|semidetached_house|terrace|bungalow|garage|garages|shed|hut|carport|roof)$/;
@@ -236,10 +236,10 @@ function osmBuildings(rng) {
     let style, frame, glass, pw = 1.5, fh = 3.4;
     const tallish = h > 28;
     if (HOUSE.test(type) || (h < 8 && sp)) { style = 'punched'; frame = [0.72 + r() * 0.1, 0.6 + r() * 0.1, 0.5]; glass = GL.dark; pw = 2.4; fh = 3.0; }
-    else if (/apartments|residential|hotel|dormitory/.test(type)) { style = tallish ? 'resi' : 'punched'; const tn = 0.7 + r() * 0.15; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.1; }
+    else if (/apartments|residential|hotel|dormitory/.test(type)) { style = tallish ? 'resi' : 'punched'; const tn = 0.48 + r() * 0.14; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.1; }
     else if (/church|cathedral|chapel|civic|public|government|courthouse/.test(type)) { style = 'punched'; frame = FR.sandstone; glass = GL.dark; pw = 3; fh = 4.5; }
     else if (/train_station|transportation|retail|supermarket/.test(type)) { style = 'curtain'; frame = FR.alu; glass = GL.clear; pw = 2; fh = 4.5; }
-    else if (tallish) { style = ['curtain', 'curtain', 'ribbon', 'fins', 'punched'][(r() * 5) | 0]; frame = [FR.alu, FR.lightAlu, FR.precast, FR.dark, FR.white][(r() * 5) | 0]; glass = [GL.grey, GL.blue, GL.silver, GL.clear, GL.dark, GL.teal][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
+    else if (tallish) { style = ['curtain', 'curtain', 'ribbon', 'fins', 'punched'][(r() * 5) | 0]; frame = [FR.alu, FR.alu, FR.dark, FR.lightAlu, FR.precast][(r() * 5) | 0]; glass = [GL.blue, GL.blue, GL.grey, GL.teal, GL.silver, GL.dark][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
     else { style = ['punched', 'ribbon', 'curtain'][(r() * 3) | 0]; frame = [FR.cream, FR.sandstone, FR.precast, FR.alu][(r() * 4) | 0]; glass = GL.dark; pw = 1.8 + r(); fh = 3.6; }
     const nm = b.n && NAMED_STYLE.find(([re]) => re.test(b.n));
     let mast = null;
@@ -247,7 +247,8 @@ function osmBuildings(rng) {
     const col = osmColour(b.col); if (col) frame = col;
     const pts = ring.map((p) => [p[0] - cx, p[1] - cz]);
     let ground = 1e9; for (const p of ring) ground = Math.min(ground, heightAt(p[0], p[1]));
-    out.push({ name: b.n || 'osm', x: cx, z: cz, base: ground - 0.3 + mh, style, pw, fh, frame, glass, seed: 200 + out.length,
+    const shop = !mh && !(HOUSE.test(type) || (h < 8 && sp) || /church|cathedral|chapel|civic|public|government|courthouse|parking|garage|shed|roof|service|industrial/.test(type)) && area > 120;
+    out.push({ name: b.n || 'osm', x: cx, z: cz, base: ground - 0.3 + mh, style, pw, fh, frame, glass, seed: 200 + out.length, shop,
       plant: h > 40 && !mast && !b.part, mast, tiers: [{ pts, h: h - mh, parapet: h > 12 ? undefined : 0 }] });
   }
   return out;

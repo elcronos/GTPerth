@@ -18,7 +18,7 @@ void surf(vec2 uv, inout Surf s) {
   float joint = 1.0 - smoothstep(0.0025, 0.0045, dJ);
   float bevel = 1.0 - smoothstep(0.0, 0.012, dJ);
   float fine = nfbm(uv, 60.0, 3, 2.0), mid = nfbm(uv, 3.0, 4, 4.0), speck = step(0.78, nval(uv, 220.0, 5.0));
-  vec3 granite = vec3(0.22, 0.22, 0.22), lime = vec3(0.34, 0.33, 0.31), dark = vec3(0.13, 0.13, 0.135);   // EQ granite setts: charcoal + mid grey (photo-matched)
+  vec3 granite = vec3(0.115, 0.113, 0.11), lime = vec3(0.152, 0.148, 0.14), dark = vec3(0.078, 0.077, 0.078);   // EQ granite setts: charcoal + mid grey (photo-matched)
   vec3 col = mix(mix(granite, lime, step(0.55, h1)), dark, step(0.86, h1));
   col = mix(col, dark, step(0.93, h2) * 0.8);
   col *= (0.94 + 0.1 * h2) * (0.92 + 0.12 * fine);
@@ -26,8 +26,8 @@ void surf(vec2 uv, inout Surf s) {
   float grime = smoothstep(0.45, 0.85, nfbm(uv, 0.8, 4, 9.0)); col *= 1.0 - 0.28 * grime;
   float wearPath = smoothstep(0.55, 0.9, nfbm(uv, 0.42, 3, 21.0)); col = mix(col, col * vec3(1.06, 1.04, 1.0), wearPath * 0.5);
   float gum = (1.0 - smoothstep(0.0, 0.08, nvor(uv, 3.0, 1.0, 11.0).x)) * step(0.9, nvor(uv, 3.0, 1.0, 11.0).w);
-  col = mix(col, vec3(0.16, 0.15, 0.15), gum * 0.6);
-  col = mix(col, vec3(0.08, 0.075, 0.07), joint);
+  col = mix(col, vec3(0.08, 0.075, 0.075), gum * 0.6);
+  col = mix(col, vec3(0.035, 0.033, 0.03), joint);
   s.albedo = col;
   s.height = 0.7 + 0.04 * fine + 0.02 * mid - bevel * bevel * 0.25 - joint * 0.5;
   s.rough = clamp(0.74 + 0.1 * fine + grime * 0.08 + joint * 0.2 - step(0.55, h1) * 0.05 - wearPath * 0.08, 0.0, 1.0);
@@ -42,13 +42,13 @@ void surf(vec2 uv, inout Surf s) {
   float big = nfbm(uv, 0.35, 4, 1.0), mid = nfbm(uv, 1.6, 4, 2.0);
   float blades = nfbm2(uv, vec2(90.0, 30.0), 3, 3.0), micro = nfbm(uv, 240.0, 2, 4.0);
   float clump = nvor(uv, 9.0, 1.0, 5.0).x;
-  vec3 green = vec3(0.055, 0.115, 0.028), lush = vec3(0.045, 0.13, 0.03), dry = vec3(0.20, 0.17, 0.07);
+  vec3 green = vec3(0.06, 0.09, 0.034), lush = vec3(0.05, 0.10, 0.032), dry = vec3(0.18, 0.155, 0.07);
   vec3 col = mix(green, lush, mid);
-  col = mix(col, dry, smoothstep(0.55, 0.85, big) * 0.65);
+  col = mix(col, dry, smoothstep(0.50, 0.80, big) * 0.8);
   col *= 0.72 + 0.5 * blades;
   col *= 0.85 + 0.25 * smoothstep(0.0, 0.5, clump);
   float stripe = step(0.5, fract(m.x / 1.2));
-  col *= 0.93 + 0.12 * stripe;
+  col *= 0.97 + 0.05 * stripe;
   float soil = smoothstep(0.86, 0.97, nfbm(uv, 2.0, 5, 7.0));
   col = mix(col, vec3(0.16, 0.12, 0.08), soil * 0.5);
   s.albedo = col; s.height = 0.5 + 0.3 * blades + 0.1 * micro - soil * 0.2;

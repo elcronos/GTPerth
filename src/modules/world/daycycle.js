@@ -3,7 +3,7 @@
 // then civil / nautical twilight and a moonlit night with stars and the city lit up.
 //
 // The clock runs 12:00 → 24:00 (then wraps to 12:00). Default speed: 12 game hours in 24 real minutes.
-//   default start 17:15 (golden hour: low, back-lit sun); ?time=18.5  start at 18:30      ?timescale=120  game seconds per real second (default 30)
+//   default start 18:03 (golden hour: low, back-lit sun; clock runs at half speed while 2° < el < 15°); ?time=18.5  start at 18:30      ?timescale=120  game seconds per real second (default 30)
 // Drives: G.sun (dir / colour / intensity → light, atmos, fog in-scatter), sky dome uniforms, the sky-matched
 // environment map (re-baked every few seconds), post exposure / grade, shadow refits, night emissives
 // (G.nightMats registry), window lights (shared uNight uniform), stars + moon.
@@ -32,11 +32,11 @@ const K = [
   { el: -18, zen: [0.0016, 0.0024, 0.0062], hor: [0.010, 0.010, 0.016], sun: [0.55, 0.65, 1.0], si: 0.0, fogSc: [0.10, 0.11, 0.16], sat: 1.05, key: 0.07, amax: 7, env: 0.55, glow: 0.2 },
   { el: -8, zen: [0.004, 0.008, 0.024], hor: [0.05, 0.035, 0.05], sun: [0.6, 0.6, 0.9], si: 0.0, fogSc: [0.25, 0.22, 0.28], sat: 1.12, key: 0.09, amax: 6, env: 0.65, glow: 0.4 },
   { el: -3, zen: [0.012, 0.025, 0.075], hor: [0.42, 0.20, 0.13], sun: [1.0, 0.42, 0.22], si: 0.0, fogSc: [0.75, 0.42, 0.33], sat: 1.25, key: 0.12, amax: 4, env: 0.8, glow: 0.9 },
-  { el: 0.5, zen: [0.03, 0.065, 0.19], hor: [1.0, 0.46, 0.22], sun: [1.0, 0.48, 0.24], si: 6.0, fogSc: [0.98, 0.58, 0.38], sat: 1.30, key: 0.17, amax: 2.6, env: 0.9, glow: 1.5 },
-  { el: 8, zen: [0.045, 0.11, 0.30], hor: [1.02, 0.6, 0.34], sun: [1.0, 0.6, 0.33], si: 10.5, fogSc: [0.98, 0.66, 0.44], sat: 1.30, key: 0.2, amax: 1.9, env: 0.95, glow: 1.35 },
-  { el: 20, zen: [0.05, 0.14, 0.40], hor: [0.75, 0.68, 0.58], sun: [1.0, 0.8, 0.6], si: 11.5, fogSc: [0.82, 0.78, 0.74], sat: 1.2, key: 0.2, amax: 1.7, env: 0.95, glow: 1.0 },
-  { el: 45, zen: [0.045, 0.15, 0.48], hor: [0.55, 0.66, 0.78], sun: [1.0, 0.92, 0.82], si: 12.5, fogSc: [0.70, 0.76, 0.86], sat: 1.12, key: 0.2, amax: 1.6, env: 1.0, glow: 0.8 },
-  { el: 90, zen: [0.04, 0.15, 0.50], hor: [0.50, 0.64, 0.80], sun: [1.0, 0.96, 0.9], si: 13.0, fogSc: [0.66, 0.74, 0.86], sat: 1.10, key: 0.2, amax: 1.6, env: 1.0, glow: 0.7 },
+  { el: 0.5, zen: [0.035, 0.08, 0.19], hor: [1.0, 0.46, 0.22], sun: [1.0, 0.48, 0.24], si: 6.0, fogSc: [0.98, 0.58, 0.38], sat: 1.30, key: 0.17, amax: 2.6, env: 0.9, glow: 1.5 },
+  { el: 8, zen: [0.05, 0.13, 0.30], hor: [1.02, 0.6, 0.34], sun: [1.0, 0.6, 0.33], si: 12.0, fogSc: [0.98, 0.66, 0.44], sat: 1.30, key: 0.2, amax: 1.9, env: 0.70, glow: 1.35 },
+  { el: 20, zen: [0.05, 0.14, 0.40], hor: [0.75, 0.68, 0.58], sun: [1.0, 0.8, 0.6], si: 11.8, fogSc: [0.82, 0.78, 0.74], sat: 1.2, key: 0.2, amax: 1.7, env: 0.82, glow: 1.0 },
+  { el: 45, zen: [0.045, 0.15, 0.48], hor: [0.55, 0.66, 0.78], sun: [1.0, 0.92, 0.82], si: 12.5, fogSc: [0.70, 0.76, 0.86], sat: 1.02, key: 0.2, amax: 1.6, env: 1.0, glow: 0.8 },
+  { el: 90, zen: [0.04, 0.15, 0.50], hor: [0.50, 0.64, 0.80], sun: [1.0, 0.96, 0.9], si: 13.0, fogSc: [0.66, 0.74, 0.86], sat: 1.0, key: 0.2, amax: 1.6, env: 1.0, glow: 0.7 },
 ];
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerp3 = (a, b, t, out) => { out[0] = lerp(a[0], b[0], t); out[1] = lerp(a[1], b[1], t); out[2] = lerp(a[2], b[2], t); return out; };
@@ -49,7 +49,7 @@ function sample(el) {
 }
 
 function starField() {
-  const n = 2400, p = new Float32Array(n * 3), c = new Float32Array(n * 3);
+  const n = 900, p = new Float32Array(n * 3), c = new Float32Array(n * 3);
   let s = 7;
   const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < n; i++) {
@@ -60,7 +60,7 @@ function starField() {
     c[i * 3] = b * (0.85 + 0.15 * w); c[i * 3 + 1] = b * 0.9; c[i * 3 + 2] = b * (1.0 - 0.1 * w);
   }
   const g = new BufferGeometry(); g.setAttribute('position', new Float32BufferAttribute(p, 3)); g.setAttribute('color', new Float32BufferAttribute(c, 3));
-  const m = new PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: AdditiveBlending });
+  const m = new PointsMaterial({ size: 1.1, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: AdditiveBlending });
   m.userData.noAtmos = true; m.userData.noWeather = true;
   const pts = new Points(g, m); pts.frustumCulled = false; pts.renderOrder = 1e6 + 1; pts.scale.setScalar(6000);
   return pts;
@@ -77,7 +77,7 @@ function moonSprite() {
 
 export function createDayCycle(G, { sky, env, shadows }) {
   const q = G.params;
-  const clock = G.clock = { hours: q.has('time') ? +q.get('time') : 17.25, scale: q.has('timescale') ? +q.get('timescale') : 30, frozen: q.has('shot') && !q.has('timescale') };
+  const clock = G.clock = { hours: q.has('time') ? +q.get('time') : 18.05, scale: q.has('timescale') ? +q.get('timescale') : 30, frozen: q.has('shot') && !q.has('timescale') };
   const uNight = sharedUniform('uNight', 'float', 0);
   G.nightMats = G.nightMats || [];
   const stars = starField(), moon = moonSprite();
@@ -103,7 +103,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
       const m = night;
       G.sun.dir.copy(sunV).lerp(moonDir, m).normalize();
       G.sun.color.setRGB(lerp(k.sun[0], 0.55, m), lerp(k.sun[1], 0.65, m), lerp(k.sun[2], 1.0, m));
-      G.sun.intensity = lerp(k.si, 0.45, m);
+      G.sun.intensity = lerp(k.si, 0.8, m);
     }
     syncAtmos(G);
     U.uZenith.value.fromArray(k.zen); U.uHorizon.value.fromArray(k.hor); U.uSunTint.value.fromArray(k.sun);
@@ -112,21 +112,26 @@ export function createDayCycle(G, { sky, env, shadows }) {
     if (patchUniforms.uFogScatter) patchUniforms.uFogScatter.value.fromArray(k.fogSc);
     if (G.scene.environmentIntensity != null) G.scene.environmentIntensity = k.env;
     const p = P();
-    if (p) { p.adaptKey = k.key; p.adaptMax = k.amax; p.sat = k.sat; if (base) { p.volStrength = base.vol * (1 - night); p.bloomStrength = base.bloom * (1 + 1.5 * night); } }
+    if (p) { p.adaptKey = k.key; p.adaptMax = k.amax; p.sat = k.sat; if (base) { p.volStrength = base.vol * (1 - night); p.bloomStrength = base.bloom * (1 + 0.6 * night); } }
     uNight.value = Math.min(1, Math.max(0, (4 - el) / 10));          // lights come on through sunset
+    if (patchUniforms.uCharRim) {   // character rim: warm back-light while the sun is low, moon-blue at night
+      const day = Math.max(0, 1 - Math.max(0, el - 6) / 30) * (1 - night), nb = night;
+      patchUniforms.uCharRim.value.setRGB(1.0 * 0.25 * day + 0.61 * 0.6 * nb, 0.78 * 0.25 * day + 0.69 * 0.6 * nb, 0.56 * 0.25 * day + 0.88 * 0.6 * nb);
+      patchUniforms.uCharFill.value = 0.06 * uNight.value;
+    }
     for (const n of G.nightMats) {
       const t = n.curve ? n.curve(uNight.value) : uNight.value;
       n.mat.emissiveIntensity = lerp(n.day ?? 0, n.night, t);
       if (n.color && n.mat.emissive) n.mat.emissive.setRGB(...n.color);
     }
-    stars.material.opacity = night * 0.95; moon.material.opacity = Math.min(1, night * 1.3);
+    stars.material.opacity = night * 0.5; moon.material.opacity = Math.min(1, night * 1.3);
     // re-bake the environment and refit shadows when the sky has moved enough
     if (force || (G.t - lastBake > 4 && G.sun.dir.angleTo(lastBakeDir) > 0.004)) { env.bake(); lastBake = G.t; lastBakeDir.copy(G.sun.dir); }
     if (force || G.sun.dir.angleTo(lastFitDir) > 0.01) { lastFitDir.copy(G.sun.dir); shadows?.fit?.(true); }
   }
   apply(true);
   G.on('update', (dt) => {
-    if (!clock.frozen && !G.paused) { clock.hours += (dt * clock.scale) / 3600; if (clock.hours >= 24) clock.hours = 12; }
+    if (!clock.frozen && !G.paused) { const gold = cur && cur.el > 2 && cur.el < 15 ? 0.5 : 1; clock.hours += (dt * clock.scale * gold) / 3600; if (clock.hours >= 24) clock.hours = 12; }
     stars.position.copy(G.camera.position); moon.position.copy(G.camera.position).addScaledVector(moonDir, 5500);
     apply(false);
   });

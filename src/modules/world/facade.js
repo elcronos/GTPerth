@@ -17,7 +17,7 @@ _shU('uNight', 'float', 0);   // 0 day → 1 night (driven by daycycle.js)
 export function facadeMaterial(name = 'facade') {
   const mat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.0, vertexColors: true });
   mat.name = name;
-  mat.userData.weather = { dust: 0.2, wet: 0, beads: 0, porosity: 0.1 };
+  mat.userData.weather = { dust: 0.0, wet: 0, beads: 0, porosity: 0.1 };
   patch(mat, 'facade', (shader) => {
     ensureWorldVaryings(shader);
     shader.vertexShader = shader.vertexShader
@@ -33,13 +33,18 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
       
       .replace('#include <color_fragment>', `#include <color_fragment>
 {
-  float pw = vFac.x, fh = vFac.y, style = floor(vFac.z + 0.5), seed = vFac.w;
+  float pw = vFac.x, fh = vFac.y, style = floor(vFac.z + 0.5), seed = abs(vFac.w);
+  float shopOn = step(vFac.w, -0.5);
+  // street level of a shopfront building: 0-0.3 m plinth, 0.3-3.3 glazed bays, 3.3-3.6 awning shadow, 3.6-4.6 fascia
+  float shop = shopOn * (1.0 - step(4.6, vFUv.y)) * step(-0.5, vFUv.y);
+  if (shop > 0.5) { pw = 3.2; fh = 4.6; }
   vec2 cellSz = vec2(pw, fh);
   vec2 q = vFUv / cellSz;
   vec2 cell = floor(q), f = fract(q);
   vec2 fw = fwidth(q);
   fcFoot = max(fw.x, fw.y);                         // cells per pixel
   float far = smoothstep(0.25, 0.7, fcFoot);         // 1 = cells smaller than ~2 px: use averages
+  float farRoom = smoothstep(0.06, 0.25, fcFoot);    // room interiors fade to their average much earlier (no TV static)
   vec2 dE = min(f, 1.0 - f) * cellSz;                // metres to the cell edges
   vec2 aa = fw * cellSz * 1.2 + 0.004;
   vec3 frame = diffuseColor.rgb;
@@ -52,7 +57,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     glass = (1.0 - max(mull, tran));
     slab = span * glass;
   } else if (style < 1.5) {                           // punched windows
-    vec2 w = vec2(0.30, 0.22);
+    vec2 w = vec2(0.21, 0.20);
     float inX = smoothstep(w.x - aa.x / pw, w.x, f.x) * (1.0 - smoothstep(1.0 - w.x, 1.0 - w.x + aa.x / pw, f.x));
     float inY = smoothstep(w.y - aa.y / fh, w.y, f.y) * (1.0 - smoothstep(0.86, 0.86 + aa.y / fh, f.y));
     glass = inX * inY;
@@ -87,50 +92,81 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     vec2 g = vWthPos.xz * 0.5; float n = fcH(floor(g)) * 0.15;
     frame *= 0.85 + n;
   }
-  float avgGlass = style < 0.5 ? 0.88 : style < 1.5 ? 0.30 : style < 2.5 ? 0.48 : style < 3.5 ? 0.74 : style < 4.5 ? 0.62 : 0.0;
+  float shopSign = 0.0; vec3 signC = vec3(0.0);
+  if (shop > 0.5) {
+    float gy = vFUv.y;
+    float unit = floor(vFUv.x / 9.6);                         // one tenancy every 3 bays
+    float hu = fcH(vec2(unit, seed * 1.3)), hu2 = fcH(vec2(unit * 1.7, seed + 4.0));
+    float mull = fcBand(dE.x, 0.07, aa.x);
+    float inGlz = smoothstep(0.30, 0.30 + aa.y, gy) * (1.0 - smoothstep(3.3, 3.3 + aa.y, gy));
+    float shutter = step(0.9, hu2);                             // a closed roller shutter here and there
+    glass = inGlz * (1.0 - mull) * (1.0 - shutter);
+    slab = 0.0;
+    vec3 plinth = vec3(0.045, 0.043, 0.042);
+    vec3 shut = vec3(0.30, 0.30, 0.29) * (0.85 + 0.15 * step(0.5, fract(gy * 9.0)));
+    vec3 awn = vec3(0.025);
+    vec3 pal[6]; pal[0] = vec3(0.05, 0.05, 0.055); pal[1] = vec3(0.42, 0.05, 0.04); pal[2] = vec3(0.04, 0.12, 0.22); pal[3] = vec3(0.55, 0.50, 0.42); pal[4] = vec3(0.06, 0.20, 0.10); pal[5] = vec3(0.6, 0.38, 0.05);
+    signC = pal[int(hu * 5.99)];
+    frame = mix(frame * 0.8, plinth, 1.0 - smoothstep(0.28, 0.30, gy));
+    frame = mix(frame, shut, inGlz * shutter);
+    float awnB = smoothstep(3.3, 3.32, gy) * (1.0 - smoothstep(3.58, 3.6, gy));
+    frame = mix(frame, awn, awnB);
+    float fasc = smoothstep(3.6, 3.62, gy);
+    frame = mix(frame, signC, fasc * 0.85);
+    // illuminated lettering-free sign box centred in the fascia of most tenancies
+    float sx = abs(fract(vFUv.x / 9.6) - 0.5) * 9.6, sy = abs(gy - 4.1);
+    shopSign = step(0.35, hu2) * (1.0 - smoothstep(2.4, 2.45, sx)) * (1.0 - smoothstep(0.26, 0.28, sy));
+    frame = mix(frame, vec3(0.85, 0.82, 0.75), shopSign * 0.6);
+  }
+  float avgGlass = style < 0.5 ? 0.88 : style < 1.5 ? 0.40 : style < 2.5 ? 0.52 : style < 3.5 ? 0.74 : style < 4.5 ? 0.70 : 0.0;
+  if (shop > 0.5) avgGlass = 0.6;
   glass = mix(glass, avgGlass, far);
   slab = mix(slab, style < 0.5 ? 0.18 : style < 3.5 && style > 2.5 ? 0.13 : style > 3.5 && style < 4.5 ? 0.12 : 0.0, far);
   fcGlass = glass;
   // per-panel tint/roughness variation; oil-canning tilt (faded with distance)
   vec3 gl = vGlass * (0.95 + 0.1 * rnd2);
-  fcRough = mix(0.05 + 0.04 * rnd, 0.08, far);
-  fcTilt = (vec2(rnd, rnd2) - 0.5) * 0.045 * (1.0 - far);
+  fcRough = mix(0.08 + 0.05 * rnd, 0.1, far);
+  fcTilt = (vec2(rnd, rnd2) - 0.5) * 0.022 * (1.0 - far);
   // ---------------- interior mapping (rooms behind the glass)
   vec3 V = normalize(vWthPos - cameraPosition);
   vec3 Nw = normalize(vWthN);
   vec3 Tw = normalize(cross(vec3(0.0, 1.0, 0.0), Nw) + vec3(1e-4, 0.0, 0.0));
   vec3 Bw = vec3(0.0, 1.0, 0.0);
   vec3 d = vec3(dot(V, Tw), dot(V, Bw), -dot(V, Nw));
-  float depth = 7.0;
+  float depth = shop > 0.5 ? 4.5 : 7.0;
+  if (shop > 0.5) { f.y = clamp((vFUv.y - 0.3) / 3.0, 0.0, 1.0); fh = 3.0; }
   vec3 p0 = vec3(f.x * pw, f.y * fh, 0.0);
   vec3 tt = vec3((d.x > 0.0 ? (pw - p0.x) : -p0.x) / (d.x + 1e-5), (d.y > 0.0 ? (fh - p0.y) : -p0.y) / (d.y + 1e-5), depth / max(d.z, 1e-3));
-  float t = min(min(abs(tt.x), abs(tt.y)), tt.z);
+  float ttx = abs(tt.x), tty = abs(tt.y), ttz = tt.z;
+  float t = min(min(ttx, tty), ttz);
   vec3 hp = p0 + d * t;
-  float lit = step(0.8 - 0.24 * uNight, fcH(cell * 0.73 + seed));
+  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.40 * uNight, fcH(cell * 0.73 + seed));
   vec3 lampC = mix(vec3(1.0, 0.86, 0.66), vec3(0.85, 0.92, 1.0), step(0.5, fcH(cell + 9.1)));
-  vec3 room;
-  if (t == tt.z) { // back wall: partitions / furniture silhouettes
-    float desk = step(hp.y, 0.75) * step(0.15, fract(hp.x * 0.6 + rnd));
-    room = mix(vec3(0.55, 0.53, 0.5), vec3(0.18, 0.16, 0.15), desk);
-  } else if (t == abs(tt.y)) {
-    if (d.y > 0.0) { // ceiling with light panels
-      vec2 lp = fract(hp.xz * vec2(0.5, 0.45)); float panel = step(0.3, lp.x) * step(lp.x, 0.7) * step(0.3, lp.y) * step(lp.y, 0.7);
-      room = vec3(0.6) + panel * lit * 3.0 * lampC;
-    } else { room = mix(vec3(0.22, 0.2, 0.19), vec3(0.32, 0.27, 0.22), rnd2); }  // carpet
-  } else { room = vec3(0.62, 0.6, 0.57); }
+  // every surface is evaluated unconditionally (derivatives in divergent branches are undefined → pixel speckle),
+  // then selected by ordering rather than float equality
+  vec2 hw = fwidth(hp.xy) + 1e-3;
+  float desk = (1.0 - smoothstep(0.75 - hw.y, 0.75 + hw.y, hp.y)) * smoothstep(0.15 - hw.x, 0.15 + hw.x, fract(hp.x * 0.6 + rnd));
+  vec3 rBack = mix(vec3(0.55, 0.53, 0.5), vec3(0.18, 0.16, 0.15), desk * (1.0 - farRoom));
+  vec2 lpp = hp.xz * vec2(0.5, 0.45); vec2 lp = fract(lpp); vec2 lw = fwidth(lpp) + 0.02;
+  float panel = smoothstep(0.3 - lw.x, 0.3 + lw.x, lp.x) * (1.0 - smoothstep(0.7 - lw.x, 0.7 + lw.x, lp.x)) * smoothstep(0.3 - lw.y, 0.3 + lw.y, lp.y) * (1.0 - smoothstep(0.7 - lw.y, 0.7 + lw.y, lp.y)) * (1.0 - farRoom);
+  vec3 rCeil = vec3(0.6) + panel * lit * 1.6 * lampC;
+  vec3 rFloor = mix(vec3(0.22, 0.2, 0.19), vec3(0.32, 0.27, 0.22), rnd2);
+  vec3 rSide = vec3(0.62, 0.6, 0.57);
+  vec3 room = ttz <= min(ttx, tty) ? rBack : (tty <= ttx ? (d.y > 0.0 ? rCeil : rFloor) : rSide);
   float dark = 0.08 + 0.10 * rnd;
-  room *= lit > 0.5 ? (0.32 * lampC * (0.45 + 3.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  if (shop > 0.5) { room = mix(room, room * mix(vec3(1.0), signC * 2.5 + 0.4, 0.35), step(0.5, fcH(cell + 3.3))); lampC = vec3(1.0, 0.88, 0.7); }
+  room *= lit > 0.5 ? ((shop > 0.5 ? 0.9 : 0.32) * lampC * (0.45 + 3.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
-  float blind = step(1.0 - fcH(cell + 4.2) * 0.7, f.y) * step(0.45, fcH(cell + 2.3));
+  float blind = step(1.0 - fcH(cell + 4.2) * 0.7, f.y) * step(0.45, fcH(cell + 2.3)) * (1.0 - shop);
   room = mix(room, vec3(0.42, 0.42, 0.40) * (lit > 0.5 ? 0.8 : 0.25), blind);
   vec3 roomAvg = vec3(0.04, 0.038, 0.035) + (0.06 + 0.3 * uNight) * lampC;
-  room = mix(room, roomAvg * 0.6, far);
+  room = mix(room, roomAvg * 0.6, shop > 0.5 ? far : farRoom);
   float NdV = clamp(dot(-V, Nw), 0.0, 1.0);
   float F0 = dot(gl, vec3(0.333));
   float Fr = F0 + (1.0 - F0) * pow(1.0 - NdV, 5.0);
   float transK = (1.0 - Fr) * (1.0 - slab) * 0.55;
-  fcEmit = room * transK * glass;
+  fcEmit = room * transK * glass + shopSign * signC * (0.6 + 6.0 * uNight) * (1.0 - far * 0.5) + shopSign * vec3(1.0, 0.95, 0.85) * 2.2 * uNight;
   // final albedo / metal
   vec3 spandrel = gl * 0.6;
   vec3 glassAlb = mix(gl, spandrel, slab);

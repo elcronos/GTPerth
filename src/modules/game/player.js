@@ -24,7 +24,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
   G.scene.add(ch.root);
   const P = {
     ch, x: PLAYER.spawn[0], z: PLAYER.spawn[2], y: PLAYER.spawn[1], vy: 0, yaw: PLAYER.spawnYaw, moveYaw: PLAYER.spawnYaw,
-    camYaw: PLAYER.spawnYaw + Math.PI, camPitch: 0.12, camDist: PLAYER.camDist, health: 100, armour: 0, stamina: 1,
+    camYaw: PLAYER.spawnYaw + Math.PI, camPitch: 0.16, camDist: PLAYER.camDist, health: 100, armour: 0, stamina: 1,
     vehicle: null, swimming: false, onGround: true, speed: 0, cash: 0, dead: false, busted: false, control: true,
     camPos: new Vector3(), camTarget: new Vector3(), fovKick: 0, lookBehind: false, punchCD: 0,
   };
@@ -45,10 +45,23 @@ export function createPlayer(G, { avatars, input, col, hud }) {
       target = P.swimming ? 1.6 : sprint ? PLAYER.sprint : want > 0.7 ? PLAYER.run : PLAYER.walk + (PLAYER.run - PLAYER.walk) * (want - 0.2) / 0.5;
     }
     P.stamina = MathUtils.clamp(P.stamina + (sprint && want > 0.05 ? -0.12 : 0.18) * dt, 0, 1);
-    P.speed += (target - P.speed) * Math.min(1, (target > P.speed ? 6 : 9) * dt);
-    // turn the body toward movement direction
+    // human locomotion: turn rate falls with speed, sharp direction changes plant-and-pivot (slow down, turn,
+    // push off), linear accel/decel instead of an instant exponential snap; lean into turns and pushes.
     let dy = MathUtils.euclideanModulo(P.moveYaw - P.yaw + Math.PI, Math.PI * 2) - Math.PI;
-    P.yaw += dy * Math.min(1, PLAYER.turn * dt);
+    if (want <= 0.05) dy = 0;
+    const turnMax = P.swimming ? 3 : MathUtils.lerp(11, 4.2, MathUtils.clamp(P.speed / PLAYER.sprint, 0, 1));
+    const step = MathUtils.clamp(dy * Math.min(1, 14 * dt), -turnMax * dt, turnMax * dt);
+    P.yaw += step;
+    const omega = step / Math.max(dt, 1e-4);
+    const pivot = Math.abs(dy) > 1.6 ? MathUtils.clamp(1 - (Math.abs(dy) - 1.6) / 1.2, 0.15, 1) : 1;
+    const tgt = target * pivot;
+    const acc = tgt > P.speed ? (P.speed < PLAYER.walk ? 3.2 : 5.5) : (tgt < 0.1 ? 7.5 : 5);
+    const prev = P.speed;
+    P.speed += MathUtils.clamp(tgt - P.speed, -acc * dt, acc * dt);
+    const a = (P.speed - prev) / Math.max(dt, 1e-4);
+    const L = ch.lean, k = Math.min(1, 8 * dt);
+    L.roll += (MathUtils.clamp(-omega * P.speed * 0.022, -0.16, 0.16) - L.roll) * k;
+    L.pitch += (MathUtils.clamp(a * 0.018 + (sprint ? 0.05 : 0), -0.07, 0.12) - L.pitch) * k;
     const vx = Math.sin(P.yaw) * P.speed, vz = Math.cos(P.yaw) * P.speed;
     P.x += vx * dt; P.z += vz * dt;
     const c = col.circleVsWorld(P.x, P.z, PLAYER.radius);
@@ -116,7 +129,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     const k = Math.min(1, (mode === 'foot' ? 14 : 8) * dt);
     if (P.camPos.lengthSq() === 0) P.camPos.copy(_v);
     P.camPos.lerp(_v, k);
-    P.camTarget.lerp(_t.set(tx + rx, ty, tz + rz), Math.min(1, 16 * dt));
+    P.camTarget.lerp(_t.set(tx + rx * 2.1, ty, tz + rz * 2.1), Math.min(1, 16 * dt));   // aim past the shoulder: player sits left of centre
     if (P.camTarget.lengthSq() === 0) P.camTarget.set(tx, ty, tz);
     G.camera.position.copy(P.camPos);
     G.camera.lookAt(P.camTarget);

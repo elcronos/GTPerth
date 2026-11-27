@@ -1,0 +1,223 @@
+{
+  "round": "look-r1",
+  "critic": "visual-B",
+  "anchor": "reference",
+  "shotsIndex": "shots/r0/shots.json",
+  "scores": {
+    "lighting": 5,
+    "time_of_day": 4,
+    "palette": 5,
+    "materials": 4,
+    "vegetation": 4,
+    "architecture": 4,
+    "characters": 5,
+    "composition": 4.5,
+    "atmosphere": 5.5,
+    "ui": 6.5,
+    "mobile": 5,
+    "artefacts": 4,
+    "real_game": 4
+  },
+  "overall": 4.65,
+  "gaps": {
+    "lighting": "The sun reads as a flat warm side light, not a low back-light. Sunlit tower faces clip to near-white (bridge_skyline p95 luma 201) instead of #E9B073 amber. Nothing has a rim (player, peds, palms, bridge arches). Hero key elevation is 11.9 deg against the bible's 9. The player is a dark silhouette at luma 32.5, below the floor of 40 (hero).",
+    "time_of_day": "At night the player is a black shape (luma 19.6, floor 40) lit only by the magenta terminal glow. The sky has ~2400 large stars, which is impossible over a lit CBD. The ferry canopy blooms into a white-pink blob. Noon water goes swimming-pool cyan (hero_noon). The default start hour 17.25 puts the sun at 21 deg, which is not golden hour.",
+    "palette": "Three colours from the avoid list are on screen: cyan water at noon (hero_noon), pale beige/pink pavers that read as 'white paving' (critic pose-2/pose-4/yaw-2 crops), and lime/chartreuse leaves (pose-1 crop, street_sgt, kings_park). The CBD reads white-cream (bridge_skyline, river_cbd), while the real skyline is deep blue glass (eq2, kpview).",
+    "materials": "Curtain walls are a perfectly regular grid with bright mullion and transom lines, and ~10% of panels show TV-static speckle (hero_back, hero_night, phone_hud). The palm trunk is a smooth untextured tan tube (mends). Paver albedo is about 3x the bible's charcoal granite. Water reflections break into large zig-zags (street_sgt, hero).",
+    "vegetation": "Trees are evenly spaced chartreuse 'lollipop' crowns on pale stems over bright lawn (kings_park), where the reference is a closed dark-olive eucalypt canopy (kpview). Street trees are sparse lime cards (street_sgt). Palms have bald trunks (mends).",
+    "architecture": "OSM extrusions read as boxes with a texture grid. There are no crowns (the BHP/Brookfield exoskeleton crown, the Central Park top and other skyline signatures in eq2 are missing), no podium shopfront glazing, and little rooftop plant visible at distance (bridge_skyline, aerial).",
+    "characters": "Peds stand on a promenade edge that doesn't read, so they look like they float against the podium facade (hero, hero_noon). There is no rim or warm terminator on skin and clothes. The mends player has believable adult proportions. The swimming hero placement is excluded as a harness error.",
+    "composition": "Player x 0.50 against the 0.40 +/- 0.08 target. Horizon ~0.53 against 0.45. Empty sky ~38% against the 35% max (hero, estimated by eye). The brightest value is the cloud or sky, not the focal point. The inlet-to-bridge leading line exists but is weak, because the EQ Bridge reads as a single thin hoop.",
+    "atmosphere": "The sky gradient and clouds are good (river_cbd, critic pose-1), but mid-distance is too clean: there's no humid veil and no split between warm haze toward the sun and blue haze in shadow (bridge_skyline). The aerial shows a hard grey ring at the horizon (map edge or far-field band).",
+    "ui": "The HUD is legible and on-tribute. The pink/yellow bars are very thin at 0.75 scale (~3.7 px tall), and the minimap is large for a phone.",
+    "mobile": "Four 66-92 px buttons plus a 190x120 minimap cover ~30% of an 844x390 screen. The low tier has no planar reflection, so the water is grey streaks (phone_hud). 2.34M tris / 428 calls is too heavy for a phone low tier.",
+    "artefacts": "Horizon ring and map edge (aerial). Radial zoom-streak pattern in the water around the camera (hero, phone_hud). Static speckle in glass cells (hero_back, hero_night). Peds and benches floating at promenade height with no visible quay wall below them (hero, hero_noon, hero_back). Night terminal bloom blob (hero_night). Excluded harness errors: street_sgt camera below terrain, swimming player, palm in front of the mends camera.",
+    "real_game": "This reads as a competent WebGL tech demo of a real city, not a shipped GTA-style frame. The water, sky and day cycle are the strongest parts. Facades, ground, vegetation and characters are the weakest."
+  },
+  "evidence": {
+    "lighting": ["hero", "bridge_skyline", "river_cbd", "mends"],
+    "time_of_day": ["hero_night", "hero_noon", "hero"],
+    "palette": ["hero_noon", "bridge_skyline", "kings_park", "street_sgt", "critic/pose-2-crop1", "critic/pose-1"],
+    "materials": ["hero_back", "hero_night", "mends", "street_sgt", "critic/pose-4-crop1"],
+    "vegetation": ["kings_park", "street_sgt", "mends", "critic/pose-1"],
+    "architecture": ["bridge_skyline", "river_cbd", "aerial"],
+    "characters": ["hero", "hero_noon", "mends", "critic/pose-2-crop1"],
+    "composition": ["hero", "phone_hud"],
+    "atmosphere": ["bridge_skyline", "kings_park", "aerial", "river_cbd"],
+    "ui": ["phone_hud"],
+    "mobile": ["phone_hud"],
+    "artefacts": ["aerial", "hero", "hero_back", "hero_night", "hero_noon", "phone_hud"],
+    "real_game": ["hero", "bridge_skyline", "kings_park", "river_cbd"]
+  },
+  "measurements": {
+    "sun_elevation_deg": {"hero@18.0": 11.9, "bible_key": 9, "hour_for_9deg": 18.25, "default_start_17.25": 21.1, "river_cbd@18.6": 5.0},
+    "sun_vs_camera_hero": "sun bearing ~252 deg, camera bearing ~205 deg: sun 47 deg camera-right, at the frame edge (matches the bible's intent)",
+    "player_luma": {"hero": 32.5, "hero_night": 19.6, "hero_back": 59.2, "hero_noon": 68.2, "phone_hud": 52.3, "floor": 40},
+    "player_x": {"hero": 0.5, "target": 0.4, "tolerance": 0.08},
+    "player_h_pct": {"hero": 33.6, "target": 28, "tolerance": 8},
+    "horizon_hero": 0.53,
+    "empty_sky_hero_pct_est": 38,
+    "paletteDE_range": [12.0, 18.9],
+    "luma_p95": {"bridge_skyline": 201.2, "street_sgt": 205.9},
+    "phone_low_tier": {"tris": 2344147, "calls": 428},
+    "high_tier": {"tris_range": [4800992, 9153043], "calls_range": [357, 1606]},
+    "paver_albedo_linear": {"current": [0.13, 0.22, 0.34], "bible_#4A4C50_linear": 0.07},
+    "water_reflection_offset_m": 1.5
+  },
+  "fixes": [
+    {
+      "priority": "P0", "area": "water", "dimension": "materials",
+      "problem": "Perth Water reflections shatter into metre-scale zig-zags, and a radial zoom-streak pattern surrounds the camera. The reference river (eq2, tricia1) is a near-mirror with fine ripples. The planar reflection lookup offsets the world position by seaN.xz * 1.5 m at every distance.",
+      "fix": "Cut the reflection offset and ramp it with distance (0.25 m near the camera, 0.9 m at 300 m+). Calm the river wave set so the 'mirror-like water' bible element reads.",
+      "files": ["src/cookbook/water/sea.js", "src/modules/world/index.js"],
+      "params": {"SEA_REFL offset (m)": [1.5, "mix(0.25, 0.9, smoothstep(10.0, 300.0, viewDist))"], "waveOpts.steep": [0.026, 0.014], "waveOpts.detailSteep": [0.034, 0.02], "waveOpts.chop": [0.24, 0.12], "waveOpts.L0": [4.2, 6.0]},
+      "shots": ["hero", "street_sgt", "phone_hud", "hero_night"]
+    },
+    {
+      "priority": "P0", "area": "ground", "dimension": "palette",
+      "problem": "EQ promenade setts read pale beige/pink (avoid list: white paving). Albedos 0.13/0.22/0.34 linear are ~3x the bible's #4A4C50 (0.07 linear), so after golden-hour exposure the paving is the brightest value in the frame.",
+      "fix": "Darken the paver set toward charcoal plus mid-grey, deepen the joints and tame the ground macro brightening.",
+      "files": ["src/modules/world/surfaces.js", "src/modules/world/ground.js"],
+      "params": {"eqPavers granite": [0.22, 0.095], "eqPavers lime": [0.34, 0.15], "eqPavers dark": [0.13, 0.05], "joint colour": [0.08, 0.03], "ground macro: alb *= a + b*macro": ["0.82 + 0.36", "0.88 + 0.22"]},
+      "shots": ["critic/pose-2-crop1", "critic/pose-4-crop1", "critic/yaw-2-crop1", "critic/pose-6-crop1"]
+    },
+    {
+      "priority": "P0", "area": "towers", "dimension": "architecture",
+      "problem": "The CBD reads as white/cream 1990s CAD boxes (bridge_skyline, river_cbd, aerial). Perth's skyline is dominated by deep blue and blue-grey reflective glass (eq2, kpview). White frames from FR.white, OSM 'white' and random picks, plus the low far-field glass fraction for punched/resi styles, push the averages to white.",
+      "fix": "Shift frame tones down, raise the far-average glass fraction, and bias random OSM picks to blue/grey glass with alu frames.",
+      "files": ["src/modules/world/towers.js", "src/modules/world/facade.js"],
+      "params": {"FR.white": [[0.5, 0.51, 0.52], [0.40, 0.41, 0.42]], "NAMED_COL.white": [[0.8, 0.8, 0.78], [0.6, 0.6, 0.58]], "osmBuildings tallish frame list": ["[alu, lightAlu, precast, dark, white]", "[alu, alu, dark, lightAlu, precast]"], "osmBuildings tallish glass list": ["[grey, blue, silver, clear, dark, teal]", "[blue, blue, grey, teal, silver, dark]"], "facade avgGlass punched": [0.30, 0.42], "facade avgGlass resi": [0.62, 0.72], "facade avgGlass ribbon": [0.48, 0.58]},
+      "shots": ["bridge_skyline", "river_cbd", "aerial", "kings_park"]
+    },
+    {
+      "priority": "P0", "area": "character lighting", "dimension": "time_of_day",
+      "problem": "Player luma is 19.6 at night and 32.5 in the golden-hour hero, both below the floor of 40. The bible asks for a #FFC890 rim on characters, and none exists. The moonlight key is too weak to model anything.",
+      "fix": "Add a cheap Fresnel rim plus a minimum-ambient term to the character and ped materials (warm by day, moon-blue at night, stronger with uNight). Raise the moon key.",
+      "files": ["src/modules/game/character.js", "src/modules/world/daycycle.js"],
+      "params": {"character rim strength (day/night)": [0, [0.25, 0.6]], "rim colour day/night": ["none", ["#FFC890", "#9CB0E0"]], "rim power": [null, 3.0], "moon key intensity (daycycle line 106)": [0.45, 0.8], "night adaptMax K[el=-18]": [7, 8]},
+      "shots": ["hero_night", "hero"]
+    },
+    {
+      "priority": "P0", "area": "vegetation", "dimension": "vegetation",
+      "problem": "Leaves are saturated chartreuse lollipops on pale stems, evenly spaced over bright lawn (kings_park, street_sgt, critic pose-1). The base leaf texture rgb(70,110,40), the light tints and translucency 0.35 together produce lime. The reference is a closed dark-olive eucalypt canopy (kpview) and the bible ramp is #4E5E32-#9AA868.",
+      "fix": "Desaturate and darken the leaf atlas and tints, cut the back-light translucency, darken the stems, and close the Kings Park canopy with larger, denser clumps (high tier; low keeps tier thinning).",
+      "files": ["src/cookbook/geo/scatter.js", "src/modules/world/props.js"],
+      "params": {"leafTexture base rgb": ["70,110,40", "72,84,52"], "leafMat foliagePatch trans": [0.35, 0.2], "plane tint pm": ["0xb4cc94", "0x98a87a"], "euc tint em": ["0x7c8a5c", "0x6a7450"], "KP clump tint cm": ["0x6e7c50", "0x5c6844"], "euc bark eb": ["0xb8aa98", "0x8a7e6e"], "KP clump bark cb": ["0xb0a490", "0x6e6458"], "KP clumpPts poisson r": [9.5, 7.5], "KP clump scale": [[0.75, 1.45], [0.95, 1.8]]},
+      "shots": ["kings_park", "street_sgt", "critic/pose-1"]
+    },
+    {
+      "priority": "P1", "area": "time of day", "dimension": "lighting",
+      "problem": "Golden hour isn't where the bible puts it. The default start of 17.25 gives a 21 deg sun (flat afternoon), and the hero at 18.0 gives 11.9 deg against the 9 deg key. Long raking shadows and hot glints only appear at about 18.2-18.3.",
+      "fix": "Move the default start to 18.05. Shoot the hero views at 18.25 (8.9 deg). Optionally halve the clock speed while the sun is between 3 and 15 deg so golden hour lasts more than 2 real minutes.",
+      "files": ["src/modules/world/daycycle.js", "tools/qa/views.json"],
+      "params": {"clock default hours": [17.25, 18.05], "views hero/hero_back/phone_hud hour": [18.0, 18.25], "clock.scale when 3<el<15": [30, 15]},
+      "shots": ["hero", "hero_back", "phone_hud", "bridge_skyline"]
+    },
+    {
+      "priority": "P1", "area": "facade glass", "dimension": "artefacts",
+      "problem": "About 8-12% of glass cells show high-frequency white 'TV static' by day and purple-white speckle at night (hero_back, hero_night, phone_hud). The likely cause is near-mirror roughness (0.05) sampling a noisy env/sky, plus the star field at night, through the per-panel tilt. The facade's weathering dust term on metal glass may also contribute.",
+      "fix": "Raise the minimum glass roughness, halve the oil-canning tilt, zero the facade weather dust, and keep stars and the moon out of the env bake (separate layer).",
+      "files": ["src/modules/world/facade.js", "src/modules/world/daycycle.js", "src/cookbook/lighting/env-from-sky.js"],
+      "params": {"fcRough near": ["0.05 + 0.04*rnd", "0.08 + 0.05*rnd"], "fcTilt scale": [0.045, 0.022], "mat.userData.weather.dust": [0.2, 0.0], "stars/moon layer excluded from env bake": [false, true]},
+      "shots": ["hero_back", "hero_night", "phone_hud"]
+    },
+    {
+      "priority": "P1", "area": "night sky / emissives", "dimension": "time_of_day",
+      "problem": "Over a lit CBD the night sky shows thousands of big white stars, which looks fake and reads as UI speckle. The ferry terminal canopy and the arch LEDs bloom into a white-magenta blob that is the brightest thing in the frame (hero_night).",
+      "fix": "Thin and dim the stars for urban light pollution, and cut the night bloom multiplier and the canopy/LED emissive peaks.",
+      "files": ["src/modules/world/daycycle.js", "src/modules/world/landmarks.js"],
+      "params": {"starField n": [2400, 500], "PointsMaterial size": [1.6, 1.1], "stars opacity": ["night*0.95", "night*0.45"], "bloomStrength night mult": ["1+1.5*night", "1+0.6*night"], "canopyBlue/ledPurple/archWhite night emissiveIntensity (G.nightMats)": ["current", "x0.5"]},
+      "shots": ["hero_night"]
+    },
+    {
+      "priority": "P1", "area": "water colour", "dimension": "palette",
+      "problem": "At noon the river turns swimming-pool cyan/teal (avoid list), and the hero right half goes green-teal. The water scatter colour has G about equal to B, while the bible's #2F5F7A is blue-dominant.",
+      "fix": "Shift the scatter toward blue and absorb more red and green.",
+      "files": ["src/modules/world/index.js"],
+      "params": {"createSea scatter": [[0.006, 0.026, 0.03], [0.004, 0.016, 0.032]], "createSea absorb": [[0.45, 0.16, 0.12], [0.5, 0.22, 0.12]], "SEA_END crest tint": [[0.10, 0.55, 0.45], [0.10, 0.40, 0.50]]},
+      "shots": ["hero_noon", "hero"]
+    },
+    {
+      "priority": "P1", "area": "quay edge / props", "dimension": "artefacts",
+      "problem": "Peds and benches at PROMENADE_Y (2.2 m) appear to float against the EQ West podium facade. No quay wall or coping lip reads between them and the water (hero, hero_noon, hero_back), and the benches in hero_back hang in the air.",
+      "fix": "Check that the quay-wall strip (ground.js wallPts) covers the EQ West and Landing frontage. Add a dark wet band 0-0.4 m above the water and a 0.55 m pale limestone coping so the edge reads. Snap promenade benches to heightAt() rather than the constant PROMENADE_Y where the ground differs.",
+      "files": ["src/modules/world/ground.js", "src/modules/world/props.js", "src/map.js"],
+      "params": {"quay wall waterline wet band height (m)": [0, 0.4], "wet band albedo multiplier": [1.0, 0.45], "coping width (m)": [0.55, 0.55], "bench y": ["PROMENADE_Y", "heightAt(x,z)"]},
+      "shots": ["hero", "hero_noon", "hero_back"]
+    },
+    {
+      "priority": "P1", "area": "phone tier", "dimension": "mobile",
+      "problem": "The low tier draws 2.34M tris in 428 calls, too heavy for a mid-range phone. It also has no planar reflection, so the water is grey streaky env (phone_hud), which wastes the signature surface.",
+      "fix": "Thin the scatter further and shorten draw distance on low. Spend part of the savings on a quarter-res planar reflection limited to towers and sky.",
+      "files": ["src/cookbook/geo/scatter.js", "src/cookbook/engine/quality.js", "src/cookbook/ground/planar-reflection.js"],
+      "params": {"SCATTER_TIERS.low.keep": [0.4, 0.22], "SCATTER_TIERS.low.fade": [0.6, 0.45], "quality.low.drawDist": [0.6, 0.45], "planar TIER_SCALE.low": [0, 0.25], "target low tris / calls": [[2344147, 428], [700000, 260]]},
+      "shots": ["phone_hud"]
+    },
+    {
+      "priority": "P1", "area": "far field / map edge", "dimension": "atmosphere",
+      "problem": "The aerial shows a hard grey ring/band around the horizon and a flat untextured terrain edge. The sea grid (far 5200 m) and the mountain far-field layer (radius 5200 m) coincide, and the mountain body colour is darker and greyer than the horizon haze.",
+      "fix": "Separate the radii, fog the far layers fully into the horizon colour, and give the scarp a hazy blue-violet body.",
+      "files": ["src/modules/world/index.js", "src/cookbook/backdrop/farfield.js"],
+      "params": {"sea far (m)": [5200, 6500], "mountains radius (m)": [5200, 6000], "mountains fogScale": [0.8, 1.0], "mountains body": [[0.12, 0.10, 0.14], [0.20, 0.20, 0.27]], "treeline fogScale": [0.85, 1.0]},
+      "shots": ["aerial"]
+    },
+    {
+      "priority": "P2", "area": "atmosphere / grade", "dimension": "atmosphere",
+      "problem": "Mid-distance air is too clean. Towers 500-1000 m away keep full contrast (bridge_skyline), so the GTA VI humid veil and warm-toward-sun / blue-in-shadow split are missing. Fog start (40 m) is also nearer than the bible's 60 m.",
+      "fix": "Thicken the analytic haze about 1.6x with a bluer extinction, push fog start to the bible's near distance, and push shadow teal slightly.",
+      "files": ["src/art.js"],
+      "params": {"fog.sigma": [[0.00012, 0.00017, 0.00028], [0.0002, 0.00028, 0.00046]], "fog.start": [40, 60], "grade.splitShadow": [[0.92, 1.0, 1.07], [0.90, 1.0, 1.10]], "grade.vignette": [0.26, 0.28]},
+      "shots": ["bridge_skyline", "river_cbd", "kings_park"]
+    },
+    {
+      "priority": "P2", "area": "camera", "dimension": "composition",
+      "problem": "Player x is 0.50 against the 0.40 target. The shoulder offset of 0.45 m is applied parallel to the look target, so it only moves the player ~0.05. The horizon at 0.53 and empty sky at ~38% exceed the targets (0.45 / 35%).",
+      "fix": "Double the shoulder offset and pitch down slightly. Have the QA harness use the game camera rig rather than its own centred framing.",
+      "files": ["src/modules/game/player.js", "src/contracts.js", "tools/qa/views.json"],
+      "params": {"player.js right (m)": [0.45, 0.9], "camPitch default (rad)": [0.12, 0.17], "contracts camHeight": [1.85, 1.85]},
+      "shots": ["hero", "phone_hud"]
+    },
+    {
+      "priority": "P2", "area": "architecture", "dimension": "architecture",
+      "problem": "None of the skyline's signature tops are present (BHP/Brookfield exoskeleton frame crown, Central Park crown, Rio Tinto/108 St Georges spire massing). There's no street-level shopfront band, so podiums read as offices to the ground (bridge_skyline, street_sgt, eq2).",
+      "fix": "Add crown tiers to NAMED_STYLE (Brookfield: open steel frame 2 bays high, 24 m; Central Park: stepped top with 36 m mast). In facade.js, treat vFUv.y < 5.5 m as a shopfront band: 0.9 glass, warm interior emissive 0.3 day / 1.2 night, dark 0.4 m fascia above.",
+      "files": ["src/modules/world/towers.js", "src/modules/world/facade.js"],
+      "params": {"shopfront band height (m)": [0, 5.5], "shopfront glass": [null, 0.9], "shopfront emissive day/night": [null, [0.3, 1.2]], "Brookfield crown frame height (m)": [0, 24]},
+      "shots": ["bridge_skyline", "street_sgt", "river_cbd"]
+    },
+    {
+      "priority": "P2", "area": "palms", "dimension": "vegetation",
+      "problem": "The Washingtonia trunk is a smooth, untextured tan 9-sided tube (mends). Real palms have ringed fibrous bark and a dense brown petticoat. The crown has only 16 fronds.",
+      "fix": "Use a bark surface with 0.12 m leaf-scar rings (normal plus albedo), darken the trunk, raise radial segments, and add fronds plus a dead-frond skirt colour.",
+      "files": ["src/modules/world/props.js"],
+      "params": {"tube radial": [9, 12], "trunk material": ["flat 0x7a6a58", "weathered_wood ring map, tint 0x6a5e50, ring period 0.12 m"], "fronds n": [16, 22], "skirt height (m)": [2.4, 3.2]},
+      "shots": ["mends"]
+    },
+    {
+      "priority": "P2", "area": "touch HUD", "dimension": "mobile",
+      "problem": "On 844x390 the four right-hand buttons (66-92 px) and the 190x120 minimap take ~30% of the screen. The bars are ~3.7 px tall at 0.75 scale and hard to read over the sky.",
+      "fix": "Shrink the buttons and minimap, make the buttons more transparent, and thicken the bars.",
+      "files": ["src/ui/ui.css"],
+      "params": {"body.touch .minimap w x h": ["190x120", "152x96"], ".tc-btn.act size": [92, 78], ".tc-btn.b2/.b3 size": [70, 60], ".tc-btn.b4 size": [66, 56], ".tc-btn background alpha": [0.42, 0.3], ".bar .track height (px)": [5, 7]},
+      "shots": ["phone_hud"]
+    },
+    {
+      "priority": "P3", "area": "ground lawn", "dimension": "palette",
+      "problem": "Kings Park lawns read flat saturated green with visible regular mowing stripes, and the paths have hard black edges (kings_park).",
+      "fix": "Pull lawn green toward olive, weaken the stripes, and lighten the path asphalt edge.",
+      "files": ["src/modules/world/surfaces.js"],
+      "params": {"lawn green": [[0.055, 0.115, 0.028], [0.06, 0.095, 0.035]], "lawn lush": [[0.045, 0.13, 0.03], [0.05, 0.105, 0.035]], "stripe amplitude": [0.12, 0.05]},
+      "shots": ["kings_park"]
+    }
+  ],
+  "broken": [
+    {"what": "Horizon ring band and flat terrain edge at the map boundary", "shots": ["aerial"]},
+    {"what": "Radial zoom-streak pattern in the water around the camera (reflection offset 1.5 m and radial grid)", "shots": ["hero", "phone_hud"]},
+    {"what": "TV-static speckle in random glass cells (day), purple-white speckle (night)", "shots": ["hero_back", "hero_night", "phone_hud"]},
+    {"what": "Peds and benches floating at promenade height with no visible quay wall below (may combine with the swimming-camera placement)", "shots": ["hero", "hero_noon", "hero_back"]},
+    {"what": "Ferry terminal canopy blooms into a magenta-white blob at night", "shots": ["hero_night"]},
+    {"what": "Excluded (known harness errors, already fixed): street_sgt camera under terrain; swimming player in hero*/phone_hud; palm trunk in front of the mends camera", "shots": ["street_sgt", "hero", "mends"]}
+  ],
+  "regressions": [],
+  "verdict": "continue"
+}

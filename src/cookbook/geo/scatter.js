@@ -147,7 +147,7 @@ export function depthFor(material, sway, fade) {
 
 // ------------------------------------------------------------------ scatter
 // Per-tier thinning (fraction of points kept) and fade-distance scale, applied by scatter() unless tiered:false.
-export const SCATTER_TIERS = { low: { keep: 0.4, fade: 0.6 }, med: { keep: 0.7, fade: 0.8 }, high: { keep: 1, fade: 1 }, ultra: { keep: 1, fade: 1.25 } };
+export const SCATTER_TIERS = { low: { keep: 0.3, fade: 0.5 }, med: { keep: 0.7, fade: 0.8 }, high: { keep: 1, fade: 1 }, ultra: { keep: 1, fade: 1.25 } };
 const _m = new Matrix4(), _q = new Quaternion(), _q2 = new Quaternion(), _p = new Vector3(), _s = new Vector3(), _n = new Vector3(), _up = new Vector3(0, 1, 0), _c = new Color();
 // opts:
 //  parts: [{geo, material}] — all share the instance transforms (trunk + leaves, rock, ...)
@@ -311,7 +311,7 @@ export function leafTexture({ size = 256, seed = 5, leaves = 70, kind = 'broad' 
     const L = size * (kind === 'needle' ? 0.16 : 0.1) * (0.7 + 0.6 * rnd()), W = L * (kind === 'needle' ? 0.12 : 0.45);
     const lv = 0.75 + 0.5 * rnd();
     g.save(); g.translate(x, y); g.rotate(a + (rnd() - 0.5) * 1.2 + Math.PI / 2);
-    g.fillStyle = `rgb(${(70 * lv) | 0},${(110 * lv) | 0},${(40 * lv) | 0})`;
+    g.fillStyle = `rgb(${(76 * lv) | 0},${(90 * lv) | 0},${(50 * lv) | 0})`;
     g.beginPath(); g.moveTo(0, -L / 2); g.quadraticCurveTo(W, 0, 0, L / 2); g.quadraticCurveTo(-W, 0, 0, -L / 2); g.fill();
     g.strokeStyle = `rgba(30,45,15,0.5)`; g.lineWidth = Math.max(1, size / 256); g.beginPath(); g.moveTo(0, -L / 2); g.lineTo(0, L / 2); g.stroke();
     g.restore();

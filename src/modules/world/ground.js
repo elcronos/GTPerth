@@ -167,7 +167,15 @@ vec4 gW; vec2 gXZ; float gRock;
   vec3 alb = aP * gW.x + aL * gW.y + aB * vec3(0.62, 0.7, 0.5) * gW.z + aS * gW.w;   // bush floor under canopy shade: olive, dark
   alb = mix(alb, aR, gRock);
   float macro = vnoise3(vec3(gXZ * 0.012, 3.1)) * 0.6 + vnoise3(vec3(gXZ * 0.06, 5.3)) * 0.4;
-  alb *= 0.82 + 0.36 * macro;
+  alb *= 0.88 + 0.22 * macro;
+  // bushland beyond the tree draw distance: paint a mottled eucalypt canopy (crowns ~8-12 m, sunlit tops vs dark gaps)
+  // so Kings Park still reads as dense bush from the river, Mends St and the air
+  float farV = smoothstep(260.0, 650.0, length(vWthPos - cameraPosition)) * gW.z;
+  if (farV > 0.001) {
+    float can = smoothstep(0.38, 0.62, vnoise3(vec3(gXZ * 0.11, 2.0)) * 0.65 + vnoise3(vec3(gXZ * 0.31, 4.0)) * 0.35);
+    vec3 canC = mix(vec3(0.028, 0.036, 0.022), vec3(0.10, 0.11, 0.065), can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));
+    alb = mix(alb, canC, farV * 0.9);
+  }
   float ao = mix(1.0, texture2D(tPO, gXZ * uSc.x).r, gW.x);
   diffuseColor.rgb *= alb * ao;
 }`)

@@ -4,7 +4,31 @@
 import { AnimationMixer, LoopRepeat, LoopOnce, Group, Vector3, Quaternion, Euler, MathUtils } from 'three';
 
 const CLIP_SPEED = { walk: 1.42, stroll: 1.05, run: 3.7, sprint: 6.0 };
-const _q = new Quaternion(), _e = new Euler(), _v = new Vector3();
+const _q = new Quaternion(), _e = new Euler(), _v = new Vector3(), _w = new Vector3();
+const LOCO = ['walk', 'stroll', 'run', 'sprint'];
+// Foot phase of a locomotion clip: normalized time of the left heel strike (left foot furthest ahead of the right),
+// so walk/run/sprint can be blended in step instead of scissoring. Measured once per clip on the instance skeleton.
+const PHASE = new WeakMap();
+let _axis = null;
+function footPhase(obj, clip, bones) {
+  if (PHASE.has(clip)) return PHASE.get(clip);
+  const L = bones.Bip01_L_Foot, R = bones.Bip01_R_Foot, H = bones.Bip01;
+  if (!L || !R || !H) { PHASE.set(clip, 0); return 0; }
+  const m = new AnimationMixer(obj), a = m.clipAction(clip); a.play();
+  const N = 40, d = [];
+  for (let i = 0; i < N; i++) {
+    m.setTime((i / N) * clip.duration); obj.updateMatrixWorld(true);
+    L.getWorldPosition(_v); R.getWorldPosition(_w); obj.worldToLocal(_v); obj.worldToLocal(_w);
+    d.push([_v.x - _w.x, _v.z - _w.z]);
+  }
+  if (!_axis) { // principal axis of the left-right foot separation (same skeleton for every clip, so one axis)
+    let xx = 0, zz = 0, xz = 0; for (const [x, z] of d) { xx += x * x; zz += z * z; xz += x * z; }
+    const t = 0.5 * Math.atan2(2 * xz, xx - zz); _axis = [Math.cos(t), Math.sin(t)];
+  }
+  let best = -1e9, bi = 0; d.forEach(([x, z], i) => { const p = x * _axis[0] + z * _axis[1]; if (p > best) { best = p; bi = i; } });
+  a.stop(); m.uncacheRoot(obj);
+  const ph = bi / N; PHASE.set(clip, ph); return ph;
+}
 
 export class Character {
   constructor(G, inst, { scale = 1 } = {}) {
@@ -20,6 +44,9 @@ export class Character {
       const a = this.mixer.clipAction(this.clips[k]); a.setLoop(LoopRepeat, Infinity); a.enabled = true; a.setEffectiveWeight(0); a.play(); this.act[k] = a;
     }
     if (!this.act.stroll) this.act.stroll = this.act.walk;
+    this.bones0 = {}; inst.obj.traverse((o) => { if (o.isBone) this.bones0[o.name] = o; });
+    this.ph = {}; for (const k of LOCO) if (this.act[k]) this.ph[k] = footPhase(inst.obj, this.act[k].getClip(), this.bones0);
+    this.lean = { roll: 0, pitch: 0 };
     this.act.idle?.setEffectiveWeight(1);
     this.speed = 0; this.heading = 0; this.state = 'ok';   // ok | down | dead
     this.gesture = null; this.gestureT = 0;
@@ -76,9 +103,17 @@ export class Character {
       if (walkA) walkA.timeScale = v > 0.05 ? MathUtils.clamp(v / ws, 0.5, 1.6) : 1;
       if (this.act.run) this.act.run.timeScale = MathUtils.clamp(v / CLIP_SPEED.run, 0.7, 1.4);
       if (this.act.sprint) this.act.sprint.timeScale = MathUtils.clamp(v / CLIP_SPEED.sprint, 0.8, 1.3);
+      // keep every locomotion clip in step with the dominant one (feet hit the ground together across the blend)
+      let lead = null, lw = 0.02;
+      for (const k of LOCO) { const a = this.act[k]; if (a && a.getEffectiveWeight() > lw) { lw = a.getEffectiveWeight(); lead = k; } }
       this.mixer.update(dt);
+      if (lead && !this.gesture) {
+        const A = this.act[lead], dur = A.getClip().duration;
+        const phase = ((A.time / dur - this.ph[lead]) % 1 + 1) % 1;
+        for (const k of LOCO) { const a = this.act[k]; if (!a || k === lead || a === A) continue; const d2 = a.getClip().duration; a.time = ((phase + this.ph[k]) % 1) * d2; }
+      }
       this.root.position.y = groundY;
-      this.body.rotation.set(0, 0, 0); this.body.position.set(0, 0, 0);
+      this.body.rotation.set(this.lean.pitch, 0, this.lean.roll); this.body.position.set(0, 0, 0);
       this.inst.obj.rotation.set(0, 0, 0);
       this.applyPunch(dt);
     } else {
