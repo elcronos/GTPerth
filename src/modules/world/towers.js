@@ -126,11 +126,12 @@ function insetPts(P, d) {
 }
 
 // ---------------------------------------------------------------- the skyline
+// Perth's CBD reads as deep blue/blue-grey reflective glass (photo-matched); frames are mid-grey, not white
 const GL = {
-  silver: [0.34, 0.36, 0.37], blue: [0.13, 0.22, 0.36], green: [0.13, 0.22, 0.17], grey: [0.2, 0.24, 0.27],
-  bronze: [0.26, 0.2, 0.14], clear: [0.2, 0.25, 0.28], dark: [0.1, 0.11, 0.12], teal: [0.14, 0.26, 0.28],
+  silver: [0.2, 0.25, 0.31], blue: [0.09, 0.17, 0.32], green: [0.1, 0.2, 0.19], grey: [0.13, 0.18, 0.24],
+  bronze: [0.22, 0.17, 0.12], clear: [0.13, 0.19, 0.25], dark: [0.07, 0.09, 0.11], teal: [0.1, 0.21, 0.25],
 };
-const FR = { white: [0.6, 0.6, 0.59], alu: [0.5, 0.51, 0.52], lightAlu: [0.62, 0.63, 0.62], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
+const FR = { white: [0.5, 0.51, 0.52], alu: [0.36, 0.38, 0.4], lightAlu: [0.5, 0.52, 0.53], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
   granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.68, 0.64, 0.56], precast: [0.5, 0.48, 0.44] };
 
 export const NAMED = [
@@ -155,7 +156,7 @@ export const NAMED = [
   { name: 'Supreme Court', x: 300, z: -150, style: 'punched', pw: 3.2, fh: 5, frame: FR.sandstone, glass: GL.dark, plant: false, seed: 19, tiers: [{ w: 64, d: 30, h: 15 }] },
   // ---- St Georges Terrace / CBD core
   { name: 'Brookfield Place Tower 2', x: -96, z: -438, style: 'curtain', pw: 1.5, fh: 4.2, frame: FR.alu, glass: GL.silver, seed: 20, tiers: [{ w: 54, d: 42, h: 68 }] },
-  { name: 'Brookfield Place', x: -96, z: -494, style: 'fins', pw: 2.2, fh: 4.1, frame: FR.white, glass: GL.grey, seed: 21, mast: [30, 1.5], tiers: [
+  { name: 'Brookfield Place', x: -96, z: -494, style: 'fins', pw: 2.2, fh: 4.1, frame: FR.white, glass: GL.blue, seed: 21, plant: false, tiers: [
     { w: 56, d: 30, h: 190 }, { w: 50, d: 24, h: 204, style: 'fins', pw: 3.2 }] },
   { name: 'Central Park', x: -24, z: -618, style: 'curtain', pw: 1.5, fh: 3.9, frame: FR.alu, glass: GL.silver, seed: 22, mast: [36, 2.2], tiers: [
     { pts: [[-19, -19], [19, -19], [30, 0], [19, 19], [-19, 19], [-30, 0]], h: 122 },
@@ -187,17 +188,25 @@ export const SOUTH_PERTH = [
 function southPerthFill(rng) {
   const out = [];
   const path = [[-700, 900], [-610, 1010], [-500, 1135], [-390, 1245], [-290, 1335], [-60, 1420], [150, 1442], [380, 1468]];
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i], b = path[i + 1], n = Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 55);
-    for (let k = 0; k < n; k++) {
-      const t = (k + 0.3 + rng() * 0.4) / n;
-      const x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t - 32 - rng() * 14;
-      if (Math.abs(x + 190) < 70 && z > 1300) continue;   // Mends Street plaza
-      const h = rng() < 0.15 ? 70 + rng() * 40 : 22 + rng() * 42;
-      const w = 22 + rng() * 14, d = 16 + rng() * 10;
-      const resi = rng() < 0.7;
-      out.push({ name: 'South Perth apartments', x, z, rot: Math.atan2(b[1] - a[1], b[0] - a[0]) + (rng() - 0.5) * 0.2, style: resi ? 'resi' : 'punched', pw: 1.4 + rng() * 0.5, fh: 3.0,
-        frame: resi ? [0.7 + rng() * 0.06, 0.68 + rng() * 0.06, 0.62 + rng() * 0.06] : FR.cream, glass: rng() < 0.5 ? GL.grey : GL.dark, seed: 60 + out.length, tiers: [{ w, d, cr: rng() < 0.3 ? 4 : 0, h }] });
+  for (const row of [0, 1]) for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    let d = 10 + rng() * 20;
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    while (d < L - 10) {
+      const t = d / L;
+      const off = row === 0 ? 30 + rng() * 16 : -(30 + rng() * 40);
+      const x = a[0] + (b[0] - a[0]) * t + Math.sin(ang) * off, z = a[1] + (b[1] - a[1]) * t - Math.cos(ang) * off;
+      const w = 14 + rng() * 26, dd = 12 + rng() * 16;
+      d += w + 8 + rng() * 30;
+      if (Math.abs(x + 190) < 60 && z > 1300) continue;   // Mends Street plaza
+      const r = rng();
+      const h = row === 0 ? (r < 0.12 ? 75 + rng() * 45 : r < 0.5 ? 30 + rng() * 30 : 12 + rng() * 16) : (r < 0.2 ? 40 + rng() * 40 : 10 + rng() * 22);
+      const resi = rng() < 0.65;
+      const tone = 0.62 + rng() * 0.14;
+      const b0 = { name: 'South Perth apartments', x, z, rot: ang + (rng() - 0.5) * 0.3, style: resi ? 'resi' : rng() < 0.5 ? 'punched' : 'ribbon', pw: 1.3 + rng() * 0.8, fh: 2.9 + rng() * 0.4,
+        frame: resi ? [tone, tone * 0.98, tone * 0.92] : [tone * 0.95, tone * 0.9, tone * 0.82], glass: [GL.grey, GL.dark, GL.teal, GL.clear][Math.floor(rng() * 4)], seed: 60 + out.length };
+      b0.tiers = h > 45 && rng() < 0.5 ? [{ w: w * 1.15, d: dd * 1.2, h: 8, style: 'curtain' }, { w, d: dd, cr: rng() < 0.4 ? 5 : 0, h: h * 0.82 }, { w: w * 0.75, d: dd * 0.75, h }] : [{ w, d: dd, cr: rng() < 0.25 ? 4 : 0, h }];
+      out.push(b0);
     }
   }
   return out;
@@ -219,7 +228,7 @@ function cbdFill(rng, footprints) {
     const h = 18 + rng() * 40 + tall * rng() * 90;
     const w = 26 + rng() * 14, d = 22 + rng() * 14;
     const st = styles[Math.floor(rng() * styles.length)];
-    out.push({ name: 'office', x: jx, z: jz, style: st, pw: 1.4 + rng() * 0.6, fh: 3.5 + rng() * 0.5,
+    out.push({ name: 'office', x: jx, z: jz, style: st, pw: 1.2 + rng() * 1.3, fh: 3.3 + rng() * 0.9,
       frame: frames[Math.floor(rng() * frames.length)], glass: glasses[Math.floor(rng() * glasses.length)], seed: 100 + out.length,
       tiers: rng() < 0.3 ? [{ w, d, h: h * 0.6 }, { w: w * 0.8, d: d * 0.8, h }] : [{ w, d, h, cr: rng() < 0.15 ? 5 : 0 }] });
   }

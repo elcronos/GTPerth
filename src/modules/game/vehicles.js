@@ -1,9 +1,12 @@
 // Cars: procedural bodies (sedan, hatch, SUV, ute, WA Police sedan, Transperth CAT bus) built from bevelled
 // extrusions with a separate greenhouse, real wheels, lights and WA plates; arcade physics (bicycle model with
 // grip / handbrake drift, weight transfer pitch & roll on the terrain), collisions vs buildings, cars and people.
-import { Group, Mesh, MeshStandardMaterial, Color, Vector3, CanvasTexture, SRGBColorSpace, MeshBasicMaterial, PlaneGeometry, DoubleSide } from 'three';
+import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Color, Vector3, CanvasTexture, SRGBColorSpace, MeshBasicMaterial, PlaneGeometry, DoubleSide } from 'three';
 import { Kit, extrudeBevel, lathe, roundedBox } from '../../cookbook/geo/kit.js';
 import { heightAt, isLand } from '../../map.js';
+import { modelInstance, LIB } from './models.js';
+
+const TRIPO = { sedan: 'camry', hatch: 'hatch', suv: 'suv', ute: 'ute', police: 'police', bus: 'bus' };
 
 // ------------------------------------------------------------------ models
 const KINDS = {
@@ -52,6 +55,14 @@ function policeLivery() { // WA Police: blue/white Battenburg-style chequer band
 export function buildCarModel(kind, color, M) {
   const K = KINDS[kind]; const k = new Kit(); const col = new Color(color);
   const wr = kind === 'bus' ? 0.5 : kind === 'suv' || kind === 'ute' ? 0.38 : 0.33;
+  const tm = LIB[TRIPO[kind]] && modelInstance(TRIPO[kind], color);
+  if (tm) { // scanned-quality Tripo mesh (wheels baked in); keep the flashing beacons + brake glow as live parts
+    const group = new Group(); group.add(tm);
+    const S = LIB[TRIPO[kind]].S;
+    if (K.police) for (const s of [-1, 1]) { const b = new Mesh(new BoxGeometry(0.22, 0.07, 0.42), s > 0 ? M.blue : M.red); b.position.set(-0.25, S.H + 0.01, s * 0.28); group.add(b); }
+    for (const s of [-1, 1]) { const t = new Mesh(new BoxGeometry(0.02, 0.1, 0.3), M.tail); t.position.set(-S.L / 2 - 0.005, S.H * 0.58, s * (S.W / 2 - 0.25)); group.add(t); }
+    return { group, wheels: [], K: { ...K, L: S.L, W: S.W }, wr };
+  }
   if (K.bus) {
     k.box(K.L, 2.75, K.W, 'busPaint', { at: [0, 0.35 + 1.375, 0], r: 0.12, color: 0xe8ecef });
     k.box(K.L - 1.2, 1.15, K.W + 0.02, 'glass', { at: [-0.3, 2.05, 0], r: 0.04 });

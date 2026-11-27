@@ -2,10 +2,10 @@
 // instead of dust). Late November, ~19:05 AWST: the sun sets WSW over the Narrows / Kings Park (bearing ≈245°).
 // Frame: +x east, +z south → azimDeg (from +Z toward +X) = -65 for a WSW sun. Colours LINEAR. Read-only at runtime.
 export const ART = {
-  sun:   { elevDeg: 10.5, azimDeg: -65, color: [1.0, 0.62, 0.34], intensity: 11.0 },
+  sun:   { elevDeg: 14, azimDeg: -65, color: [1.0, 0.62, 0.34], intensity: 11.0 },
   sky:   { zenith: [0.045, 0.11, 0.30], horizon: [1.05, 0.56, 0.30], groundTint: [0.30, 0.22, 0.18],
            cloudCover: 0.32, cloudSharp: 0.62, sunGlow: 1.35, burnGap: 0.35, fogFar: 4200 },
-  fog:   { sigma: [0.00020, 0.00028, 0.00045], scatter: [0.98, 0.64, 0.42], heightFalloff: 0.004, baseHeight: 0.0,
+  fog:   { sigma: [0.00012, 0.00017, 0.00028], scatter: [0.98, 0.64, 0.42], heightFalloff: 0.004, baseHeight: 0.0,
            sunInscatter: 1.0, start: 40.0 },
   vol:   { density: 0.010, g: 0.65, steps: 20, strength: 0.8 },
   ambient: { skyIntensity: 1.0, envIntensity: 0.95 },

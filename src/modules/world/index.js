@@ -19,12 +19,12 @@ function vc(m) { m.vertexColors = true; return m; }
 
 export function makeWorldMaterials() {
   const m = {
-    quayWall: vc(makeMaterial('concrete', { tint: 0x8a8c90 })),
+    quayWall: vc(makeMaterial('concrete', { tint: 0xb8b4aa })),
     coping: vc(makeMaterial('limestone', { scale: 2 })),
     limestone: vc(makeMaterial('limestone')),
     rock: vc(makeMaterial('rock', { triplanar: true, tint: 0xb8a890 })),
     sand: vc(makeMaterial('river_sand')),
-    road: vc(Roads.markRoadMaterial(makeMaterial('asphalt'))),
+    road: (() => { const r = vc(Roads.markRoadMaterial(makeMaterial('asphalt'))); r.color.multiplyScalar(2.8); return r; })(),   // sun-bleached WA bitumen (aged albedo ~0.14)
     kerb: vc(makeMaterial('concrete', { weather: 'ground', tint: 0xc8c4bc })),
     concrete: vc(makeMaterial('concrete', { tint: 0xd8d4cc })),
     bridgeConc: vc(makeMaterial('concrete', { tint: 0xe0dcd2, scale: 6 })),
@@ -41,7 +41,9 @@ export function makeWorldMaterials() {
     rubber: vc(makeMaterial('rubber')),
     tile: vc(makeMaterial('brick', { tint: 0xb85a3a, scale: 1.2 })),
     granite: std([0.06, 0.055, 0.05], 0.45, 0),
-    copper: std([0.55, 0.28, 0.16], 0.36, 0.85),
+    copper: std([0.50, 0.20, 0.10], 0.42, 0.7),
+    teal: std([0.16, 0.42, 0.44], 0.05, 0.8),
+    deckSteel: std([0.42, 0.44, 0.46], 0.5, 0.6),
     glass: std([0.18, 0.22, 0.24], 0.04, 0.9),
     glassLight: std([0.42, 0.5, 0.52], 0.03, 0.75),
     glassDark: std([0.05, 0.06, 0.065], 0.08, 0.6),
@@ -65,12 +67,12 @@ export function create(G, { mats }) {
   for (const o of towers.meshes) root.add(o);
   const lm = Landmarks.create(G, { mats });
   root.add(lm.group);
-  const props = Props.create(G, { mats, roads });
+  const props = Props.create(G, { mats, roads, footprints: towers.footprints });
   root.add(props.group);
   G.scene.add(root);
 
   // Perth Water: calm river chop under a light sea breeze from the SW
-  const sea = createSea(G, { level: 0, far: 5200, waveOpts: { L0: 5.5, steep: 0.035, chop: 0.32, spread: 2.8, falloff: 0.78, detailSteep: 0.05, count: 8, detail: 12, seed: 11 },
+  const sea = createSea(G, { level: 0, far: 5200, waveOpts: { L0: 4.2, steep: 0.026, chop: 0.24, spread: 3.1, falloff: 0.86, detailSteep: 0.034, count: 8, detail: 12, seed: 11 },
     scatter: [0.006, 0.026, 0.03], absorb: [0.45, 0.16, 0.12], foam: 0.4, envIntensity: 1.0 });
 
   // far field: the Darling Scarp to the east + suburbs (all at real-ish apparent heights, fogged by the same atmosphere)

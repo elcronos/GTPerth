@@ -5,54 +5,55 @@
 //  Elizabeth Quay Jetty (Transperth ferry terminal)       Barrack Street Jetty (piers 1-5)
 //  Mends Street Jetty (South Perth)                       The Narrows Bridge (3 parallel decks)
 //  Old Mill (1835 tower mill)                             State War Memorial obelisk (Kings Park)
-import { CatmullRomCurve3, Vector3 } from 'three';
+import { CatmullRomCurve3, Vector3, CanvasTexture, SRGBColorSpace, Mesh, PlaneGeometry, MeshBasicMaterial } from 'three';
 import { Kit, lathe, tube, roundedBox, sweep } from '../../cookbook/geo/kit.js';
 import { heightAt, PLACES, ISLAND, NARROWS, PROMENADE_Y } from '../../map.js';
 
 const V = (x, y, z) => new Vector3(x, y, z);
 
 function bellTower(k) {
+  // From photos: a teal glass needle (square section, ribbed, banded by steel "spokes") rising from the plaza;
+  // its lower 38 m is wrapped by two great copper shells meeting in an ogive point, open front and back so the
+  // glass shows through a vertical slot. Copper is warm red-brown; a silver needle tops the glass at 82.5 m.
   const [x, z] = PLACES.bellTower, y = heightAt(x, z);
-  k.push(x, y, z, 0.25);
-  // podium + reflection pool rim
-  k.cyl(17, 0.9, 'limestone', { at: [0, 0.45, 0], seg: 48 });
-  k.cyl(14.5, 0.25, 'water', { at: [0, 0.95, 0], seg: 48 });
-  // tinted glass spire: a tall square-section needle (rotated 45°) that starts wide at the plaza and tapers to the
-  // tip at 82.5 m; the six-storey concrete bell chamber stands inside its lower third
-  const top = 82.5 - 0.9;
-  k.add(lathe([[0, 0], [7.0, 0], [6.4, 12], [5.6, 24], [4.6, 34], [3.4, 46], [2.1, 58], [1.0, 70], [0.05, top]], { seg: 4, phi0: Math.PI / 4, crease: 20 }), 'glassLight', { at: [0, 0.9, 0], occ: false });
-  k.add(lathe([[0, 4], [3.6, 4], [3.3, 30], [0, 30]], { seg: 4, phi0: Math.PI / 4, crease: 20 }), 'concrete', { at: [0, 0.9, 0] });
-  // gleaming steel "spokes" ringing the spire, radiating from the central axle, narrowing upward
-  for (let h = 34; h < top - 3; h += 2.3) {
-    const t = (h - 34) / (top - 34), r = 4.6 * (1 - t) + 0.3;
-    for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + Math.PI / 4; k.bar([0, h + 0.9, 0], [Math.cos(a) * (r + 1.1), h + 0.9, Math.sin(a) * (r + 1.1)], 0.12, 0.12, 'steel'); }
+  k.push(x, y, z, 0.0);
+  k.cyl(17, 0.6, 'limestone', { at: [0, 0.3, 0], seg: 48 });
+  k.cyl(14.5, 0.2, 'water', { at: [0, 0.68, 0], seg: 48 });
+  const y0 = 0.6, top = 82.5 - y0;
+  const R = (h) => 6.2 * Math.pow(Math.max(0, 1 - h / 72), 1.05) + 0.25;
+  const prof = []; for (let i = 0; i <= 18; i++) { const h = (i / 18) * 72; prof.push([R(h), h]); }
+  prof.unshift([0, 0]); prof.push([0, 72]);
+  k.add(lathe(prof, { seg: 8, phi0: Math.PI / 8, crease: 20 }), 'teal', { at: [0, y0, 0], occ: false });
+  for (let h = 2; h < 70; h += 2.6) { const r = R(h); k.add(lathe([[r + 0.02, h], [r + 0.16, h + 0.1], [r + 0.02, h + 0.2]], { seg: 8, phi0: Math.PI / 8 }), 'steel', { at: [0, y0, 0], occ: false }); }
+  for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i / 8) * Math.PI * 2; const pts = []; for (let h = 0; h <= 72; h += 6) { const r = R(h) + 0.05; pts.push([Math.cos(a) * r, y0 + h, Math.sin(a) * r]); } k.add(tube(pts, 0.06, { radial: 4 }), 'steel', { occ: false }); }
+  k.add(lathe([[0.35, 0], [0.12, 8], [0.02, top - 72]], { seg: 8 }), 'steel', { at: [0, y0 + 72, 0] });
+  // copper shells (east + west), ogive profile, each spanning 120°, with thickness and a rolled edge
+  const cp = [[8.0, 0], [8.7, 5], [8.6, 11], [8.0, 17], [6.9, 23], [5.3, 29], [3.4, 34], [1.3, 38]];
+  for (const az of [Math.PI / 2, -Math.PI / 2]) {
+    k.add(lathe(cp, { seg: 18, phi0: az - 0.92, phiLen: 1.84, crease: 80 }), 'copper', { at: [0, y0, 0] });
+    k.add(lathe(cp.map(([r, h]) => [Math.max(0.2, r - 0.45), h]).reverse(), { seg: 18, phi0: az - 0.92, phiLen: 1.84, crease: 80 }), 'copper', { at: [0, y0, 0] });
+    for (const ed of [az - 0.92, az + 0.92]) { const pts = cp.map(([r, h]) => [Math.sin(ed) * (r - 0.22), y0 + h, Math.cos(ed) * (r - 0.22)]); k.add(tube(pts, 0.24, { radial: 6, curve: true, samples: 24 }), 'copper', { occ: false }); }
   }
-  for (let h = 3; h < 34; h += 3.4) { const r = 7.0 - (h / 34) * 2.4; k.add(lathe([[r + 0.04, h], [r + 0.12, h + 0.12], [r + 0.04, h + 0.24]], { seg: 4, phi0: Math.PI / 4 }), 'steel', { at: [0, 0.9, 0], occ: false }); }
-  k.cyl(0.22, top - 30, 'steel', { at: [0, 30 + (top - 30) / 2, 0], seg: 8 });
-  // copper sails: tall curved leaves standing in front of the glass on the river side, flaring like spinnakers
-  const sail = (az, H, R, span, lean) => {
-    const p = [[R * 0.55, 0], [R * 0.9, H * 0.18], [R, H * 0.42], [R * 0.86, H * 0.7], [R * 0.5, H * 0.92], [R * 0.25, H]];
-    k.add(lathe(p, { seg: 12, phi0: az - span / 2, phiLen: span, crease: 70 }), 'copper', { at: [0, 0.9, 0] });
-    k.add(lathe(p.map(([r, h]) => [r - 0.35, h]).reverse(), { seg: 12, phi0: az - span / 2, phiLen: span, crease: 70 }), 'copper', { at: [0, 0.9, 0] });
-  };
-  sail(Math.PI * 0.5 - 0.55, 31, 10.5, 0.85);          // south-west sail
-  sail(Math.PI * 0.5 + 0.55, 29, 10.0, 0.8);           // south-east sail
-  sail(Math.PI * 0.5 - 1.55, 22, 8.8, 0.7);            // west, lower
-  sail(Math.PI * 0.5 + 1.6, 20, 8.6, 0.7);             // east, lower
+  // glazed entrance pavilion at the foot
+  k.box(10, 4, 4, 'glassLight', { at: [0, y0 + 2, 8.5], r: 0.05 });
   k.pop();
 }
 
 function spanda(k) {
+  // Six egg-shaped hoops (tall, legs converging at the foot) standing in a row along a north-south axis, the
+  // largest (29 m) on the city side, each ~0.75× the previous, spacing tightening toward the smallest.
   const [x, z] = PLACES.spanda, y = heightAt(x, z);
-  k.push(x, y, z, 0.12);
-  // six nested arches growing exponentially; all share the west foot, the plane faces the river (south)
-  const sizes = [29, 20.3, 14.2, 9.9, 6.9, 4.8];
+  k.push(x, y, z, 0);
+  const H = [29, 21.8, 16.4, 12.3, 9.2, 6.9]; const D = [0, 2.8, 5.0, 6.7, 8.0, 9.0];
   for (let i = 0; i < 6; i++) {
-    const H = sizes[i], W = H * 0.55;
-    const pts = []; for (let s = 0; s <= 24; s++) { const t = s / 24; const px = -8 + t * W; const py = H * Math.pow(Math.sin(Math.PI * t), 0.85); pts.push([px, py, i * 0.0]); }
-    k.add(tube(pts, (r) => 0.42 * (H / 29) ** 0.4 * (0.9 + 0.2 * Math.sin(Math.PI * r)), { radial: 14, curve: true, samples: 64 }), 'white', { occ: false });
+    // egg-shaped loop, open at the foot where both legs come together (legs a hand-span apart)
+    const h = H[i], w = h * 0.74, eps = 0.13, y0 = (1 + Math.sin(-Math.PI / 2 + eps)) / 2;
+    const pts = []; for (let j = 0; j <= 48; j++) { const s = -Math.PI / 2 + eps + (Math.PI * 2 - 2 * eps) * (j / 48);
+      const yy = ((1 + Math.sin(s)) / 2 - y0) / (1 - y0); pts.push([(w / 2) * Math.cos(s) * (0.82 + 0.3 * yy), h * yy, D[i]]); }
+    const r = 0.36 * Math.pow(h / 29, 0.55);
+    k.add(tube(pts, r, { radial: 14, curve: true, samples: 96 }), 'white', { occ: false });
+    k.box(Math.abs(pts[0][0]) * 2 + r * 4, 0.1, r * 4, 'steel', { at: [0, 0.05, D[i]], r: 0.03 });
   }
-  k.cyl(1.2, 0.3, 'concrete', { at: [-8, 0.15, 0], seg: 16 });
   k.pop();
 }
 
@@ -71,7 +72,7 @@ function eqBridge(k) {
   }
   // deck: timber top + white steel box girder (sweep a trapezoid profile along the deck path)
   const prof = [[-2.4, 0.06], [2.4, 0.06], [1.9, -0.65], [-1.9, -0.65]];
-  k.add(sweep(prof, side, { smooth: false, caps: true }), 'white');
+  k.add(sweep(prof, side, { smooth: false, caps: true }), 'deckSteel');
   k.add(sweep([[-2.25, 0.12], [2.25, 0.12], [2.25, 0.05], [-2.25, 0.05]], side, { caps: true }), 'timber');
   // mesh balustrades (handrail tubes + posts)
   for (const edge of [left, right]) {
@@ -85,18 +86,18 @@ function eqBridge(k) {
     const pts = []; const ax = new Vector3().subVectors(B, A); const L = ax.length(); ax.normalize();
     const n = new Vector3(ax.z, 0, -ax.x); // horizontal normal
     for (let s = 0; s <= 30; s++) {
-      const t = s / 30, h = 22 * Math.sin(Math.PI * t);
-      const p = A.clone().lerp(B, t); p.y = 0.3 + h * Math.cos(lean); p.addScaledVector(n, h * Math.sin(lean));
+      const t = s / 30, h = 19.5 * Math.pow(Math.sin(Math.PI * t), 0.82);
+      const p = A.clone().lerp(B, t); p.y = 2.6 + h * Math.cos(lean); p.addScaledVector(n, h * Math.sin(lean));
       pts.push([p.x, p.y, p.z]);
     }
-    k.add(tube(pts, (r) => 0.55 - 0.18 * Math.sin(Math.PI * r), { radial: 12, curve: true, samples: 60 }), 'white', { occ: false });
+    k.add(tube(pts, (r) => 0.42 - 0.12 * Math.sin(Math.PI * r), { radial: 12, curve: true, samples: 60 }), 'white', { occ: false });
     return { pts, A, B, n };
   };
-  const a1 = arch(V(P0.x, 0, P0.z), V(Pm.x, 0, Pm.z), 0.38);
-  const a2 = arch(V(Pm.x, 0, Pm.z), V(P1.x, 0, P1.z), -0.38);
+  const a1 = arch(V(P0.x, 0, P0.z), V(Pm.x, 0, Pm.z), 0.13);
+  const a2 = arch(V(Pm.x, 0, Pm.z), V(P1.x, 0, P1.z), -0.13);
   // cable hangers from each arch down to the nearest deck edge
   for (const a of [a1, a2]) {
-    for (let s = 3; s <= 27; s += 2) {
+    for (let s = 2; s <= 28; s += 1) {
       const ap = a.pts[s];
       let best = 0, bd = 1e9; for (let i = 0; i <= N; i++) { const e = (a === a1 ? left : right)[i]; const d = (e[0] - ap[0]) ** 2 + (e[2] - ap[2]) ** 2; if (d < bd) { bd = d; best = i; } }
       const e = (a === a1 ? left : right)[best];
@@ -104,7 +105,7 @@ function eqBridge(k) {
     }
   }
   // concrete piers framing the navigation channel + centre pier
-  for (const t of [0.4, 0.5, 0.6]) { const p = C.getPointAt(t); const y = bridgeDeckY(t); k.box(1.1, y + 2.4, 1.8, 'bridgeConc', { at: [p.x, (y - 2.4) / 2 - 0.7, p.z], r: 0.15 }); }
+  for (const t of [0.39, 0.61]) { const p = C.getPointAt(t); const y = bridgeDeckY(t); k.box(1.1, y + 2.4, 1.8, 'bridgeConc', { at: [p.x, (y - 2.4) / 2 - 0.7, p.z], r: 0.15 }); }
   return { left, right };
 }
 
@@ -239,13 +240,36 @@ function warMemorial(k) {
   k.pop();
 }
 
+// Brookfield Place: the open steel exoskeleton crown (~30 m) above the 204 m roof, with the red BHP sign
+function brookfieldCrown(k) {
+  const x = -96, z = -494, y = heightAt(x, z) + 204, W = 50, D = 24, H = 30;
+  k.push(x, y, z, 0);
+  const C = [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]];
+  for (const [cx, cz] of C) k.bar([cx, 0, cz], [cx, H, cz], 0.9, 0.9, 'steel');
+  for (const hy of [10, 20, H]) for (let i = 0; i < 4; i++) { const a = C[i], b = C[(i + 1) % 4]; k.bar([a[0], hy, a[1]], [b[0], hy, b[1]], 0.6, 0.7, 'steel'); }
+  for (const s of [-1, 1]) for (let i = 0; i < 4; i++) { const x0 = -W / 2 + (i * W) / 4, x1 = x0 + W / 4;
+    k.bar([x0, 0, s * D / 2], [x1, H, s * D / 2], 0.45, 0.45, 'steel'); k.bar([x1, 0, s * D / 2], [x0, H, s * D / 2], 0.45, 0.45, 'steel'); }
+  for (const s of [-1, 1]) for (let i = 0; i <= 4; i++) { const xx = -W / 2 + (i * W) / 4; k.bar([xx, 0, s * D / 2], [xx, H, s * D / 2], 0.4, 0.4, 'steel'); }
+  k.pop();
+}
+function bhpSign() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96; const g = c.getContext('2d');
+  g.fillStyle = '#d4141b'; g.fillRect(0, 0, 256, 96); g.fillStyle = '#fff'; g.font = 'bold 72px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BHP', 128, 52);
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace;
+  const m = new MeshBasicMaterial({ map: t, color: 0xffffff, fog: true }); const out = [];
+  const x = -96, z = -494, y = heightAt(x, z) + 204 + 24;
+  for (const s of [-1, 1]) { const p = new Mesh(new PlaneGeometry(12, 4.5), m); p.position.set(x, y, z + s * 12.6); p.rotation.y = s > 0 ? 0 : Math.PI; out.push(p); }
+  return out;
+}
+
 export function create(G, { mats }) {
   const k = new Kit();
   bellTower(k); spanda(k); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k); barrackJetty(k); mendsJetty(k);
-  narrows(k); oldMill(k); warMemorial(k);
+  narrows(k); oldMill(k); warMemorial(k); brookfieldCrown(k);
   // short bridge: island → Barrack Square
   k.bar([ISLAND.x + 15, PROMENADE_Y + 0.25, ISLAND.z + 4], [92, PROMENADE_Y + 0.25, 12], 4.5, 0.5, 'timberDeck');
   k.bakeAO({ radius: 0.6, samples: 8, strength: 0.6, ground: PROMENADE_Y - 0.05 });
   const group = k.build(mats);
+  for (const s of bhpSign()) group.add(s);
   return { group, bridge };
 }

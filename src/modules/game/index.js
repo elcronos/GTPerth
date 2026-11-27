@@ -4,6 +4,7 @@ import { CatmullRomCurve3, Vector3 } from 'three';
 import { PATH, PLAYER } from '../../contracts.js';
 import { PLACES, isLand } from '../../map.js';
 import { loadAvatars, MALE } from './avatars.js';
+import { loadModels } from './models.js';
 import { createCollision } from './collide.js';
 import { createPlayer, groundAt } from './player.js';
 import { Character } from './character.js';
@@ -19,6 +20,7 @@ import { createMission, REWARD } from './mission.js';
 export async function create(G, { input, world, fx, quality }) {
   const shot = G.params.has('shot'), auto = G.params.has('autostart') || shot;
   const avatars = await loadAvatars(G);
+  await loadModels();
   const col = createCollision(world.colliders);
   const M = makeCarMaterials(), BM = boatMaterials();
   const hud = createHUD(G, { col, footprints: world.towers.footprints });
@@ -31,7 +33,7 @@ export async function create(G, { input, world, fx, quality }) {
   const dockFerry = () => { ferry.place(PLACES.ferryDock[0], PLACES.ferryDock[1], -Math.PI / 2); ferry.health = 100; ferry.throttle = 0; ferry.steer = 0; };
   dockFerry();
   // a few parked cars at the kerbs near the Quay (easy to steal)
-  const parked = [[-30, -205, Math.PI], [70, -205, 0], [131, -120, -Math.PI / 2], [-42, -300, -Math.PI / 2], [-150, -226, Math.PI], [-205, 1338, 0]];
+  const parked = [[-30, -201.6, Math.PI], [70, -194.4, 0], [120.4, -130, -Math.PI / 2], [-42, -300, -Math.PI / 2], [-150, -226, Math.PI], [-205, 1338, 0]];
   for (const [x, z, h] of parked) { const c = traffic.spawnAt(['sedan', 'ute', 'suv', 'hatch'][(Math.random() * 4) | 0], x, z, h, CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0]); c.parked = true; }
 
   const state = { mode: auto ? 'playing' : 'title', t: 0, deadT: 0, timeScale: 1, passedT: 0 };

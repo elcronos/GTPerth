@@ -185,7 +185,7 @@ roughnessFactor = mix(roughnessFactor, 0.85, gRock);`)
 }
 
 // ------------------------------------------------------------------ shore edges
-function strip(pts, build) { // pts: [[x,z],...]; build(i, p, n) → [[x,y,z] top, [x,y,z] bottom]
+function strip(pts, build, want) { // pts: [[x,z],...]; build(p, n) → [[x,y,z] top, [x,y,z] bottom]; want(n) → desired normal dir
   const pos = [], uv = [], idx = []; let u = 0;
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
@@ -200,6 +200,12 @@ function strip(pts, build) { // pts: [[x,z],...]; build(i, p, n) → [[x,y,z] to
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   g.setIndex(idx); g.computeVertexNormals();
+  if (want) { // flip winding if the strip faces the wrong way
+    const N = g.attributes.normal.array, P2 = pts[Math.floor(pts.length / 2)];
+    const k = Math.floor(pts.length / 2) * 2; const nv = [N[k * 3], N[k * 3 + 1], N[k * 3 + 2]];
+    const w = want(P2);
+    if (nv[0] * w[0] + nv[1] * w[1] + nv[2] * w[2] < 0) { for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; } g.setIndex(idx); g.computeVertexNormals(); }
+  }
   return g;
 }
 // split a closed polygon into runs of consecutive shore points (skipping the far closing corners)
@@ -247,11 +253,12 @@ export function create(G, { mats }) {
   // the land polygon winds so that, walking along it, water is on one side; detect per run by probing
   const waterSide = (p, n) => (!isLand(p[0] + n[0] * 3, p[1] + n[1] * 3) ? 1 : -1);
   const wallGeo = (pts) => { const s = waterSide(pts[Math.floor(pts.length / 2)], (() => { const a = pts[0], b = pts[1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / l, -(b[0] - a[0]) / l]; })());
-    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]); const o = 0.02 * s; return [[p[0] + n[0] * o, y + 0.001, p[1] + n[1] * o], [p[0] + n[0] * o, -3, p[1] + n[1] * o]]; }); };
+    const mid = pts[Math.floor(pts.length / 2)], a0 = pts[Math.max(0, Math.floor(pts.length / 2) - 1)], b0 = pts[Math.min(pts.length - 1, Math.floor(pts.length / 2) + 1)]; const tl = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]) || 1; const wn = [((b0[1] - a0[1]) / tl) * s, 0, (-(b0[0] - a0[0]) / tl) * s];
+    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]); const o = 0.02 * s; return [[p[0] + n[0] * o, y + 0.001, p[1] + n[1] * o], [p[0] + n[0] * o, -3, p[1] + n[1] * o]]; }, () => wn); };
   const slopeGeo = (pts, run_, toY) => { const s = waterSide(pts[Math.floor(pts.length / 2)], (() => { const a = pts[0], b = pts[1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / l, -(b[0] - a[0]) / l]; })());
-    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]); return [[p[0], y - 0.02, p[1]], [p[0] + n[0] * run_ * s, toY, p[1] + n[1] * run_ * s]]; }); };
+    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]); return [[p[0], y - 0.02, p[1]], [p[0] + n[0] * run_ * s, toY, p[1] + n[1] * run_ * s]]; }, () => [0, 1, 0]); };
   const copingGeo = (pts, w, hgt) => { const s = waterSide(pts[Math.floor(pts.length / 2)], (() => { const a = pts[0], b = pts[1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / l, -(b[0] - a[0]) / l]; })());
-    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]) + hgt; return [[p[0] - n[0] * w * s, y, p[1] - n[1] * w * s], [p[0] + n[0] * 0.08 * s, y, p[1] + n[1] * 0.08 * s]]; }); };
+    return strip(pts, (p, n) => { const y = heightAt(p[0], p[1]) + hgt; return [[p[0] - n[0] * w * s, y, p[1] - n[1] * w * s], [p[0] + n[0] * 0.08 * s, y, p[1] + n[1] * 0.08 * s]]; }, () => [0, 1, 0]); };
 
   const add = (geo, mat, name, shadow = true) => { const m = new Mesh(geo, mat); m.name = name; m.receiveShadow = true; m.castShadow = shadow; group.push(m); return m; };
   for (const r of wallPts) { add(wallGeo(r), mats.quayWall, 'quay-wall'); add(copingGeo(r, 0.55, 0.06), mats.coping, 'quay-coping', false); }

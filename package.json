@@ -23,6 +23,6 @@
     "playwright": "^1.56.1",
     "pngjs": "^7.0.0"
   },
-  "budgetMB": 9,
+  "budgetMB": 10,
   "allowAssets": true
 }

@@ -3,7 +3,7 @@
 // "jacked" handling (driver bails out and runs). Spawns around the player, despawns far away.
 import { Car, CAR_COLORS } from './vehicles.js';
 
-const KINDS = ['sedan', 'sedan', 'hatch', 'suv', 'ute', 'sedan', 'hatch', 'suv'];
+const KINDS = ['sedan', 'sedan', 'hatch', 'suv', 'ute', 'sedan', 'hatch', 'suv', 'bus'];
 export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
   const cars = [];
   const usable = lanes.filter((l) => !/St Georges|Hay Street|Mill Point|Mends|South Perth/.test(l.road) || true);

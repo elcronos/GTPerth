@@ -1,6 +1,7 @@
 // Boats: Transperth ferry MV Tricia (23.7 m aluminium catamaran, 148 seats) and a WA Water Police launch.
 // Buoyancy samples the same Gerstner sea the GPU draws (sea.heightAt); thrust + rudder + bow thrusters, keel drag,
 // bow rise at speed, shore collisions against the real shoreline, and a foam wake ribbon.
+import { modelInstance } from './models.js';
 import { Group, Mesh, MeshStandardMaterial, Color, BufferGeometry, Float32BufferAttribute, DynamicDrawUsage, ShaderMaterial, CanvasTexture, SRGBColorSpace, PlaneGeometry, AdditiveBlending, Vector3 } from 'three';
 import { Kit, lathe, roundedBox, extrudeBevel, tube } from '../../cookbook/geo/kit.js';
 import { isLand } from '../../map.js';
@@ -34,8 +35,10 @@ export function boatMaterials() {
 // MV Tricia: bow +x. Twin demi-hulls, bridge deck, glazed passenger cabin, wheelhouse on the roof forward,
 // open rear deck, Transperth green/yellow waterline stripes.
 export function buildFerry(M) {
-  const k = new Kit();
   const L = 23.7, B = 7.6;
+  const tm = modelInstance('ferry');
+  if (tm) { const g = new Group(); g.add(tm); return { group: g, L, B, helm: new Vector3(4.2, 4.6, 0), deckY: 1.25 }; }
+  const k = new Kit();
   for (const s of [-1, 1]) {
     // demi-hull: rounded vee, fine entry at the bow (+x), transom at the stern
     const hp = [[-11.6, -0.95], [8.6, -0.95], [11.85, 0.15], [11.6, 0.95], [-11.7, 0.95], [-11.85, 0.2]];
@@ -57,8 +60,7 @@ export function buildFerry(M) {
   // wheelhouse on the roof, forward, with wrap glass
   k.add(extrudeBevel([[2.0, 3.6], [5.6, 3.6], [6.5, 4.3], [5.9, 5.1], [2.2, 5.15]], { depth: 3.6, bevel: 0.12, bevelSeg: 2 }), 'hull');
   k.add(extrudeBevel([[2.4, 4.35], [6.1, 4.35], [5.75, 4.95], [2.4, 4.98]], { depth: 3.7, bevel: 0.04 }), 'glass');
-  k.cyl(0.06, 2.2, 'steel', { at: [3.2, 6.2, 0] }); k.box(0.9, 0.06, 0.06, 'steel', { at: [3.2, 6.9, 0], r: 0.01 });
-  k.box(0.18, 0.18, 0.18, 'dark', { at: [3.2, 7.35, 0], r: 0.05 });
+  k.cyl(0.05, 0.6, 'steel', { at: [3.2, 5.45, 0] }); k.box(0.7, 0.05, 0.05, 'steel', { at: [3.2, 5.7, 0], r: 0.01 });
   // roof rails, rear open deck with bench seats and rails
   for (const s of [-1, 1]) k.add(tube([[-7.3, 4.6, s * (B / 2 - 0.25)], [1.8, 4.6, s * (B / 2 - 0.25)]], 0.035), 'steel', { occ: false });
   for (let i = 0; i < 3; i++) k.box(0.5, 0.45, B - 1.8, 'seat', { at: [-8.4 + i * 1.0, 1.5, 0], r: 0.06 });

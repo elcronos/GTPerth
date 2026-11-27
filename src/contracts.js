@@ -4,7 +4,7 @@ export const SEED = 6000;   // Perth postcode
 
 export const POSES = [
   [34, 10.5, 26, -520, 18, 250],          // 1 establishing INTO the sun: from the bridge over the inlet mouth toward the Narrows + Kings Park
-  [12.0, 4.3, -178.0, -30, 2.4, -96],      // 2 gameplay eye at spawn (third-person cam behind the player at The Landing), toward the ferry jetty
+  [8.9, 4.0, -174.3, -24, 2.2, -122],      // 2 gameplay eye at spawn (third-person cam behind the player at The Landing), toward the ferry jetty
   [-24, 4.4, -58, -47, 2.6, -84],          // 3 hero object: MV Tricia berthed at the Elizabeth Quay Jetty, rim-lit by the sun behind it
   [-178, 3.9, 1292, -20, 72, -330],        // 4 second biome: Mends Street Jetty, South Perth — the postcard view of the CBD skyline at golden hour
   [-102, 9.0, 330, -150, 1.5, 420],        // 5 action: stolen ferry crossing Perth Water with the Water Police on its tail (?show=chase)
@@ -37,5 +37,5 @@ export const PLAYER = {
   accel: 14, turn: 10,
   jump: 4.6, gravity: 18,
   camDist: 4.4, camHeight: 1.85, camVehicleDist: 8.5, camFerryDist: 22,
-  spawn: [6, 2.2, -170], spawnYaw: Math.PI * 0.82,   // facing SW toward the ferry terminal
+  spawn: [6, 2.2, -170], spawnYaw: -0.59,   // facing SW toward the ferry terminal
 };

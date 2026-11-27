@@ -75,9 +75,9 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     frame *= 1.0 - j * 0.35;
     frame *= 0.92 + 0.12 * rnd;
   } else if (style > 6.5) {                           // 7: 'cobble' powder-coated panels (Ritz-Carlton podium)
-    vec2 pc = floor(vFUv / vec2(0.9, 0.75)); float h = fcH(pc + seed);
-    vec3 pal = h < 0.25 ? vec3(0.40, 0.35, 0.29) : h < 0.5 ? vec3(0.48, 0.41, 0.32) : h < 0.75 ? vec3(0.34, 0.30, 0.26) : vec3(0.52, 0.47, 0.40);
-    vec2 pf = fract(vFUv / vec2(0.9, 0.75)); vec2 pe = min(pf, 1.0 - pf);
+    vec2 pc = floor(vFUv / vec2(1.6, 1.2)); float h = fcH(pc + seed);
+    vec3 pal = vec3(0.44, 0.39, 0.32) * (0.9 + 0.2 * h) + vec3(0.02, 0.0, -0.02) * step(0.7, h);
+    vec2 pf = fract(vFUv / vec2(1.6, 1.2)); vec2 pe = min(pf, 1.0 - pf);
     float j = 1.0 - smoothstep(0.02, 0.02 + fw.x * 2.0, min(pe.x, pe.y));
     frame = mix(pal * (0.9 + 0.2 * fcH(pc * 2.3)), vec3(0.08), j * (1.0 - far));
     frame = mix(frame, vec3(0.42, 0.37, 0.3), far);
@@ -91,7 +91,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   fcGlass = glass;
   // per-panel tint/roughness variation; oil-canning tilt (faded with distance)
   vec3 gl = vGlass * (0.95 + 0.1 * rnd2);
-  fcRough = mix(0.03 + 0.03 * rnd, 0.06, far);
+  fcRough = mix(0.05 + 0.04 * rnd, 0.08, far);
   fcTilt = (vec2(rnd, rnd2) - 0.5) * 0.045 * (1.0 - far);
   // ---------------- interior mapping (rooms behind the glass)
   vec3 V = normalize(vWthPos - cameraPosition);

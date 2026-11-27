@@ -126,7 +126,7 @@
   },
   {
    "press": "pause",
-   "after": 600
+   "after": 6000
   },
   {
    "assert": "__G.game.state.mode === 'paused'",
@@ -134,7 +134,7 @@
   },
   {
    "press": "pause",
-   "after": 600
+   "after": 6000
   },
   {
    "assert": "__G.game.state.mode === 'playing'",

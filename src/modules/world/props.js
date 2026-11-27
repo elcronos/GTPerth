@@ -92,7 +92,7 @@ function boatKit(k, len, color, kind) {
   if (kind === 'yacht') { k.cyl(0.08, len * 1.3, 'alu', { at: [0, len * 0.65 + 1, -len * 0.1], seg: 6 }); }
 }
 
-export function create(G, { mats, roads }) {
+export function create(G, { mats, roads, footprints = [] }) {
   const group = new Group(); group.name = 'props';
   const rng = rngFrom(31);
   const colliders = [];
@@ -108,14 +108,16 @@ export function create(G, { mats, roads }) {
   // London planes on Barrack Street + The Esplanade, Moreton Bay fig-like big trees around One The Esplanade
   const barrack = ROADS.find((r) => r.name === 'Barrack Street'), espl = ROADS.find((r) => r.name === 'The Esplanade');
   const planePts = [...lineTrees(barrack.pts.slice(0, 3), 16, barrack.w / 2 + 2.2), ...lineTrees(espl.pts, 18, espl.w / 2 + 2.0), ...lineTrees(ROADS.find((r) => r.name === 'Geoffrey Bolton Avenue').pts, 20, 6.8)];
-  const pm = leafMat(leafTex, 0xc0d8a0), pb = barkMat();
-  group.add(scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: planePts, heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [500, 700], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group);
+  const inFoot = (x, z) => footprints.some((f) => { const P = f.pts; let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; } return c; });
+  const keep = (arr, pad = 0) => { const o = []; for (let i = 0; i < arr.length; i += 2) if (!inFoot(arr[i], arr[i + 1]) && !inFoot(arr[i] + pad, arr[i + 1]) && !inFoot(arr[i] - pad, arr[i + 1]) && !inFoot(arr[i], arr[i + 1] + pad) && !inFoot(arr[i], arr[i + 1] - pad)) o.push(arr[i], arr[i + 1]); return o; };
+  const pm = leafMat(leafTex, 0xb4cc94), pb = barkMat();
+  group.add(scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: keep(planePts, 4), heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [500, 700], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group);
   // eucalypts: Kings Park bushland (dense), foreshores, Langley Park, South Perth park
   const eucPts = poissonDisk({ x0: -1500, z0: -800, w: 1200, h: 1150, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && distPoly(x, z, ROADS.find((r) => r.name === 'Mounts Bay Road').pts) > 14; } });
   const parkPts = poissonDisk({ x0: -900, z0: 560, w: 1700, h: 950, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, [[-860, 590], [-620, 862], [-430, 1102], [-232, 1260], [0, 1300], [420, 1354], [800, 1406]]) > 14 && distPoly(x, z, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480]]) < 90 && !(x > -260 && x < -120 && z > 1250 && z < 1340) });
   const langPts = poissonDisk({ x0: 300, z0: -200, w: 1100, h: 230, r: 30, rng, accept: (x, z) => isLand(x, z) && (z < -80 ? x < 420 : z < 15 && z > -60) });
   const foreshore = poissonDisk({ x0: -900, z0: -150, w: 760, h: 420, r: 24, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, ROADS.find((r) => r.name === 'Mounts Bay Road').pts) > 12 });
-  const em = leafMat(euTex, 0xa8b890), eb = barkMat(); eb.color.set(0xb8aa98);
+  const em = leafMat(euTex, 0x98a882), eb = barkMat(); eb.color.set(0xb8aa98);
   group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: [900, 1300], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
   const em2 = leafMat(euTex, 0xb4c098), eb2 = barkMat(); eb2.color.set(0xa89a88);
   group.add(scatter(G, { parts: [{ geo: euc2.trunk, material: eb2 }, { geo: euc2.leaves, material: em2 }], points: [...langPts, ...foreshore, ...parkPts.slice(Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.8, 1.2], tint: { color: 0xffffff, l: 0.1 }, fade: [700, 1000], cell: 80, seed: 9, sway: { amp: 0.05, freq: 0.8, height: 11 } }).group);
@@ -151,6 +153,13 @@ export function create(G, { mats, roads }) {
   group.add(instanced(G, benchGeo(), mats, benchM, 'benches'));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }
 
+  // ----- The Landing furniture: limestone planter benches, bollards, a kiosk umbrella cluster
+  const k0 = new Kit();
+  for (const [x, z, w] of [[-20, -176, 9], [30, -176, 9], [52, -186, 6], [-36, -188, 6]]) { k0.box(w, 0.48, 1.6, 'limestone', { at: [x, PROMENADE_Y + 0.24, z], r: 0.06 }); k0.box(w - 0.4, 0.3, 1.2, 'soil', { at: [x, PROMENADE_Y + 0.5, z], r: 0.03 }); colliders.push({ poly: [[x - w / 2, z - 0.8], [x + w / 2, z - 0.8], [x + w / 2, z + 0.8], [x - w / 2, z + 0.8]] }); }
+  for (let x = -44; x <= 64; x += 4) k0.cyl(0.11, 0.9, 'steel', { at: [x, PROMENADE_Y + 0.45, -192.5], seg: 10 });
+  for (const [x, z] of [[18, -186], [24, -186], [21, -190]]) { k0.cyl(0.05, 2.6, 'steel', { at: [x, PROMENADE_Y + 1.3, z] }); k0.add(lathe([[1.6, 0], [0.1, 0.5], [0, 0.52]], { seg: 8 }), 'canopy', { at: [x, PROMENADE_Y + 2.5, z] }); k0.cyl(0.4, 0.75, 'steel', { at: [x + 0.8, PROMENADE_Y + 0.37, z], seg: 12 }); }
+  k0.bakeAO({ radius: 0.5, samples: 6, strength: 0.6, ground: PROMENADE_Y - 0.02 });
+  group.add(k0.build({ ...mats, soil: new MeshStandardMaterial({ color: 0x2a3a1a, roughness: 1, vertexColors: true }) }));
   // ----- Landing carousel (west of Spanda) + BHP water park pad + Fifteen The Esplanade hoarding
   const k = new Kit();
   {
