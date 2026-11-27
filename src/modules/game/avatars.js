@@ -13,13 +13,15 @@ export const POLICE = ['Police_Male_07', 'Police_Male_06'];
 export const PLAYER_AVATAR = 'Female_Adult_12';
 
 const b64 = (s) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
+// split builds ship the GLBs as files (assets/…/*.glb); single-file builds embed them as base64
+const bufFor = async (s) => (/^assets\//.test(s) ? (await fetch(s)).arrayBuffer() : b64(s));
 
 export async function loadAvatars(G, onProgress) {
   const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   const lib = {}; const names = Object.keys(AVATARS);
   let i = 0;
   for (const n of names) {
-    const gltf = await loader.parseAsync(b64(AVATARS[n]), '');
+    const gltf = await loader.parseAsync(await bufFor(AVATARS[n]), '');
     const root = gltf.scene;
     let restHips = 0;
     root.traverse((o) => {

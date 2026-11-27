@@ -18,6 +18,8 @@ const SPEC = {
 };
 const ROT = { '+x': 0, '+z': Math.PI / 2, '-z': -Math.PI / 2, '-x': Math.PI };
 const b64 = (s) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
+// split builds ship the GLBs as files (assets/…/*.glb); single-file builds embed them as base64
+const bufFor = async (s) => (/^assets\//.test(s) ? (await fetch(s)).arrayBuffer() : b64(s));
 export const LIB = {};
 
 export async function loadModels() {
@@ -25,7 +27,7 @@ export async function loadModels() {
   for (const n of Object.keys(MODELS)) {
     const S = SPEC[n]; if (!S) continue;
     try {
-      const g = await loader.parseAsync(b64(MODELS[n]), '');
+      const g = await loader.parseAsync(await bufFor(MODELS[n]), '');
       const inner = g.scene; inner.rotation.y = ROT[S.front]; inner.updateMatrixWorld(true);
       const b = new Box3().setFromObject(inner), s = b.getSize(new Vector3()), c = b.getCenter(new Vector3());
       const wrap = new Group(); wrap.add(inner);

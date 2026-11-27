@@ -2,8 +2,9 @@
 // street lights, benches, bollards, moored boats, black swans, Fifteen The Esplanade hoarding, the Landing carousel.
 import {
   Group, InstancedMesh, Matrix4, Quaternion, Vector3, Euler, MeshStandardMaterial, DoubleSide, CanvasTexture, SRGBColorSpace,
-  Color, BufferGeometry, Float32BufferAttribute, Mesh, BoxGeometry, ConeGeometry,
+  Color, BufferGeometry, Float32BufferAttribute, Mesh, BoxGeometry, ConeGeometry, PlaneGeometry, ShaderMaterial, AdditiveBlending,
 } from 'three';
+import { patchUniforms } from '../../cookbook/engine/patch.js';
 import { scatter, treeGeo, leafTexture, foliagePatch, poissonDisk, bushGeo } from '../../cookbook/geo/scatter.js';
 import { Kit, tube, lathe, roundedBox, mergeGeos, normalizeGeo } from '../../cookbook/geo/kit.js';
 import { rngFrom } from '../../cookbook/geo/noise.js';
@@ -167,6 +168,21 @@ export function create(G, { mats, roads, footprints = [] }) {
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
   (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));
+  // night: a warm pool of light on the ground under every lamp head (one instanced additive quad set, fades in with uNight)
+  {
+    const pg = new PlaneGeometry(16, 16); pg.rotateX(-Math.PI / 2);
+    const pm = new ShaderMaterial({
+      uniforms: { uNight: patchUniforms.uNight || { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float uNight; varying vec2 vUv; void main(){ float r2 = dot(vUv, vUv); if (r2 > 1.0) discard; float e = (1.0 / (1.0 + r2 * 9.0) - 0.1) / 0.9; gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * max(e, 0.0) * 0.55 * uNight, 1.0); }',
+      transparent: true, blending: AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    pm.userData.noAtmos = true; pm.userData.noWeather = true;
+    const pools = new InstancedMesh(pg, pm, lampM.length);
+    const tmp = new Matrix4(), q0 = new Quaternion(), s0 = new Vector3(1, 1, 1), pp = new Vector3(), qq = new Quaternion(), ss = new Vector3();
+    lampM.forEach((m, i) => { m.decompose(pp, qq, ss); const off = new Vector3(0.55, 0, 0).applyQuaternion(qq); const x = pp.x + off.x, z = pp.z + off.z; tmp.compose(new Vector3(x, heightAt(x, z) + 0.06, z), q0, s0); pools.setMatrixAt(i, tmp); });
+    pools.instanceMatrix.needsUpdate = true; pools.computeBoundingSphere(); pools.renderOrder = 2; pools.name = 'lamp-pools'; pools.userData.noReflect = true;
+    group.add(pools);
+  }
   group.add(instanced(G, benchGeo(), mats, benchM, 'benches'));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }
 

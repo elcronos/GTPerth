@@ -3,7 +3,7 @@
 // then civil / nautical twilight and a moonlit night with stars and the city lit up.
 //
 // The clock runs 12:00 → 24:00 (then wraps to 12:00). Default speed: 12 game hours in 24 real minutes.
-//   ?time=18.5  start at 18:30      ?timescale=120  game seconds per real second (default 30)
+//   default start 17:15 (golden hour: low, back-lit sun); ?time=18.5  start at 18:30      ?timescale=120  game seconds per real second (default 30)
 // Drives: G.sun (dir / colour / intensity → light, atmos, fog in-scatter), sky dome uniforms, the sky-matched
 // environment map (re-baked every few seconds), post exposure / grade, shadow refits, night emissives
 // (G.nightMats registry), window lights (shared uNight uniform), stars + moon.
@@ -77,7 +77,7 @@ function moonSprite() {
 
 export function createDayCycle(G, { sky, env, shadows }) {
   const q = G.params;
-  const clock = G.clock = { hours: q.has('time') ? +q.get('time') : 12.0, scale: q.has('timescale') ? +q.get('timescale') : 30, frozen: q.has('shot') && !q.has('timescale') };
+  const clock = G.clock = { hours: q.has('time') ? +q.get('time') : 17.25, scale: q.has('timescale') ? +q.get('timescale') : 30, frozen: q.has('shot') && !q.has('timescale') };
   const uNight = sharedUniform('uNight', 'float', 0);
   G.nightMats = G.nightMats || [];
   const stars = starField(), moon = moonSprite();

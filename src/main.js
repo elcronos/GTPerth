@@ -70,7 +70,7 @@ async function main() {
   const fx = await stage('fx', () => { const f = createFX(G); f.setGround(WORLD.groundY, (x, z) => world.heightAt(x, z)); return own(f); }, { msg: 'Priming the pools', at: 0.55 });
   await stage('post', () => createPost(G, { motionBlur: G.params.has('shot') ? false : 0.3 }), { msg: 'Grading the film', at: 0.6 });
 
-  const input = await stage('input', () => createInput(G, { root: document.getElementById('ui'), bindings: { ...DEFAULT_BINDINGS, interact: ['KeyF', 'KeyE'], horn: ['KeyH'], fire: ['Mouse0', 'KeyJ'] } }), { critical: true, msg: 'Finding the controls', at: 0.65 });
+  const input = await stage('input', () => createInput(G, { root: document.getElementById('ui'), touchButtons: [], touchSens: 0.0065, bindings: { ...DEFAULT_BINDINGS, interact: ['KeyF', 'KeyE'], horn: ['KeyH'], fire: ['Mouse0', 'KeyJ'] } }), { critical: true, msg: 'Finding the controls', at: 0.65 });
   await stage('game', () => Game.create(G, { input, world, mats, fx, quality: Q, shadows, stage }), { msg: 'Waking up Perth', at: 0.7 });
 
   await stage('daycycle', () => createDayCycle(G, { sky, env, shadows }), { msg: 'Setting the clock to midday', at: 0.9 });

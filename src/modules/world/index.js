@@ -3,6 +3,7 @@ import { patch } from '../../cookbook/engine/patch.js';
 import { MeshStandardMaterial, Color, DoubleSide, Group, Vector3, Box3 } from 'three';
 import { makeMaterial } from '../../cookbook/materials/library.js';
 import { createSea } from '../../cookbook/water/sea.js';
+import { createPlanarReflection } from '../../cookbook/ground/planar-reflection.js';
 import { createFarfield } from '../../cookbook/backdrop/farfield.js';
 import { registerSurfaces } from './surfaces.js';
 import { facadeMaterial } from './facade.js';
@@ -85,7 +86,9 @@ export function create(G, { mats }) {
   G.scene.add(root);
 
   // Perth Water: calm river chop under a light sea breeze from the SW
-  const sea = createSea(G, { level: 0, far: 5200, waveOpts: { L0: 4.2, steep: 0.026, chop: 0.24, spread: 3.1, falloff: 0.86, detailSteep: 0.034, count: 8, detail: 12, seed: 11 },
+  // signature surface: the river mirrors the skyline (planar reflection; off on the 'low' tier → env reflections)
+  const refl = createPlanarReflection(G, { height: 0 });
+  const sea = createSea(G, { refl, level: 0, far: 5200, waveOpts: { L0: 4.2, steep: 0.026, chop: 0.24, spread: 3.1, falloff: 0.86, detailSteep: 0.034, count: 8, detail: 12, seed: 11 },
     scatter: [0.006, 0.026, 0.03], absorb: [0.45, 0.16, 0.12], foam: 0.4, envIntensity: 1.0 });
 
   // far field: the Darling Scarp to the east + suburbs (all at real-ish apparent heights, fogged by the same atmosphere)

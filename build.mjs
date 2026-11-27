@@ -17,6 +17,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const readable = argv.includes('--readable');
+// --single: embed every binary asset in the HTML (one file). Default: split the big GLBs / PNG out to dist/assets/
+// (binary instead of base64: ~25 % smaller, decoded off the main JS parse, cached separately by the browser).
+const single = argv.includes('--single');
 const out = path.resolve(here, arg('out', 'dist/index.html'));
 const entry = path.resolve(here, arg('entry', 'src/main.js'));
 const pkg = JSON.parse(readFileSync(path.join(here, 'package.json'), 'utf8'));
@@ -25,10 +28,31 @@ const MAX = (+arg('budget', pkg.budgetMB || 2)) * 1024 * 1024;   // this game sh
 const fail = (m) => { console.error('BUILD FAILED: ' + m); process.exit(1); };
 
 const t0 = Date.now();
+const outDir = path.dirname(path.resolve(here, arg('out', 'dist/index.html')));
+const splitAssets = {
+  name: 'split-assets',
+  setup(bld) {
+    if (single) return;
+    bld.onLoad({ filter: /src[\/\\]assets[\/\\](avatars|models|osm_mask)\.js$/ }, (a) => {
+      const src = readFileSync(a.path, 'utf8'), kind = path.basename(a.path, '.js');
+      mkdirSync(path.join(outDir, 'assets', kind), { recursive: true });
+      if (kind === 'osm_mask') {
+        const m = src.match(/png: "data:image\/png;base64,([^"]+)"/);
+        writeFileSync(path.join(outDir, 'assets', kind, 'mask.png'), Buffer.from(m[1], 'base64'));
+        return { contents: src.replace(/png: "data:image\/png;base64,[^"]+"/, 'png: "assets/osm_mask/mask.png"'), loader: 'js' };
+      }
+      const exp = src.match(/export const (\w+) = \{/)[1];
+      const entries = [...src.matchAll(/^\s*(\w+): '([A-Za-z0-9+/=]+)',?$/gm)];
+      const map = {};
+      for (const [, k, b64] of entries) { writeFileSync(path.join(outDir, 'assets', kind, k + '.glb'), Buffer.from(b64, 'base64')); map[k] = `assets/${kind}/${k}.glb`; }
+      return { contents: `export const ${exp} = ${JSON.stringify(map)};`, loader: 'js' };
+    });
+  },
+};
 const r = await build({
   entryPoints: [entry], bundle: true, format: 'iife', target: 'es2022', platform: 'browser',
   minify: !readable, write: false, metafile: true, logLevel: 'warning',
-  plugins: readable ? [] : [glslMinifyPlugin()],
+  plugins: readable ? [splitAssets] : [splitAssets, glslMinifyPlugin()],
   // three's /** @license */ banner (MIT) must survive minification: move legal comments to the end of the bundle
   legalComments: 'eof',
   define: { 'process.env.NODE_ENV': '"production"' },

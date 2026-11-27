@@ -8,7 +8,7 @@ const s = await startServer('/home/claude/perth/dist/index.html');
 const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] });
 const p = await b.newPage({ viewport: { width: 960, height: 600 } });
 const logs = []; p.on('pageerror', (e) => logs.push(e.message));
-await p.goto(s.url + '?shot=1&autostart=1&dynres=0');
+await p.goto(s.url + '?shot=1&autostart=1&dynres=0' + (process.env.Q ? '&q=' + process.env.Q : ''));
 await p.waitForFunction(() => window.__ready === true, null, { timeout: 900000 });
 for (const h of hours) {
   await p.evaluate(([c, h]) => { window.__G.clock.set(+h); window.__setCam([c[0], c[1], c[2]], [c[3], c[4], c[5]]); window.__G.post?.resetAdaptation?.(); }, [c, h]);

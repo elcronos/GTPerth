@@ -16,6 +16,7 @@ import { createPolice } from './police.js';
 import { createHUD } from './hud.js';
 import { createAudio } from './audio.js';
 import { createMission, REWARD } from './mission.js';
+import { createTouchControls } from './touch.js';
 
 export async function create(G, { input, world, fx, quality }) {
   const shot = G.params.has('shot'), auto = G.params.has('autostart') || shot;
@@ -167,7 +168,8 @@ export async function create(G, { input, world, fx, quality }) {
     if (state.mode !== 'title') return;
     setMode('playing'); mission.start(); hud.letterbox(false);
     player.camPos.set(0, 0, 0);
-    try { G.canvas.requestPointerLock?.(); } catch (e) { /* ignore */ }
+    if (matchMedia('(pointer: coarse)').matches) { try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {}); screen.orientation?.lock?.('landscape')?.catch?.(() => {}); } catch (e) { /* ignore */ } }
+    else { try { G.canvas.requestPointerLock?.(); } catch (e) { /* ignore */ } }
     audio.mixer.unlock?.();
   };
   ui.addEventListener('click', (e) => {
@@ -277,6 +279,9 @@ export async function create(G, { input, world, fx, quality }) {
   });
 
   // ---------------------------------------------------------------- debug / playtest hooks
+  const touch = createTouchControls(G, { input, ctx: () => { const near = !player.vehicle && (nearFerry() ? 'ferry' : nearestCar()); return { mode: state.mode, inVehicle: !!player.vehicle, isFerry: player.vehicle === ferry, canEnter: !!near, hijack: near === 'ferry' || !!(near && near.ai) }; } });
+  // tap anywhere on the title card to start (phones have no Enter key)
+  title.addEventListener('click', (e) => { if (!e.target.closest('[data-act]')) startGame(); });
   G.game = {
     player, ferry, traffic, peds, wanted, mission, hud, state,
     debugWin: () => { if (player.vehicle !== ferry) { if (player.vehicle) exitVehicle(); enterVehicle(ferry); } ferry.place(PLACES.mendsHead[0] + 6, PLACES.mendsHead[1] - 18, 1.88); },
