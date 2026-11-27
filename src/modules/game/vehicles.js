@@ -52,10 +52,10 @@ function policeLivery() { // WA Police: blue/white Battenburg-style chequer band
   const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; return t;
 }
 
-export function buildCarModel(kind, color, M) {
+export function buildCarModel(kind, color, M, simple = false) {
   const K = KINDS[kind]; const k = new Kit(); const col = new Color(color);
   const wr = kind === 'bus' ? 0.5 : kind === 'suv' || kind === 'ute' ? 0.38 : 0.33;
-  const tm = LIB[TRIPO[kind]] && modelInstance(TRIPO[kind], color);
+  const tm = !simple && LIB[TRIPO[kind]] && modelInstance(TRIPO[kind], color);
   if (tm) { // scanned-quality Tripo mesh (wheels baked in); keep the flashing beacons + brake glow as live parts
     const group = new Group(); group.add(tm);
     const S = LIB[TRIPO[kind]].S;

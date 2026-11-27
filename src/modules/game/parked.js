@@ -33,11 +33,12 @@ export function createParkedRows(G, M, { step = 7.5, fill = 0.55, seed = 11 } = 
   const group = new Group(); group.name = 'parked-rows';
   const cols = [CAR_COLORS[0], CAR_COLORS[3 % CAR_COLORS.length], CAR_COLORS[5 % CAR_COLORS.length]];
   const buckets = new Map();
+  // low-poly kit cars (no scanned mesh): a whole CBD of parked cars stays a few hundred k triangles
   for (const sl of slots) { const k = KINDS[Math.floor(rnd() * KINDS.length)] + '|' + Math.floor(rnd() * cols.length); if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(sl); }
   const T = new Matrix4(), q = new Quaternion(), e = new Euler(0, 0, 0, 'YXZ'), p = new Vector3(), one = new Vector3(1, 1, 1), tmp = new Matrix4();
   for (const [k, list] of buckets) {
     const [kind, ci] = k.split('|');
-    const m = buildCarModel(kind, cols[+ci], M); m.group.updateMatrixWorld(true);
+    const m = buildCarModel(kind, cols[+ci], M, true); m.group.updateMatrixWorld(true);
     m.group.traverse((o) => {
       if (!o.isMesh || !o.geometry) return;
       const im = new InstancedMesh(o.geometry, o.material, list.length);

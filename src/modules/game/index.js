@@ -48,7 +48,7 @@ export async function create(G, { input, world, fx, quality }) {
           const x = mx + tz * off, z = mz - tx * off; if (!isLand(x, z) || parked.some((p) => Math.hypot(p[0] - x, p[1] - z) < (hiP ? 10 : 30))) continue;
           parked.push([x, z, Math.atan2(tz, tx)]); got++; } } } }
   // static kerbside rows in the CBD (instanced, no physics)
-  const parkedRows = createParkedRows(G, M, { fill: G.quality.tier === 'low' ? 0.3 : 0.55 });
+  const parkedRows = G.quality.tier === 'low' ? null : createParkedRows(G, M, { fill: 0.55 });   // phones keep the physics-car handful only
   for (const [x, z, h] of parked) { const c = traffic.spawnAt(['sedan', 'ute', 'suv', 'hatch'][(Math.random() * 4) | 0], x, z, h, CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0]); c.parked = true; }
 
   const state = { mode: auto ? 'playing' : 'title', t: 0, deadT: 0, timeScale: 1, passedT: 0 };
