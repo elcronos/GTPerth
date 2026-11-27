@@ -171,7 +171,7 @@ void main() {
     // fill light: real skylight is less saturated than the sky colour reads (multiple scattering, city haze, bounce):
     // desaturate the upper hemisphere, warm the lower one, so shadowed streets go grey-blue rather than navy
     float ly = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    col = rd.y > 0.0 ? mix(vec3(ly), col, mix(0.45, 0.55, uLowSun)) : col * mix(vec3(0.96, 0.98, 1.0), vec3(0.88, 0.96, 1.14), uLowSun);   // low sun: cool blue-grey shade, not brown
+    col = rd.y > 0.0 ? mix(vec3(ly), col, mix(0.45, 0.62, uLowSun)) : col * mix(vec3(0.96, 0.98, 1.0), vec3(0.80, 0.93, 1.26), uLowSun);   // low sun: cool blue-grey shade, not brown
     col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, mix(0.5, 1.0, smoothstep(0.0, 0.15, abs(rd.y))));   // tame the sunset ring in the fill
     float l = max(max(col.r, col.g), col.b);
     col *= min(1.0, uGlow.z / max(l, 1e-4));

@@ -7,6 +7,7 @@ import { loadAvatars, MALE } from './avatars.js';
 import { loadModels } from './models.js';
 import { createCollision } from './collide.js';
 import { createPlayer, groundAt } from './player.js';
+import { createParkedRows } from './parked.js';
 import { Character } from './character.js';
 import { makeCarMaterials, CAR_COLORS } from './vehicles.js';
 import { boatMaterials, buildFerry, buildPoliceBoat, Boat } from './boats.js';
@@ -46,6 +47,8 @@ export async function create(G, { input, world, fx, quality }) {
           const tx = (bx - ax) / L, tz = (bz - az) / L, off = r.w / 2 - 1.3; // left kerb (left-hand traffic)
           const x = mx + tz * off, z = mz - tx * off; if (!isLand(x, z) || parked.some((p) => Math.hypot(p[0] - x, p[1] - z) < (hiP ? 10 : 30))) continue;
           parked.push([x, z, Math.atan2(tz, tx)]); got++; } } } }
+  // static kerbside rows in the CBD (instanced, no physics)
+  const parkedRows = createParkedRows(G, M, { fill: G.quality.tier === 'low' ? 0.3 : 0.55 });
   for (const [x, z, h] of parked) { const c = traffic.spawnAt(['sedan', 'ute', 'suv', 'hatch'][(Math.random() * 4) | 0], x, z, h, CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0]); c.parked = true; }
 
   const state = { mode: auto ? 'playing' : 'title', t: 0, deadT: 0, timeScale: 1, passedT: 0 };
@@ -169,6 +172,8 @@ export async function create(G, { input, world, fx, quality }) {
     if (state.mode !== 'title') return;
     setMode('playing'); mission.start(); hud.letterbox(false);
     player.camPos.set(0, 0, 0);
+    // opening shot: nobody in the camera-to-player sightline, a few walkers in view
+    { const c = G.camera.position.clone().set(player.x - Math.sin(player.yaw) * 4.4, 0, player.z - Math.cos(player.yaw) * 4.4); peds.clearView?.(c, player); peds.topUp?.(c, player, G.quality.tier === 'low' ? 3 : 6); }
     if (matchMedia('(pointer: coarse)').matches) { try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {}); screen.orientation?.lock?.('landscape')?.catch?.(() => {}); } catch (e) { /* ignore */ } }
     else { try { G.canvas.requestPointerLock?.(); } catch (e) { /* ignore */ } }
     audio.mixer.unlock?.();
@@ -257,7 +262,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (!G.camLocked) player.updateCamera(rawDt, mode);
     if (G.camLocked) { G.camera.getWorldDirection(_b); tmpFocus.set(G.camera.position.x + _b.x * 45, 0, G.camera.position.z + _b.z * 45); }   // photo/fly cams: shadows + traffic follow the view
     else tmpFocus.set(player.vehicle ? player.vehicle.x : player.x, 0, player.vehicle ? player.vehicle.z : player.z);
-    G.focus = tmpFocus; G.shadowRadius = (player.vehicle === ferry ? 170 : 90) * (G.quality.tier === 'low' ? 0.55 : 1);
+    G.focus = tmpFocus; G.shadowRadius = (player.vehicle === ferry ? 170 : (G.clock?.state?.()?.el ?? 30) < 15 ? 60 : 90) * (G.quality.tier === 'low' ? 0.55 : 1);
     // prompts
     let p3 = null;
     if (!player.vehicle && state.mode === 'playing') {

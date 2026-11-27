@@ -132,23 +132,23 @@ export function create(G, { mats, roads, footprints = [] }) {
   // eucalypts: Kings Park bushland (dense), foreshores, Langley Park, South Perth park
   const eucPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && !nearRoad(x, z) && !inFoot(x, z); } });
   const parkPts = poissonDisk({ x0: -900, z0: 520, w: 2900, h: 1300, r: 24, rng, accept: (x, z) => isLand(x, z) && z > 520 && distPoly(x, z, SHORE_S) > 10 && distPoly(x, z, SHORE_S) < 170 && !nearRoad(x, z) && !inFoot(x, z) && !(x > -300 && x < -130 && z > 1250 && z < 1400) });
-  const langPts = poissonDisk({ x0: 300, z0: -250, w: 1700, h: 900, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, SHORE_N) < 140 && distPoly(x, z, SHORE_N) > 8 && !nearRoad(x, z) && !inFoot(x, z) });
+  const langPts = poissonDisk({ x0: 300, z0: -250, w: 1700, h: 900, r: 40, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, SHORE_N) < 140 && distPoly(x, z, SHORE_N) > 8 && !nearRoad(x, z) && !inFoot(x, z) });
   const foreshore = poissonDisk({ x0: -1400, z0: -350, w: 1300, h: 1000, r: 22, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, SHORE_N) < 120 && !nearRoad(x, z) && !inFoot(x, z) });
   const em = leafMat(euTex, 0x6a7450), eb = barkMat(); eb.color.set(0x8a7e6e);   // eucalypt olive / grey-green (photo-matched)
   group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: hiT ? [900, 1250] : [600, 900], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
-  const em2 = leafMat(euTex, 0x8c9a6c), eb2 = barkMat(); eb2.color.set(0xa89a88);
-  group.add(scatter(G, { parts: [{ geo: euc2.trunk, material: eb2 }, { geo: euc2.leaves, material: em2 }], points: [...langPts, ...foreshore, ...parkPts.slice(Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.8, 1.2], tint: { color: 0xffffff, l: 0.1 }, fade: [700, 1000], cell: 80, seed: 9, sway: { amp: 0.05, freq: 0.8, height: 11 } }).group);
+  const em2 = leafMat(euTex, 0x6a7650), eb2 = barkMat(); eb2.color.set(0x7a6f62);
+  group.add(scatter(G, { parts: [{ geo: euc2.trunk, material: eb2 }, { geo: euc2.leaves, material: em2 }], points: [...langPts, ...foreshore, ...parkPts.slice(Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.65, 1.6], tint: { color: 0xffffff, l: 0.2, h: 0.03 }, fade: [700, 1000], cell: 80, seed: 9, sway: { amp: 0.05, freq: 0.8, height: 11 } }).group);
   // Kings Park bushland as photographed from the city: a closed, lumpy olive canopy over the whole of Mount Eliza
   // and the escarpment, with a dark shrub understorey. Dense low-cost canopy clumps fill between the full trees.
   const kpAccept = (x, z) => heightAt(x, z) > 6 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 55 && !nearRoad(x, z) && !inFoot(x, z);
   const clumpPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: G.quality.tier === 'high' || G.quality.tier === 'ultra' ? 7.5 : 9.5, rng, accept: kpAccept });
   const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: hiT ? 64 : lo ? 28 : 48, leafSize: hiT ? 2.5 : lo ? 4.0 : 3.3 });   // 15–20 m jarrah / marri / tuart crowns
-  clump.translate(0, 7.5, 0);
-  const stem = lathe([[0.2, 0], [0.11, 7.2], [0, 7.8]], { seg: 4, crease: 89 });   // ends inside the crown
+  clump.translate(0, 5.6, 0);
+  const stem = lathe([[0.26, 0], [0.12, 5.4], [0, 6.0]], { seg: 4, crease: 89 });   // ends inside the crown
   const cm = leafMat(euTex, 0x56604a), cb = barkMat(); cb.color.set(0x463f37);
-  nr((scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: hiT ? [1100, 1500] : [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group));
-  const shrubPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 10, rng, accept: kpAccept });
-  const shrub = bushGeo({ seed: 23, radius: 1.5, height: 1.6, cards: 36, leafSize: 1.1 });
+  nr((scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.75, 1.15], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: hiT ? [1100, 1500] : [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group));
+  const shrubPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 8.5, rng, accept: kpAccept });
+  const shrub = bushGeo({ seed: 23, radius: 2.1, height: 2.6, cards: 36, leafSize: 1.3 });
   const sm = leafMat(euTex, 0x5f6a44);
   nr((scatter(G, { parts: [{ geo: shrub, material: sm }], points: shrubPts, heightAt, scale: [0.7, 1.4], tint: { color: 0xffffff, l: 0.12 }, fade: [300, 420], cell: 70, seed: 29 }).group));
   // South Perth: street trees and garden trees through the suburbs behind Mill Point Road, plus a band of
@@ -177,7 +177,6 @@ export function create(G, { mats, roads, footprints = [] }) {
   for (const p of alongShore(SHORE_N, 150, 1100, 14, 14, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // EQ promenade: a palm every 18 m around the inlet, set back from the lamps and benches
   for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z) && Math.hypot(x - PLAYER_SPAWN[0], z - PLAYER_SPAWN[2]) > 9, 8.5)) eqPalms.push(p[0], p[1]);
-  eqPalms.push(PLAYER_SPAWN[0] + 5.5, PLAYER_SPAWN[2] + 6.0);   // one Washingtonia framing the opening shot on the left, clear of the bridge sightline   // alternate with the lamps
   for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
   for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // the inlet palms frame the hero view: never thinned by the phone tier

@@ -129,7 +129,7 @@ function insetPts(P, d) {
 // ---------------------------------------------------------------- the skyline
 // Perth's CBD reads as deep blue/blue-grey reflective glass (photo-matched); frames are mid-grey, not white
 const GL = {
-  silver: [0.14, 0.19, 0.26], blue: [0.07, 0.11, 0.20], green: [0.1, 0.2, 0.19], grey: [0.13, 0.18, 0.24],
+  silver: [0.16, 0.18, 0.21], blue: [0.08, 0.11, 0.16], green: [0.10, 0.17, 0.15], grey: [0.14, 0.16, 0.19],
   bronze: [0.22, 0.17, 0.12], clear: [0.13, 0.19, 0.25], dark: [0.07, 0.09, 0.11], teal: [0.09, 0.17, 0.20],
 };
 const FR = { white: [0.34, 0.35, 0.36], alu: [0.36, 0.38, 0.4], lightAlu: [0.42, 0.44, 0.45], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],

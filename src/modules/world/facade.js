@@ -167,8 +167,8 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   float ttx = abs(tt.x), tty = abs(tt.y), ttz = tt.z;
   float t = min(min(ttx, tty), ttz);
   vec3 hp = p0 + d * t;
-  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.30 * uNight, 0.8 * fcH(vec2(floor(cell.x / (3.0 + 5.0 * fcH(vec2(cell.y, seed)))), cell.y) * 0.73 + seed) + 0.2 * fcH(cell * 0.73 + seed));
-  vec3 lampC = mix(vec3(1.0, 0.76, 0.50), vec3(0.85, 0.92, 1.0), step(0.7, fcH(cell + 9.1)));
+  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.20 * uNight, 0.8 * fcH(vec2(floor(cell.x / (1.0 + 3.0 * fcH(vec2(cell.y, seed)))), cell.y) * 0.73 + seed) + 0.2 * fcH(cell * 0.73 + seed));
+  vec3 lampC = mix(vec3(1.0, 0.76, 0.50), vec3(0.80, 0.88, 1.0), step(0.72, fcH(cell + 9.1)));
   // every surface is evaluated unconditionally (derivatives in divergent branches are undefined → pixel speckle),
   // then selected by ordering rather than float equality
   vec2 hw = fwidth(hp.xy) + 1e-3;
@@ -183,7 +183,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   vec3 room = ttz <= min(ttx, tty) ? rBack : (tty <= ttx ? (d.y > 0.0 ? rCeil : rFloor) : rSide);
   float dark = 0.08 + 0.10 * rnd;
   if (shop > 0.5) { room = mix(room, room * mix(vec3(1.0), signC * 2.5 + 0.4, 0.35), step(0.5, fcH(cell + 3.3))); lampC = vec3(1.0, 0.88, 0.7); }
-  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.38 + 2.4 * uNight) : 0.26 * lampC * (0.45 + 2.2 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.38 + 2.4 * uNight) : 0.24 * lampC * (0.45 + 2.2 * uNight) * (0.55 + 0.9 * fcH(cell + 5.7))) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
   vec2 zone = vec2(floor(cell.x / 5.0), cell.y);   // blinds set per tenancy zone, not per window (no pixel confetti)

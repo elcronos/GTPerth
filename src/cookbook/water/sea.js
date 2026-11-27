@@ -288,6 +288,14 @@ const SEA_STATE = /*glsl*/`
   float seaFp = length(fwidth(seaXZ));
   float seaLost;
   vec3 seaN = seaNormal(seaXZ, uTime, seaFp, seaLost);
+  { // wind slicks: broad calm patches where the ripples die down and the water mirrors harder
+    vec2 sp = seaXZ / 90.0 + vec2(uTime * 0.006, uTime * 0.004); vec2 si = floor(sp), sf = fract(sp); sf = sf * sf * (3.0 - 2.0 * sf);
+    float h00 = fract(sin(dot(si, vec2(127.1, 311.7))) * 43758.5), h10 = fract(sin(dot(si + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5);
+    float h01 = fract(sin(dot(si + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5), h11 = fract(sin(dot(si + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5);
+    float sn = mix(mix(h00, h10, sf.x), mix(h01, h11, sf.x), sf.y);
+    float slick = smoothstep(0.35, 0.68, sn);
+    seaN = normalize(mix(vec3(0.0, 1.0, 0.0), seaN, mix(0.3, 1.0, slick)));
+  }
   // glitter AA: slope variance of faded waves widens the GGX lobe (bright glitter path, no sparkling)
   float seaRough = clamp(sqrt(0.035 * 0.035 + seaLost * 1.6), 0.03, 0.45);
   vec3 seaV = normalize(cameraPosition - vSeaW);

@@ -7,20 +7,20 @@ import { SURFACES } from '../../cookbook/materials/surfaces.glsl.js';
 const eqPavers = /*glsl*/`
 void surf(vec2 uv, inout Surf s) {
   vec2 m = uv * uScaleM;
-  float row = floor(m.y / 0.3);
-  vec2 q = vec2(m.x / 0.6 + 0.5 * mod(row, 2.0), m.y / 0.3);
+  float row = floor(m.y / 0.2);
+  vec2 q = vec2(m.x / 0.4 + 0.5 * mod(row, 2.0), m.y / 0.2);
   vec2 cell = floor(q); vec2 f = fract(q);
-  vec2 dEdge = min(f, 1.0 - f) * vec2(0.6, 0.3);
+  vec2 dEdge = min(f, 1.0 - f) * vec2(0.4, 0.2);
   float dJ = min(dEdge.x, dEdge.y);
-  ivec2 nC = ivec2(int(max(1.0, floor(uScaleM / 0.6 + 0.5))), int(max(1.0, floor(uScaleM / 0.3 + 0.5))));
+  ivec2 nC = ivec2(int(max(1.0, floor(uScaleM / 0.4 + 0.5))), int(max(1.0, floor(uScaleM / 0.2 + 0.5))));
   ivec2 ci = nzWrap(ivec2(cell), nC);
   float h1 = hash21(ci, 3.0), h2 = hash21(ci, 7.0);
   float joint = 1.0 - smoothstep(0.0025, 0.0045, dJ);
   float bevel = 1.0 - smoothstep(0.0, 0.012, dJ);
   float fine = nfbm(uv, 60.0, 3, 2.0), mid = nfbm(uv, 3.0, 4, 4.0), speck = step(0.78, nval(uv, 220.0, 5.0));
   vec3 granite = vec3(0.105, 0.103, 0.10), lime = vec3(0.13, 0.127, 0.12), dark = vec3(0.075, 0.074, 0.075);   // EQ granite setts: charcoal + mid grey (photo-matched)
-  vec3 col = mix(mix(granite, lime, step(0.72, h1)), dark, step(0.88, h1));
-  col = mix(col, dark, step(0.93, h2) * 0.8);
+  vec3 col = mix(mix(granite, lime, step(0.85, h1)), dark, step(0.95, h1));
+  col = mix(col, dark, step(0.97, h2) * 0.8);
   col *= (0.94 + 0.1 * h2) * (0.92 + 0.12 * fine);
   col = mix(col, col * vec3(0.55, 0.55, 0.6), speck * 0.35);
   float grime = smoothstep(0.45, 0.85, nfbm(uv, 0.8, 4, 9.0)); col *= 1.0 - 0.28 * grime;

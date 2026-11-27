@@ -52,7 +52,7 @@ export function createPeds(G, { avatars, col }) {
   const R = () => Math.random();
   const busy = G.quality.tier === 'high' || G.quality.tier === 'ultra';
   VIS_R = busy ? 220 : 140; SHADOW_R = busy ? 35 : 25;   // lived-in promenade on desktop; phones keep the light crowd
-  for (let i = 0; i < (busy ? 16 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
+  for (let i = 0; i < (busy ? 22 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
   for (let i = 0; i < (busy ? 8 : 4); i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0], w[1], 'landing'); }
   for (let i = 0; i < 3; i++) { const L = LOOPS.west, w = L[Math.floor(R() * L.length)]; add('jog', w[0], w[1], 'west', { avatar: i % 2 ? 'Sports_Male_04' : 'Sports_Female_02' }); }
   for (let i = 0; i < (busy ? 14 : 6); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt').ch.root.userData.noReflect = true; }   // CBD walkers never reach the river mirror
@@ -75,11 +75,25 @@ export function createPeds(G, { avatars, col }) {
       q.set(w[0], groundAt(w[0], w[1]).y, w[1]); if (p.path) p.wp = p.path.indexOf(w); if (p.kind === 'idle') { p.kind = 'walk'; p.state = 'walk'; p.path = P; p.wp = P.indexOf(w); }
     }
   };
+  // top-up for the opening shot: make sure a handful of walkers are in view (8-55 m ahead), off the sightline
+  S.topUp = (camPos, pl, want) => {
+    const fx = pl.x - camPos.x, fz = pl.z - camPos.z, fl = Math.hypot(fx, fz) || 1, ux = fx / fl, uz = fz / fl;
+    const inView = (x, z) => { const dx = x - camPos.x, dz = z - camPos.z, dep = dx * ux + dz * uz, lat = Math.abs(-dx * uz + dz * ux); return dep > 8 && dep < 55 && lat < 0.5 * dep && lat > 2.5; };
+    let n = list.filter((p) => p.kind !== 'idle' && inView(p.ch.root.position.x, p.ch.root.position.z)).length;
+    for (const p of list) {
+      if (n >= want) break;
+      if (!p.path || p.kind === 'idle' || p.zone === 'sgt' || inView(p.ch.root.position.x, p.ch.root.position.z)) continue;
+      const cand = (LOOPS.eq.concat(LOOPS.landing)).filter(([x, z]) => inView(x, z)); if (!cand.length) break;
+      const w = cand[Math.floor(Math.random() * cand.length)];
+      p.path = LOOPS.eq.includes(w) ? LOOPS.eq : LOOPS.landing; p.zone = p.path === LOOPS.eq ? 'eq' : 'landing'; p.wp = p.path.indexOf(w);
+      p.ch.root.position.set(w[0] + (Math.random() - 0.5) * 3, groundAt(w[0], w[1]).y, w[1] + (Math.random() - 0.5) * 3); n++;
+    }
+  };
   S.prime = (focus, camPos, camFwd) => {
     for (const p of list) {
-      if (!p.path || p.kind === 'idle' || Math.random() > 0.7) continue;
+      if (!p.path || p.kind === 'idle' || Math.random() > 0.95) continue;
       const cand = p.path.filter(([x, z]) => { const d = Math.hypot(x - focus.x, z - focus.z), dx = x - camPos.x, dz = z - camPos.z, dl = Math.hypot(dx, dz) || 1;
-        return d < 140 && dl > 12 && (dx * camFwd.x + dz * camFwd.z) / dl > 0.55; });
+        return d < 140 && dl > 12 && (dx * camFwd.x + dz * camFwd.z) / dl > 0.35; });
       if (!cand.length) continue;
       const w = cand[Math.floor(Math.random() * cand.length)]; p.ch.root.position.set(w[0] + (Math.random() - 0.5) * 2, groundAt(w[0], w[1]).y, w[1] + (Math.random() - 0.5) * 2);
       p.wp = p.path.indexOf(w);

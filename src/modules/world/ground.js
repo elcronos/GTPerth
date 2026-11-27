@@ -180,6 +180,9 @@ vec4 gW; vec2 gXZ; float gRock;
     vec3 canC = mix(vec3(0.018, 0.028, 0.014), vec3(0.10, 0.125, 0.055), can * can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));
     alb = mix(alb, DBG_KP ? vec3(1.0, 0.0, 0.0) : canC, farV * 0.9);
   }
+  // limestone banding course across the EQ paving: a 0.9 m pale strip every 10.8 m (world space, on the pavers only)
+  float bandP = step(fract(gXZ.x / 10.8 + gXZ.y * 0.0), 0.083) * step(-260.0, gXZ.y) * step(gXZ.y, 60.0) * step(-150.0, gXZ.x) * step(gXZ.x, 350.0);
+  alb = mix(alb, vec3(0.20, 0.19, 0.17) * (0.92 + 0.16 * macro), bandP * gW.x);
   float ao = mix(1.0, texture2D(tPO, gXZ * uSc.x).r, gW.x);
   diffuseColor.rgb *= alb * ao;
 }`)
@@ -189,7 +192,7 @@ roughnessFactor = mix(roughnessFactor, 0.85, gRock);`)
   { // street-lamp light map (props.js): albedo-lit warm pools at night
     vec2 luv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
     float lamp = texture2D(uLampMap, luv).r * step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
-    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 4.0 + 0.008) * uNight;
+    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 3.4 + 0.008) * uNight;
   }
 #include <aomap_fragment>`)
       .replace('#include <normal_fragment_maps>', `{

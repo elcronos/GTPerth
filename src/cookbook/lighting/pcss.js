@@ -70,7 +70,7 @@ float getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowIntensity,
     float phi = pcssIGN(gl_FragCoord.xy) * 6.2831853;
     float zr = shadowCoord.z;
     // constant slope-scaled epsilon on top of the plane (one texel of slope)
-    float eps = (abs(dzduv.x) * texel.x + abs(dzduv.y) * texel.y) * 0.6 + 1e-5;
+    float eps = (abs(dzduv.x) * texel.x + abs(dzduv.y) * texel.y) * 0.3 + 1e-5;
     float rUV;
     // fallback (no fit data, or a light that opts out with shadow.radius < 0, e.g. spot lamps): small rotated PCF
     if (uPCSS.w < 0.5 || shadowRadius < 0.0) {
@@ -202,7 +202,7 @@ export function fitSunShadow(G, box3, mapSize, { margin = 2, light = G.sun.light
   cam.near = 0.0; cam.far = depth;
   cam.updateProjectionMatrix();
   light.shadow.bias = -0.00002 * (200 / Math.max(depth, 1));
-  light.shadow.normalBias = texel * 0.45;   // small casters (people, benches) keep a shadow at low sun
+  light.shadow.normalBias = texel * 0.22;   // small casters (people, benches) keep a shadow at low sun
   light.castShadow = true;
   pcssData[0] = depth; pcssData[1] = ext; pcssData[3] = 1;
   return { ext, depth, texel };

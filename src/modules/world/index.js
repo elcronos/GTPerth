@@ -34,7 +34,7 @@ export function makeWorldMaterials() {
     limestone: vc(makeMaterial('limestone')),
     rock: vc(makeMaterial('rock', { triplanar: true, tint: 0xb8a890 })),
     sand: vc(makeMaterial('river_sand')),
-    road: (() => { const r = vc(Roads.markRoadMaterial(makeMaterial('asphalt'))); r.color.multiplyScalar(1.7); return r; })(),   // sun-bleached WA bitumen (aged albedo ~0.12)
+    road: (() => { const r = vc(Roads.markRoadMaterial(makeMaterial('asphalt'))); const c0 = r.color.clone(); r.color.setRGB(1.85, 1.72, 1.52).multiply(c0); r.envMapIntensity = 0.55; return r; })(),   // sun-bleached WA bitumen (aged albedo ~0.12)
     kerb: vc(makeMaterial('concrete', { weather: 'ground', tint: 0xc8c4bc })),
     concrete: vc(makeMaterial('concrete', { tint: 0xd8d4cc })),
     bridgeConc: vc(makeMaterial('concrete', { tint: 0xe0dcd2, scale: 6 })),
@@ -89,7 +89,7 @@ export function create(G, { mats }) {
   // signature surface: the river mirrors the skyline (planar reflection; off on the 'low' tier → env reflections)
   const refl = createPlanarReflection(G, { height: 0 });
   refl.hide?.push(...(props.noReflect || [])); refl.maxFar = 2600;   // the mirror skips far bush and street clutter
-  const sea = createSea(G, { refl, level: 0, far: 6500, waveOpts: { L0: 5.0, steep: 0.016, chop: 0.14, spread: 3.1, falloff: 0.86, detailSteep: 0.021, count: 8, detail: 12, seed: 11 },
+  const sea = createSea(G, { refl, level: 0, far: 6500, waveOpts: { L0: 5.0, steep: 0.016, chop: 0.14, spread: 2.0, falloff: 0.86, detailSteep: 0.016, count: 8, detail: 12, seed: 11 },
     scatter: [0.006, 0.026, 0.034], absorb: [0.52, 0.16, 0.12], foam: 0.4, envIntensity: 1.0 });
 
   // far field: the Darling Scarp to the east + suburbs (all at real-ish apparent heights, fogged by the same atmosphere)
