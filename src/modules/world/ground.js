@@ -6,17 +6,18 @@ import {
   ShapeUtils, Vector2, BufferGeometry, Float32BufferAttribute, Mesh, MeshStandardMaterial, CanvasTexture, LinearFilter,
   LinearMipmapLinearFilter, RepeatWrapping, Color, SRGBColorSpace, NoColorSpace,
 } from 'three';
-import { NORTH_LAND, SOUTH_LAND, ISLAND, ROADS, heightAt, isLand, PROMENADE_Y, ESCARPMENT } from '../../map.js';
+import { NORTH_LAND, SOUTH_LAND, ISLAND, ISLAND_POLY, HEIRISSON, SHORE_N, SHORE_S, ROADS, heightAt, isLand, PROMENADE_Y } from '../../map.js';
+import { OSM_MASK } from '../../assets/osm_mask.js';
 import { patch } from '../../cookbook/engine/patch.js';
 import { getSurfaceSet } from '../../cookbook/materials/library.js';
 import { ensureWorldVaryings, ensureNoise } from '../../cookbook/materials/weathering.js';
 
-const FOCUS = [[0, -110, 1], [200, 10, 1], [-193, 1300, 1], [-60, 600, 0.25], [-700, 100, 0.5], [-900, 400, 0.4]];
+const FOCUS = [[60, -110, 1], [200, 40, 1], [-200, 1300, 1], [-60, 600, 0.25], [-750, 100, 0.5], [-900, 450, 0.4]];
 function targetEdge(x, z) {
   let d = 1e9;
   for (const f of FOCUS) { const dx = x - f[0], dz = z - f[1]; d = Math.min(d, Math.sqrt(dx * dx + dz * dz) * (1 / f[2])); }
   let L = 4 + d * 0.055;
-  if (x < -380 && z < 300 && z > -500) L = Math.min(L, 14);   // Kings Park escarpment needs relief
+  if (x < -820 && z < 650 && z > -700) L = Math.min(L, 16);   // Kings Park escarpment needs relief
   return Math.min(L, 110);
 }
 
@@ -77,7 +78,7 @@ function buildPolyMesh(contour) {
 function circlePoly(cx, cz, r, n = 40) { const p = []; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; p.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r]); } return p; }
 
 // ------------------------------------------------------------------ mask (r = lawn, g = bush, b = sand; rest = pavers)
-export const MASK = { x0: -1500, z0: -1100, size: 3000, px: 2048 };
+export const MASK = { x0: OSM_MASK.x0, z0: OSM_MASK.z0, size: OSM_MASK.size, px: 2048 };
 function paintMask() {
   const c = document.createElement('canvas'); c.width = c.height = MASK.px;
   const ctx = c.getContext('2d');
@@ -118,7 +119,11 @@ function paintMask() {
   // (suburbs beyond Mill Point Road stay lawn/garden: roads, houses and trees are drawn on top)
   rect(-240, 1268, -140, 1300, PAVE);                   // Mends Street plaza
   ctx.filter = 'blur(1.6px)'; ctx.drawImage(c, 0, 0); ctx.filter = 'none';
-  const t = new CanvasTexture(c); t.flipY = false; t.colorSpace = NoColorSpace; t.minFilter = LinearMipmapLinearFilter; t.magFilter = LinearFilter; t.generateMipmaps = true;
+  const t = new CanvasTexture(c);
+  // the real ground cover (OSM landuse: parks, Kings Park bush, beaches) replaces the sketch as soon as it decodes
+  const img = new Image();
+  img.onload = () => { ctx.clearRect(0, 0, c.width, c.height); ctx.filter = 'blur(1.2px)'; ctx.drawImage(img, 0, 0, c.width, c.height); ctx.filter = 'none'; t.needsUpdate = true; };
+  img.src = OSM_MASK.png; t.flipY = false; t.colorSpace = NoColorSpace; t.minFilter = LinearMipmapLinearFilter; t.magFilter = LinearFilter; t.generateMipmaps = true;
   return t;
 }
 
@@ -224,27 +229,28 @@ export function create(G, { mats }) {
   const gm = groundMaterial(G);
   const north = new Mesh(buildPolyMesh(NORTH_LAND), gm);
   const south = new Mesh(buildPolyMesh(SOUTH_LAND), gm);
-  const island = new Mesh(buildPolyMesh(circlePoly(ISLAND.x, ISLAND.z, ISLAND.r)), gm);
-  for (const m of [north, south, island]) { m.receiveShadow = true; m.name = 'ground'; group.push(m); }
-  meshes.ground = [north, south, island];
+  const island = new Mesh(buildPolyMesh(ISLAND_POLY), gm);
+  const heir = new Mesh(buildPolyMesh(HEIRISSON), gm);
+  for (const m of [north, south, island, heir]) { m.receiveShadow = true; m.name = 'ground'; group.push(m); }
+  meshes.ground = [north, south, island, heir];
 
   // --- shore: which side is water? walls face the water (normal from the strip builder points left of travel)
-  const shoreN = NORTH_LAND.slice(1, NORTH_LAND.length - 2);   // drop far closing corners
+  const shoreN = SHORE_N;
   const wallPts = [], revetPts = [], limePts = [];
   const dn = densify(shoreN, 4);
   // classify contiguous runs
   let run = [], kind = null;
   const flush = () => { if (run.length > 1) (kind === 'wall' ? wallPts : kind === 'rev' ? revetPts : limePts).push(run); run = []; };
   for (const p of dn) {
-    const k = p[0] < -150 ? 'rev' : p[0] < 345 ? 'wall' : 'lime';
+    const k = p[0] < -115 ? 'rev' : p[0] < 345 ? 'wall' : 'lime';
     if (k !== kind) { if (run.length) { const last = run[run.length - 1]; flush(); run.push(last); } kind = k; }
     run.push(p);
   }
   flush();
-  const shoreS = densify(SOUTH_LAND.slice(2, SOUTH_LAND.length - 2), 4);
+  const shoreS = densify(SHORE_S, 4);
   const sandS = [], wallS = []; run = []; kind = null;
   for (const p of shoreS) {
-    const k = p[0] > -310 && p[0] < 120 ? 'wall' : 'sand';
+    const k = p[0] > -300 && p[0] < -150 && p[1] > 1250 ? 'wall' : 'sand';
     if (k !== kind) { if (run.length) { const last = run[run.length - 1]; (kind === 'wall' ? wallS : sandS).push(run); run = [last]; } kind = k; }
     run.push(p);
   }
@@ -266,23 +272,8 @@ export function create(G, { mats }) {
   for (const r of revetPts) add(slopeGeo(r, 7, -1.5), mats.rock, 'revetment');
   for (const r of wallS) { add(wallGeo(r), mats.limestone, 'sp-wall'); add(copingGeo(r, 0.45, 0.04), mats.coping, 'sp-coping', false); }
   for (const r of sandS) add(slopeGeo(r, 9, -1.4), mats.sand, 'beach');
-  const isl = circlePoly(ISLAND.x, ISLAND.z, ISLAND.r, 48); isl.push(isl[0]);
+  const isl = densify([...ISLAND_POLY, ISLAND_POLY[0]], 3);
   add(wallGeo(isl), mats.quayWall, 'island-wall'); add(copingGeo(isl, 0.5, 0.06), mats.coping, 'island-coping', false);
 
-  // The Landing: broad limestone steps down into the inlet's north end (z = -160), x -40..60
-  {
-    const k = [], pos = [], uv = []; let vi = 0;
-    const steps = 5, rise = (PROMENADE_Y - 0.15) / steps, tread = 0.9;
-    for (let i = 0; i < steps; i++) {
-      const y = PROMENADE_Y - (i + 1) * rise, z0 = -160 + i * tread, z1 = z0 + tread;
-      const quad = (a, b, c, d) => { pos.push(...a, ...b, ...c, ...d); uv.push(0, 0, 100, 0, 100, 1, 0, 1); k.push(vi, vi + 2, vi + 1, vi, vi + 3, vi + 2); vi += 4; };
-      quad([-42, y + rise, z0], [62, y + rise, z0], [62, y, z0], [-42, y, z0]);       // riser
-      quad([-42, y, z0], [62, y, z0], [62, y, z1], [-42, y, z1]);                      // tread
-    }
-    const g = new BufferGeometry(); g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.setIndex(k);
-    // fix winding to face up/out
-    g.computeVertexNormals();
-    add(g, mats.limestone, 'landing-steps');
-  }
   return { meshes: group, ground: meshes.ground, material: gm };
 }

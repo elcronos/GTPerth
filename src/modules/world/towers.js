@@ -1,6 +1,7 @@
 // Tower builder + the Perth skyline. Each building = tiers of extruded footprints (rect / rounded rect / circle /
 // polygon), roof caps, parapets, plant rooms and crowns, merged into one facade-material mesh per city chunk.
 // Heights from CTBUH / Wikipedia; positions from coordinates (see map.js) and street layout.
+import { OSM_BUILDINGS } from '../../osm_data.js';
 import { ShapeUtils, Vector2, BufferGeometry, Float32BufferAttribute, Mesh } from 'three';
 import { heightAt } from '../../map.js';
 import { rngFrom } from '../../cookbook/geo/noise.js';
@@ -135,116 +136,108 @@ const FR = { white: [0.5, 0.51, 0.52], alu: [0.36, 0.38, 0.4], lightAlu: [0.5, 0
   granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.68, 0.64, 0.56], precast: [0.5, 0.48, 0.44] };
 
 export const NAMED = [
-  // ---- Elizabeth Quay (east): The Ritz-Carlton (28 fl, 103 m) + The Towers residences (round), on a "cobble" podium
-  { name: 'Ritz-Carlton Perth', x: 102, z: -88, style: 'resi', pw: 1.6, fh: 3.5, frame: FR.white, glass: GL.clear, seed: 11, tiers: [
-    { w: 46, d: 58, h: 13, style: 'cobble', frame: [0.4, 0.36, 0.3], parapet: 1.2 }, { w: 34, d: 24, cr: 4, cseg: 3, h: 103, off: [0, 6], pw: 1.9 }] },
-  { name: 'The Towers at Elizabeth Quay', x: 104, z: -146, style: 'resi', pw: 1.5, fh: 3.2, frame: FR.white, glass: GL.teal, seed: 12, tiers: [
-    { w: 44, d: 30, h: 12, style: 'cobble', frame: [0.4, 0.36, 0.3] }, { r: 15.5, h: 84, seg: 36 }] },
-  // ---- One The Esplanade (Chevron HQ, 29 fl, 133 m) and Nine The Esplanade (19 fl)
-  { name: 'One The Esplanade', x: 96, z: -236, style: 'fins', pw: 1.5, fh: 4.2, frame: FR.white, glass: GL.clear, seed: 13, tiers: [
-    { w: 58, d: 46, h: 12, style: 'curtain', fh: 6 }, { w: 44, d: 34, cr: 3, h: 133 }] },
-  { name: 'Nine The Esplanade', x: 22, z: -238, style: 'curtain', pw: 1.25, fh: 4.0, frame: FR.alu, glass: GL.grey, seed: 14, tiers: [
-    { w: 50, d: 40, h: 10, fh: 5 }, { w: 44, d: 32, cr: 2, h: 82 }] },
-  // ---- EQ West (topped out 2026): 52 + 25 storeys over a podium
-  { name: 'EQ West South', x: -110, z: -78, style: 'resi', pw: 1.5, fh: 3.25, frame: FR.alu, glass: GL.grey, seed: 15, tiers: [
-    { w: 44, d: 56, h: 16, style: 'curtain', fh: 4 }, { w: 32, d: 29, cr: 7, h: 182 }] },
-  { name: 'EQ West North', x: -112, z: -148, style: 'resi', pw: 1.5, fh: 3.25, frame: FR.alu, glass: GL.teal, seed: 16, tiers: [
-    { w: 44, d: 50, h: 16, style: 'curtain', fh: 4 }, { w: 30, d: 27, cr: 6, h: 100 }] },
+  // ---- Elizabeth Quay (positions from OSM; podiums are the mapped footprints, towers raked with the city grid)
+  { name: 'Ritz-Carlton Perth', x: 211, z: -112, rot: 0.358, podium: 13, style: 'resi', pw: 1.6, fh: 3.5, frame: FR.white, glass: GL.clear, seed: 11, tiers: [
+    { w: 34, d: 24, cr: 4, cseg: 3, h: 103, pw: 1.9 }] },
+  { name: 'The Towers at Elizabeth Quay', x: 158, z: -52, rot: 0.358, podium: 12, style: 'resi', pw: 1.5, fh: 3.2, frame: FR.white, glass: GL.teal, seed: 12, tiers: [
+    { r: 15.5, h: 84, seg: 36 }] },
+  { name: 'One The Esplanade (Chevron)', x: 231, z: -221, rot: 0.358, podium: 12, style: 'fins', pw: 1.5, fh: 4.2, frame: FR.white, glass: GL.clear, seed: 13, tiers: [
+    { w: 44, d: 34, cr: 3, h: 133 }] },
+  { name: 'Nine The Esplanade', x: 100, z: -257, rot: 0.358, podium: 10, style: 'curtain', pw: 1.25, fh: 4.0, frame: FR.alu, glass: GL.grey, seed: 14, tiers: [
+    { w: 44, d: 32, cr: 2, h: 82 }] },
+  { name: 'EQ West South', x: -52, z: -92, rot: 0.358, podium: 16, style: 'resi', pw: 1.5, fh: 3.25, frame: FR.alu, glass: GL.grey, seed: 15, tiers: [
+    { w: 32, d: 29, cr: 7, h: 182 }] },
+  { name: 'EQ West North', x: -40, z: -150, rot: 0.358, podium: 16, style: 'resi', pw: 1.5, fh: 3.25, frame: FR.alu, glass: GL.teal, seed: 16, tiers: [
+    { w: 30, d: 27, cr: 6, h: 100 }] },
   // ---- civic / transport
-  { name: 'Elizabeth Quay Station', x: -52, z: -252, style: 'curtain', pw: 2, fh: 7, frame: FR.alu, glass: GL.clear, plant: false, seed: 17, tiers: [{ w: 22, d: 12, h: 7 }] },
-  { name: 'Perth Convention and Exhibition Centre', x: -192, z: -266, style: 'ribbon', pw: 2.5, fh: 7, frame: [0.48, 0.49, 0.5], glass: GL.dark, plant: false, seed: 18, tiers: [{ w: 180, d: 62, h: 20 }] },
-  { name: 'Supreme Court', x: 300, z: -150, style: 'punched', pw: 3.2, fh: 5, frame: FR.sandstone, glass: GL.dark, plant: false, seed: 19, tiers: [{ w: 64, d: 30, h: 15 }] },
+  { name: 'Elizabeth Quay Station', x: -63, z: -234, rot: 0.36, style: 'curtain', pw: 2, fh: 7, frame: FR.alu, glass: GL.clear, plant: false, seed: 17, tiers: [{ w: 22, d: 12, h: 7 }] },
+  { name: 'Perth Convention and Exhibition Centre', x: -192, z: -266, osmOnly: 20, style: 'ribbon', pw: 2.5, fh: 7, frame: [0.48, 0.49, 0.5], glass: GL.dark, plant: false, seed: 18, tiers: [{ w: 10, d: 10, h: 1 }] },
+  { name: 'Supreme Court', x: 300, z: -150, osmOnly: 15, style: 'punched', pw: 3.2, fh: 5, frame: FR.sandstone, glass: GL.dark, plant: false, seed: 19, tiers: [{ w: 64, d: 30, h: 15 }] },
   // ---- St Georges Terrace / CBD core
-  { name: 'Brookfield Place Tower 2', x: -96, z: -438, style: 'curtain', pw: 1.5, fh: 4.2, frame: FR.alu, glass: GL.silver, seed: 20, tiers: [{ w: 54, d: 42, h: 68 }] },
-  { name: 'Brookfield Place', x: -96, z: -494, style: 'fins', pw: 2.2, fh: 4.1, frame: FR.white, glass: GL.blue, seed: 21, plant: false, tiers: [
+  { name: 'Brookfield Place Tower 2', x: -96, z: -438, rot: 0.358, style: 'curtain', pw: 1.5, fh: 4.2, frame: FR.alu, glass: GL.silver, seed: 20, tiers: [{ w: 54, d: 42, h: 68 }] },
+  { name: 'Brookfield Place', x: -96, z: -494, rot: 0.358, style: 'fins', pw: 2.2, fh: 4.1, frame: FR.white, glass: GL.blue, seed: 21, plant: false, tiers: [
     { w: 56, d: 30, h: 190 }, { w: 50, d: 24, h: 204, style: 'fins', pw: 3.2 }] },
-  { name: 'Central Park', x: -24, z: -618, style: 'curtain', pw: 1.5, fh: 3.9, frame: FR.alu, glass: GL.silver, seed: 22, mast: [36, 2.2], tiers: [
+  { name: 'Central Park', x: -24, z: -618, rot: 0.358, style: 'curtain', pw: 1.5, fh: 3.9, frame: FR.alu, glass: GL.silver, seed: 22, mast: [36, 2.2], tiers: [
     { pts: [[-19, -19], [19, -19], [30, 0], [19, 19], [-19, 19], [-30, 0]], h: 122 },
     { pts: [[-17, -17], [17, -17], [25, 0], [17, 17], [-17, 17], [-25, 0]], h: 168 },
     { pts: [[-14, -14], [14, -14], [19, 0], [14, 14], [-14, 14], [-19, 0]], h: 205 },
     { w: 20, d: 20, h: 226, style: 'fins', pw: 2.4 }] },
-  { name: '108 St Georges Terrace (Palace Tower)', x: 115, z: -534, style: 'ribbon', pw: 1.6, fh: 3.6, frame: FR.lightAlu, glass: GL.green, seed: 23, plant: false, mast: [48, 1.1], tiers: [
+  { name: '108 St Georges Terrace (Palace Tower)', x: 115, z: -534, rot: 0.358, style: 'ribbon', pw: 1.6, fh: 3.6, frame: FR.lightAlu, glass: GL.green, seed: 23, plant: false, mast: [48, 1.1], tiers: [
     { pts: [[-26, 15], [26, 15], [4, -26], [-4, -26]], h: 160 }, { pts: [[-24, 13], [24, 13], [3, -23], [-3, -23]], h: 168, slope: { axis: 'z', k: -0.35 }, noCap: false }] },
-  { name: 'Allendale Square', x: 218, z: -412, rot: Math.PI / 4, style: 'ribbon', pw: 1.4, fh: 3.7, frame: FR.bronze, glass: GL.bronze, seed: 24, tiers: [
+  { name: 'Allendale Square', x: 218, z: -412, rot: 0.358 + Math.PI / 4, style: 'ribbon', pw: 1.4, fh: 3.7, frame: FR.bronze, glass: GL.bronze, seed: 24, tiers: [
     { pts: [[-18, -18], [-6, -14], [6, -18], [18, -18], [14, -6], [18, 6], [18, 18], [6, 14], [-6, 18], [-18, 18], [-14, 6], [-18, -6]], h: 132 }] },
-  { name: 'Exchange Plaza', x: 192, z: -300, style: 'curtain', pw: 1.5, fh: 3.6, frame: FR.alu, glass: GL.blue, seed: 25, tiers: [
+  { name: 'Exchange Plaza', x: 192, z: -300, rot: 0.358, style: 'curtain', pw: 1.5, fh: 3.6, frame: FR.alu, glass: GL.blue, seed: 25, tiers: [
     { w: 44, d: 34, h: 30, style: 'curtain', fh: 3.2 }, { w: 40, d: 32, h: 124 }, { w: 34, d: 28, h: 136 }, { w: 26, d: 22, h: 146 }] },
-  { name: 'QV1', x: -330, z: -566, style: 'punched', pw: 1.8, fh: 3.8, frame: FR.granite, glass: GL.dark, seed: 26, tiers: [{ w: 42, d: 42, cr: 5, h: 163 }] },
-  { name: '240 St Georges Terrace', x: -262, z: -548, style: 'curtain', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.grey, seed: 27, tiers: [{ w: 44, d: 34, h: 137 }] },
-  { name: 'Capital Square', x: -206, z: -406, style: 'fins', pw: 1.6, fh: 3.9, frame: FR.white, glass: GL.teal, seed: 28, tiers: [{ w: 44, d: 36, cr: 4, h: 150 }] },
-  { name: 'St Martins Tower', x: 420, z: -478, style: 'ribbon', pw: 1.5, fh: 3.6, frame: FR.precast, glass: GL.dark, seed: 29, tiers: [{ w: 34, d: 34, h: 132 }, { r: 14, h: 140, style: 'curtain' }] },
-  { name: '140 St Georges Terrace', x: 60, z: -566, style: 'punched', pw: 1.6, fh: 3.7, frame: FR.precast, glass: GL.dark, seed: 30, tiers: [{ w: 38, d: 30, h: 131 }] },
-  { name: '221 St Georges Terrace', x: -190, z: -496, style: 'curtain', pw: 1.5, fh: 3.6, frame: FR.alu, glass: GL.blue, seed: 31, tiers: [{ w: 36, d: 30, h: 110 }] },
-  { name: 'Governor Stirling Tower', x: -146, z: -566, style: 'ribbon', pw: 1.5, fh: 3.6, frame: FR.precast, glass: GL.dark, seed: 32, tiers: [{ w: 34, d: 30, h: 110 }] },
-  { name: '100 St Georges Terrace', x: 300, z: -526, style: 'curtain', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.clear, seed: 33, tiers: [{ w: 36, d: 30, h: 103 }] },
-  { name: 'Westralia Square', x: 30, z: -470, style: 'curtain', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.teal, seed: 34, tiers: [{ w: 40, d: 34, h: 140 }] },
-  { name: 'Woodside Plaza', x: -40, z: -440, style: 'fins', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.silver, seed: 35, tiers: [{ w: 32, d: 28, h: 96 }] },
+  { name: 'QV1', x: -330, z: -566, rot: 0.358, style: 'punched', pw: 1.8, fh: 3.8, frame: FR.granite, glass: GL.dark, seed: 26, tiers: [{ w: 42, d: 42, cr: 5, h: 163 }] },
+  { name: '240 St Georges Terrace', x: -262, z: -548, rot: 0.358, style: 'curtain', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.grey, seed: 27, tiers: [{ w: 44, d: 34, h: 137 }] },
+  { name: 'Capital Square', x: -206, z: -406, rot: 0.358, style: 'fins', pw: 1.6, fh: 3.9, frame: FR.white, glass: GL.teal, seed: 28, tiers: [{ w: 44, d: 36, cr: 4, h: 150 }] },
+  { name: 'St Martins Tower', x: 420, z: -478, rot: 0.358, style: 'ribbon', pw: 1.5, fh: 3.6, frame: FR.precast, glass: GL.dark, seed: 29, tiers: [{ w: 34, d: 34, h: 132 }, { r: 14, h: 140, style: 'curtain' }] },
+  { name: '140 St Georges Terrace', x: 60, z: -566, rot: 0.358, style: 'punched', pw: 1.6, fh: 3.7, frame: FR.precast, glass: GL.dark, seed: 30, tiers: [{ w: 38, d: 30, h: 131 }] },
+  { name: '221 St Georges Terrace', x: -190, z: -496, rot: 0.358, style: 'curtain', pw: 1.5, fh: 3.6, frame: FR.alu, glass: GL.blue, seed: 31, tiers: [{ w: 36, d: 30, h: 110 }] },
+  { name: 'Governor Stirling Tower', x: -146, z: -566, rot: 0.358, style: 'ribbon', pw: 1.5, fh: 3.6, frame: FR.precast, glass: GL.dark, seed: 32, tiers: [{ w: 34, d: 30, h: 110 }] },
+  { name: '100 St Georges Terrace', x: 300, z: -526, rot: 0.358, style: 'curtain', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.clear, seed: 33, tiers: [{ w: 36, d: 30, h: 103 }] },
+  { name: 'Westralia Square', x: 30, z: -470, rot: 0.358, style: 'curtain', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.teal, seed: 34, tiers: [{ w: 40, d: 34, h: 140 }] },
+  { name: 'Woodside Plaza', x: -40, z: -440, rot: 0.358, style: 'fins', pw: 1.5, fh: 3.8, frame: FR.alu, glass: GL.silver, seed: 35, tiers: [{ w: 32, d: 28, h: 96 }] },
 ];
 
 // South Perth (Mill Point Road): 1960s-2020s residential towers, white render + balconies; Civic Heart (37 fl, 147.5 m)
 export const SOUTH_PERTH = [
-  { name: 'Civic Heart', x: -140, z: 1452, style: 'resi', pw: 1.6, fh: 3.2, frame: FR.white, glass: GL.grey, seed: 50, tiers: [{ w: 44, d: 36, h: 12, style: 'curtain' }, { w: 30, d: 26, cr: 6, h: 105 }] },
+  { name: 'Civic Heart', x: -440, z: 1515, style: 'resi', pw: 1.6, fh: 3.2, frame: FR.white, glass: GL.grey, seed: 50, tiers: [{ w: 44, d: 36, h: 12, style: 'curtain' }, { w: 30, d: 26, cr: 6, h: 147 }] },
 ];
-function southPerthFill(rng) {
-  // South Perth as seen from the city: Sir James Mitchell Park (65 ha of lawn) runs east from Mends Street with
-  // Mill Point Road behind it; the high-rise flats (12–30 floors, cream/white balconies) cluster from Mill Point
-  // to just east of Mends Street, then the frontage drops to 3–8 storey flats among trees.
+// Every other building: its real footprint from OpenStreetMap. Heights are not in the map style, so they follow the
+// place: a tall CBD core falling off to West Perth / Northbridge, residential towers on the South Perth peninsula and
+// along Mill Point Road, houses in the suburbs, low pavilions around Elizabeth Quay.
+function osmBuildings(rng) {
   const out = [];
-  const path = [[-780, 760], [-700, 860], [-610, 990], [-480, 1140], [-360, 1260], [-250, 1360], [-188, 1420], [0, 1450], [300, 1480], [800, 1520], [1400, 1560]];
-  for (const row of [0, 1, 2]) for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i], b = path[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    let d = 6 + rng() * 14;
-    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-    while (d < L - 8) {
-      const t = d / L;
-      const off = -(row === 0 ? 20 + rng() * 10 : row === 1 ? 62 + rng() * 20 : 110 + rng() * 30);   // inland (south) of Mill Point Road
-      const x = a[0] + (b[0] - a[0]) * t + Math.sin(ang) * off, z = a[1] + (b[1] - a[1]) * t - Math.cos(ang) * off;
-      const w = 16 + rng() * 18, dd = 14 + rng() * 12;
-      d += w + 10 + rng() * 22;
-      if (Math.abs(x + 190) < 34 && z < 1520) continue;   // Mends Street itself
-      const towerZone = x < 60 && x > -760;                // Mill Point → Mends: the high-rise strip
-      const r = rng();
-      let h;
-      if (towerZone) h = row === 0 ? (r < 0.38 ? 45 + rng() * 50 : r < 0.7 ? 20 + rng() * 18 : 9 + rng() * 8) : row === 1 ? (r < 0.15 ? 36 + rng() * 36 : 10 + rng() * 14) : 8 + rng() * 10;
-      else h = row === 0 ? (r < 0.15 ? 30 + rng() * 25 : 10 + rng() * 14) : 8 + rng() * 10;
-      const tone = 0.7 + rng() * 0.14;
-      const b0 = { name: 'South Perth apartments', x, z, rot: ang + (rng() - 0.5) * 0.25, style: rng() < 0.7 ? 'resi' : 'punched', pw: 1.3 + rng() * 0.8, fh: 2.9 + rng() * 0.3,
-        frame: [tone, tone * 0.98, tone * 0.93], glass: [GL.grey, GL.dark, GL.teal, GL.clear][Math.floor(rng() * 4)], seed: 60 + out.length };
-      b0.tiers = h > 45 && rng() < 0.5 ? [{ w: w * 1.15, d: dd * 1.2, h: 7, style: 'curtain' }, { w, d: dd, cr: rng() < 0.4 ? 5 : 0, h: h * 0.85 }, { w: w * 0.8, d: dd * 0.8, h }] : [{ w, d: dd, cr: rng() < 0.3 ? 4 : 0, h }];
-      out.push(b0);
+  const named = NAMED.concat(SOUTH_PERTH).map((b) => ({ b, r: b.tiers.reduce((m, t) => Math.max(m, t.r || (t.pts ? 26 : Math.max(t.w || 0, t.d || 0) / 2)), 8) }));
+  const inPoly = (x, z, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; return c; };
+  const CBD = [20, -540];
+  for (const [c, ring] of OSM_BUILDINGS) {
+    const [cx, cz] = c; let area = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]);
+    area = Math.abs(area) / 2;
+    if (area < 40) continue;
+    // a named tower stands here: the footprint becomes its podium (or is dropped)
+    const hit = named.find((n) => inPoly(n.b.x, n.b.z, ring) || Math.hypot(n.b.x - cx, n.b.z - cz) < n.r * 0.7);
+    let h, style, frame, glass, pw = 1.5, fh = 3.6;
+    const r = () => rng();
+    if (hit) {
+      if (hit.b.osmOnly) { h = hit.b.osmOnly; style = hit.b.style; frame = hit.b.frame; glass = hit.b.glass; pw = hit.b.pw; fh = hit.b.fh; }
+      else if (hit.b.podium) { h = hit.b.podium; style = 'curtain'; frame = hit.b.frame; glass = hit.b.glass; fh = 4.5; }
+      else continue;
+    } else {
+      const sp = cz > 450;
+      if (sp) {
+        const peninsula = cx < -120 && cz < 1560, millPt = cz < 1700 && cx > -120;
+        if (area < 330) { h = 4.5 + r() * 3; style = 'punched'; frame = [0.72 + r() * 0.1, 0.62 + r() * 0.08, 0.52]; glass = GL.dark; pw = 2.4; fh = 3.0; }
+        else if (peninsula && area > 550) { h = r() < 0.55 ? 32 + r() * 60 : 12 + r() * 16; style = 'resi'; const tn = 0.72 + r() * 0.14; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.0; }
+        else if (millPt && area > 600) { h = r() < 0.3 ? 24 + r() * 30 : 9 + r() * 10; style = 'resi'; const tn = 0.72 + r() * 0.14; frame = [tn, tn * 0.98, tn * 0.93]; glass = GL.grey; fh = 3.0; }
+        else { h = 7 + r() * 8; style = 'punched'; frame = [0.7, 0.66, 0.6]; glass = GL.dark; pw = 2.2; fh = 3.1; }
+      } else {
+        const d = Math.hypot((cx - CBD[0]) * 0.8, cz - CBD[1]);
+        const core = Math.exp(-d / 330), big = Math.min(1, area / 2200);
+        const eqPrecinct = cx > -120 && cx < 320 && cz > -210 && cz < 120;
+        if (eqPrecinct) { h = 5 + r() * 6; style = 'curtain'; frame = FR.alu; glass = GL.clear; fh = 4.5; }
+        else if (area < 160) { h = 7 + r() * 8; style = 'punched'; frame = [FR.cream, FR.sandstone, FR.precast][(r() * 3) | 0]; glass = GL.dark; pw = 2.2; }
+        else {
+          h = 10 + r() * 22 + core * (big * 140 + r() * 60) * (r() < 0.75 ? 1 : 0.35);
+          style = ['curtain', 'curtain', 'ribbon', 'punched', 'fins'][(r() * 5) | 0];
+          frame = [FR.alu, FR.lightAlu, FR.precast, FR.dark, FR.white, FR.cream][(r() * 6) | 0];
+          glass = [GL.grey, GL.blue, GL.silver, GL.clear, GL.dark, GL.teal][(r() * 6) | 0];
+          pw = 1.3 + r() * 1.1; fh = 3.4 + r() * 0.7;
+        }
+      }
     }
+    const pts = ring.map((p) => [p[0] - cx, p[1] - cz]);
+    out.push({ name: 'osm', x: cx, z: cz, style, pw, fh, frame, glass, seed: 200 + out.length, plant: h > 40, parapet: h > 12 ? undefined : 0.4, tiers: [{ pts, h, parapet: h > 12 ? undefined : 0.5 }] });
   }
   return out;
 }
-// CBD infill: a grid of mid-rise office blocks around the named towers so the skyline reads as a dense city
-function cbdFill(rng, footprints) {
-  const out = []; const styles = ['curtain', 'curtain', 'ribbon', 'punched', 'fins'];
-  const glasses = [GL.grey, GL.blue, GL.silver, GL.clear, GL.dark, GL.teal, GL.green];
-  const frames = [FR.alu, FR.lightAlu, FR.precast, FR.dark, FR.white, FR.cream];
-  const roads = [-36, 125, 260, 400, -180, -320];
-  for (let x = -420; x <= 560; x += 46) for (let z = -300; z >= -980; z -= 44) {
-    if (roads.some((r) => Math.abs(x - r) < 18)) continue;
-    if ([-512, -640, -770, -890].some((r) => Math.abs(z - r) < 20)) continue;
-    if (z > -340 && x < 130 && x > -60) continue;                   // keep The Esplanade frontage open
-    const jx = x + (rng() - 0.5) * 10, jz = z + (rng() - 0.5) * 10;
-    if (NAMED.some((b) => Math.hypot(b.x - jx, b.z - jz) < 46)) continue;
-    if (jx < -330 && jz > -620) continue;                           // Kings Park side
-    const tall = Math.exp(-Math.hypot(jx - 20, jz + 520) / 380);
-    const h = 18 + rng() * 40 + tall * rng() * 90;
-    const w = 26 + rng() * 14, d = 22 + rng() * 14;
-    const st = styles[Math.floor(rng() * styles.length)];
-    out.push({ name: 'office', x: jx, z: jz, style: st, pw: 1.2 + rng() * 1.3, fh: 3.3 + rng() * 0.9,
-      frame: frames[Math.floor(rng() * frames.length)], glass: glasses[Math.floor(rng() * glasses.length)], seed: 100 + out.length,
-      tiers: rng() < 0.3 ? [{ w, d, h: h * 0.6 }, { w: w * 0.8, d: d * 0.8, h }] : [{ w, d, h, cr: rng() < 0.15 ? 5 : 0 }] });
-  }
-  return out;
-}
-
 export function create(G, { material }) {
   const rng = rngFrom(4207);
   const footprints = [];
   const chunks = new Map();
-  const all = [...NAMED, ...cbdFill(rng, footprints), ...SOUTH_PERTH, ...southPerthFill(rng)];
+  const all = [...NAMED.filter((b) => !b.osmOnly), ...SOUTH_PERTH, ...osmBuildings(rng)];
   for (const b of all) {
     const key = Math.floor(b.x / 400) + ',' + Math.floor(b.z / 400);
     if (!chunks.has(key)) chunks.set(key, new Acc());

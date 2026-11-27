@@ -3,14 +3,15 @@
 // with pink GPS route and blips, mission objective text, world-anchored button prompts, location toast, big
 // MISSION PASSED / WASTED / BUSTED cards, damage edge, letterbox.
 import { Vector3 } from 'three';
-import { NORTH_LAND, SOUTH_LAND, ISLAND, ROADS, ZONES, heightAt } from '../../map.js';
+import { NORTH_LAND, SOUTH_LAND, ISLAND, ISLAND_POLY, HEIRISSON, ROADS, ZONES, NARROWS, FREEWAY, heightAt } from '../../map.js';
+import { OSM_MASK } from '../../assets/osm_mask.js';
 
 const $ = (s) => document.querySelector(s);
 export function createHUD(G, { col, footprints }) {
   const B = {}; document.querySelectorAll('#hud [data-bind], #pause [data-bind]').forEach((n) => { B[n.dataset.bind] = n; });
   const H = { cash: 0, shownCash: 0, calmT: 0, locName: '', locT: 0 };
   // ---------------------------------------------------------------- static map image (0.5 px per metre)
-  const MAP = { x0: -1500, z0: -1100, s: 0.5, size: 1500 };
+  const MAP = { x0: -2000, z0: -1800, s: 0.5, size: 2100 };
   const map = document.createElement('canvas'); map.width = map.height = MAP.size;
   {
     const g = map.getContext('2d');
@@ -18,18 +19,25 @@ export function createHUD(G, { col, footprints }) {
     g.fillStyle = '#2b4a62'; g.fillRect(0, 0, MAP.size, MAP.size);                 // water
     const poly = (P, c) => { g.fillStyle = c; g.beginPath(); P.forEach((p, i) => (i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1])))); g.closePath(); g.fill(); };
     poly(NORTH_LAND, '#3a3f45'); poly(SOUTH_LAND, '#3a3f45');
-    g.fillStyle = '#3a3f45'; g.beginPath(); g.arc(X(ISLAND.x), Z(ISLAND.z), ISLAND.r * MAP.s, 0, 7); g.fill();
+    poly(ISLAND_POLY, '#3a3f45'); poly(HEIRISSON, '#3a3f45');
     // parks (Kings Park, Langley Park, Sir James Mitchell Park)
-    for (let x = -1500; x < -330; x += 8) for (let z = -900; z < 450; z += 8) if (heightAt(x, z) > 20) { g.fillStyle = '#2f4a34'; g.fillRect(X(x), Z(z), 4.5, 4.5); }
-    g.fillStyle = '#34503a'; g.fillRect(X(300), Z(-78), 1200 * MAP.s, 100 * MAP.s);
-    g.save(); g.globalAlpha = 0.9; poly([[-860, 590], [-620, 862], [-430, 1102], [-232, 1260], [0, 1300], [800, 1406], [800, 1440], [0, 1340], [-250, 1300], [-500, 1120], [-700, 870], [-800, 700]], '#34503a'); g.restore();
+    for (let x = -2000; x < -600; x += 8) for (let z = -1000; z < 900; z += 8) if (heightAt(x, z) > 20) { g.fillStyle = '#2f4a34'; g.fillRect(X(x), Z(z), 4.5, 4.5); }
+    // parks from the OSM landuse mask (decoded asynchronously, painted under the roads when ready)
+    const parks = new Image(); parks.onload = () => { const t = document.createElement('canvas'); t.width = t.height = 512; const tg = t.getContext('2d'); tg.drawImage(parks, 0, 0, 512, 512);
+      const d = tg.getImageData(0, 0, 512, 512).data, s = OSM_MASK.size / 512; g.fillStyle = '#34503a';
+      for (let j = 0; j < 512; j++) for (let i = 0; i < 512; i++) { const k = (j * 512 + i) * 4; if (d[k] > 120 || d[k + 1] > 120) { const x = OSM_MASK.x0 + i * s, z = OSM_MASK.z0 + j * s; g.fillRect(X(x), Z(z), s * MAP.s + 0.5, s * MAP.s + 0.5); } }
+      drawStatic(); };
+    parks.src = OSM_MASK.png;
+    function drawStatic() {
     // building footprints
     g.fillStyle = '#50565e';
     for (const f of footprints) { g.beginPath(); f.pts.forEach((p, i) => (i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1])))); g.closePath(); g.fill(); }
     // roads
     g.lineCap = 'round'; g.lineJoin = 'round';
-    for (const r of ROADS) { g.strokeStyle = '#8b9096'; g.lineWidth = Math.max(3, r.w * MAP.s * 0.8); g.beginPath(); r.pts.forEach((p, i) => (i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1])))); g.stroke(); }
-    g.strokeStyle = '#9aa0a6'; g.lineWidth = 12 * MAP.s; g.beginPath(); g.moveTo(X(-905), Z(262)); g.lineTo(X(-806), Z(640)); g.stroke();
+    for (const r of ROADS) { g.strokeStyle = r.cls === 'm' ? '#7a7f86' : '#9a9fa6'; g.lineWidth = Math.max(2, r.w * MAP.s * 0.8); g.beginPath(); r.pts.forEach((p, i) => (i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1])))); g.stroke(); }
+    g.strokeStyle = '#a8adb3'; g.lineWidth = 16 * MAP.s; g.beginPath(); g.moveTo(X(NARROWS.a[0]), Z(NARROWS.a[1])); g.lineTo(X(NARROWS.b[0]), Z(NARROWS.b[1])); FREEWAY.forEach((p) => g.lineTo(X(p[0]), Z(p[1]))); g.stroke();
+    }
+    drawStatic();
   }
   const mc = B.mapcanvas, mx = mc.getContext('2d');
   const blips = [];          // {x,z,kind,flash}

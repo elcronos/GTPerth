@@ -69,7 +69,8 @@ function spanda(k) {
 
 // EQ Bridge: S-shaped deck (plan), crown ~6.3 m for the ferry channel; arches meet at the centre pier ("M")
 export function bridgeCurve() {
-  return new CatmullRomCurve3([V(-64, 0, 6), V(-46, 0, 17), V(-22, 0, 15), V(0, 0, 5), V(20, 0, -2), V(34, 0, 6), V(41, 0, 12)], false, 'centripetal');
+  // traced from OSM: First Contact landing (west) → gentle S → the island's south-west shore
+  return new CatmullRomCurve3([V(-66, 0, -26), V(-42, 0, -12), V(-24, 0, 1), V(-7, 0, 12), V(13, 0, 23), V(28, 0, 32), V(39, 0, 42)], false, 'centripetal');
 }
 export function bridgeDeckY(t) { return PROMENADE_Y + 0.2 + 4.1 * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, t))), 0.75); }
 function eqBridge(k) {
@@ -143,8 +144,8 @@ function kiosk(k) {
   // Florence Hummerston Kiosk (1928, rebuilt on the island): Federation Arts & Crafts — red face brick with
   // arched multi-pane timber windows, a roughcast frieze, red Marseille-tile hipped roofs with flanking wings,
   // and a central octagonal clerestory lantern with its own tiled cap. Photo-matched (Commons, Feb 2016).
-  const x = ISLAND.x + 2, z = ISLAND.z - 1, y = PROMENADE_Y;
-  k.push(x, y, z, 0.1);
+  const x = ISLAND.x + 4, z = ISLAND.z - 10, y = PROMENADE_Y;
+  k.push(x, y, z, 0.35);
   k.box(23, 0.3, 14, 'limestone', { at: [0, 0.15, 0], r: 0.03 });
   const block = (cx, cz, w, d, h, roofH, eave) => {
     k.box(w, h, d, 'brick', { at: [cx, 0.3 + h / 2, cz], r: 0.04 });
@@ -179,9 +180,9 @@ function kiosk(k) {
 }
 
 function eqJetty(k) {
-  const [x, z] = PLACES.eqJetty;
-  // floating pontoon (concrete) along the west shore, gangway, white shade canopy on steel columns
-  k.push(x + 4.5, 0, z);
+  const [x, z] = PLACES.eqJetty, [dx, dz] = PLACES.eqJettyDir, ry = Math.atan2(-dx, -dz);
+  // floating pontoon (concrete) along the west shore, gangway, the sculpted wave canopy on raked posts
+  k.push(x, 0, z, ry);
   k.box(5, 1.0, 46, 'concrete', { at: [0, 0.2, 0], r: 0.08 });
   k.box(4.6, 0.06, 45.6, 'timberDeck', { at: [0, 0.73, 0], r: 0.01 });
   for (let i = -3; i <= 3; i++) { k.cyl(0.35, 3.0, 'concrete', { at: [2.8, -0.8, i * 7] }); k.cyl(0.12, 3.2, 'steel', { at: [-2.0, 2.3, i * 7] }); k.cyl(0.12, 3.2, 'steel', { at: [2.0, 2.3, i * 7] }); }
@@ -195,30 +196,32 @@ function eqJetty(k) {
   // fenders on the berth face
   for (let i = -10; i <= 10; i++) k.box(0.3, 0.8, 0.6, 'rubber', { at: [2.6, 0.5, i * 2.1] });
   k.pop();
-  // gangways to the promenade
-  for (const dz of [-14, 10]) k.bar([x - 4, PROMENADE_Y + 0.05, z + dz], [x + 2.2, 0.75, z + dz], 2.0, 0.12, 'alu');
+  // gangways to the promenade (local: −x is the shore)
+  k.push(x, 0, z, ry);
+  for (const gz of [-14, 10]) k.bar([-9, PROMENADE_Y + 0.05, gz], [-2.2, 0.75, gz], 2.0, 0.12, 'alu');
+  k.pop();
   // ticket shelter on the quay
-  k.push(x - 8, PROMENADE_Y, z - 2);
+  k.push(x - 14, PROMENADE_Y, z - 2, ry);
   k.box(3.2, 2.6, 6, 'glass', { at: [0, 1.3, 0], r: 0.03 }); k.box(3.8, 0.2, 7, 'canopy', { at: [0, 2.75, 0], r: 0.05 });
   k.pop();
 }
 
 function barrackJetty(k) {
-  const xs = [184, 203, 222, 241, 260];
-  xs.forEach((x, i) => {
-    const len = i === 0 || i === 4 ? 75 : 58, z0 = 34;
-    k.push(x, 0, z0 + len / 2);
+  // the five Barrack Street jetties (No. 1–5) as mapped: base at Barrack Square, raked ~20° with the city grid
+  const P = [[[121.8, 53.2], [101.6, 109.8]], [[162.3, 59.3], [140.1, 126.9]], [[197.8, 81.5], [176.5, 138.0]], [[239.3, 85.5], [217.1, 144.1]], [[273.8, 85.5], [259.6, 140.1]]];
+  P.forEach(([a, b]) => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 3, ry = Math.atan2(b[0] - a[0], b[1] - a[1]);
+    k.push((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2, ry);
     k.box(5.5, 0.35, len, 'timberDeck', { at: [0, 1.65, 0], r: 0.02 });
     for (let j = -Math.floor(len / 6); j <= Math.floor(len / 6); j++) for (const s of [-2.4, 2.4]) k.cyl(0.22, 4.4, 'pile', { at: [s, -0.6, j * 3] });
     k.tube([[2.7, 2.7, -len / 2], [2.7, 2.7, len / 2]], 0.035, 'steel'); k.tube([[-2.7, 2.7, -len / 2], [-2.7, 2.7, len / 2]], 0.035, 'steel');
     for (let j = -len / 2; j <= len / 2; j += 2.5) for (const s of [-2.7, 2.7]) k.bar([s, 1.8, j], [s, 2.7, j], 0.05, 0.05, 'steel');
-    // pier-head shelter
     k.box(5, 0.2, 7, 'canopy', { at: [0, 4.6, len / 2 - 5], r: 0.04 }); for (const s of [-2, 2]) for (const t of [-2.5, 2.5]) k.cyl(0.08, 2.8, 'steel', { at: [s, 3.2, len / 2 - 5 + t] });
     k.pop();
   });
   // jetty pavilions (cafes / ticket offices) at the base, pitched roofs
-  for (const [x, z, w] of [[193, 22, 14], [231, 24, 16], [268, 22, 12]]) {
-    k.push(x, PROMENADE_Y, z);
+  for (const [x, z, w] of [[150, 44, 14], [215, 62, 16], [262, 70, 12]]) {
+    k.push(x, PROMENADE_Y, z, 0.36);
     k.box(w, 3.6, 8, 'render', { at: [0, 1.8, 0], r: 0.05 });
     k.box(w - 1, 2.4, 0.08, 'glassDark', { at: [0, 1.5, 4.03], r: 0.01 });
     k.add(lathe([[w * 0.72, 0], [0.4, 2.2], [0, 2.25]], { seg: 4, phi0: Math.PI / 4, crease: 10 }).scale(1, 1, 8 / w), 'roofMetal', { at: [0, 3.6, 0] });
@@ -227,9 +230,9 @@ function barrackJetty(k) {
 }
 
 function mendsJetty(k) {
-  const [x, z] = PLACES.mendsJetty;
-  const len = 50;
-  k.push(x, 0, z - len / 2 + 2);
+  const [x0, z0] = PLACES.mendsJetty, [x1, z1] = PLACES.mendsHead;
+  const len = Math.hypot(x1 - x0, z1 - z0) + 4, ry = Math.atan2(x0 - x1, z0 - z1);
+  k.push((x0 + x1) / 2, 0, (z0 + z1) / 2, ry);
   k.box(4.6, 0.35, len, 'timberDeck', { at: [0, 1.6, 0], r: 0.02 });
   for (let j = -8; j <= 8; j++) for (const s of [-2, 2]) k.cyl(0.2, 4, 'pile', { at: [s, -0.5, j * 3] });
   for (let j = -len / 2; j <= len / 2; j += 2.5) for (const s of [-2.35, 2.35]) k.bar([s, 1.75, j], [s, 2.7, j], 0.05, 0.05, 'steel');
@@ -315,7 +318,8 @@ export function create(G, { mats }) {
   bellTower(k); spanda(k); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k); barrackJetty(k); mendsJetty(k);
   narrows(k); oldMill(k); warMemorial(k); brookfieldCrown(k);
   // short bridge: island → Barrack Square
-  k.bar([ISLAND.x + 15, PROMENADE_Y + 0.25, ISLAND.z + 4], [92, PROMENADE_Y + 0.25, 12], 4.5, 0.5, 'timberDeck');
+  k.bar([100, PROMENADE_Y + 0.25, 3], [127, PROMENADE_Y + 0.25, 6], 4.5, 0.5, 'timberDeck');
+  for (const s of [-1, 1]) k.bar([100, PROMENADE_Y + 1.3, 3 + s * 2.2], [127, PROMENADE_Y + 1.3, 6 + s * 2.2], 0.06, 0.06, 'steel');
   k.bakeAO({ radius: 0.6, samples: 8, strength: 0.6, ground: PROMENADE_Y - 0.05 });
   const group = k.build(mats);
   for (const s of bhpSign()) group.add(s);

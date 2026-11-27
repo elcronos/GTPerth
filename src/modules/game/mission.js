@@ -6,14 +6,14 @@ import { PLACES } from '../../map.js';
 export const REWARD = 50000;
 export function createMission(G, { hud, getPlayer, ferry, wanted, events }) {
   const M = { step: 'intro', t: 0, done: false };
-  const ROUTE_TO_JETTY = [[-30, -150], [-58, -150], [-58, -100], [-54, -82]];
-  const ROUTE_TO_MENDS = [[-8, -40], [-6, 16], [-60, 300], [-170, 1000], [-193, 1215]];
+  const ROUTE_TO_JETTY = [[40, -212], [24, -198], [12, -160], [8, -127]];
+  const ROUTE_TO_MENDS = [[60, -90], [30, -30], [0, 40], [-60, 300], [-160, 950], [-182, 1235]];
   const at = (x, z, r) => { const p = getPlayer(); const px = p.vehicle ? p.vehicle.x : p.x, pz = p.vehicle ? p.vehicle.z : p.z; return Math.hypot(px - x, pz - z) < r; };
   M.start = () => {
     M.step = 'goto'; M.t = 0; M.done = false;
     setTimeout(() => hud.message('SHAZ', 'Oi. The zoo ferry is sitting at the <b>Elizabeth Quay Jetty</b>. Get it to <b>Mends Street</b>. Fifty grand, cash. Try not to sink it.', 'S'), 900);
     hud.objective('Go to the <b>Elizabeth Quay Jetty</b>.');
-    hud.target = [-54, -82]; hud.route = ROUTE_TO_JETTY;
+    hud.target = [8, -127]; hud.route = ROUTE_TO_JETTY;
   };
   M.onBoardFerry = () => {
     if (M.step !== 'goto' && M.step !== 'reboard') return;

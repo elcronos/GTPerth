@@ -4,19 +4,21 @@
 import { MathUtils } from 'three';
 import { Character } from './character.js';
 import { FEMALE, MALE, PLAYER_AVATAR } from './avatars.js';
-import { heightAt, isLand, PROMENADE_Y } from '../../map.js';
+import { heightAt, isLand, PROMENADE_Y, SHORE_N, SHORE_S, alongShore } from '../../map.js';
 import { groundAt } from './player.js';
 
 // walkable waypoint loops (promenades), metres
+// walking loops and loiter spots follow the real promenades (shorelines from OSM)
+const sh = (P, x0, x1, step, inset, f) => alongShore(P, x0, x1, step, inset, f).map((p) => [p[0], p[1]]);
 const LOOPS = {
-  eq: [[-56, -4], [-56, -40], [-57, -100], [-55, -150], [-40, -168], [0, -170], [40, -170], [68, -160], [82, -120], [82, -60], [86, -20], [100, 10], [150, 18], [210, 22], [270, 26], [320, 32]],
-  landing: [[-30, -168], [-10, -176], [20, -178], [45, -174], [60, -168], [30, -186], [-20, -186]],
-  west: [[-60, 10], [-110, 14], [-180, 26], [-260, 40], [-340, 56], [-420, 80]],
-  barrack: [[150, 0], [180, 20], [230, 26], [280, 20], [240, 0], [190, -10], [150, -22]],
-  south: [[-420, 1105], [-330, 1190], [-250, 1252], [-195, 1280], [-130, 1290], [-40, 1302], [60, 1312], [160, 1324]],
+  eq: sh(SHORE_N, -75, 330, 14, 6, (x, z) => z > -225 && z < 90),
+  landing: sh(SHORE_N, 20, 150, 9, 9, (x, z) => z < -150 && z > -230),
+  west: sh(SHORE_N, -460, -70, 24, 11, (x, z) => z > -120),
+  barrack: sh(SHORE_N, 140, 330, 10, 10, (x, z) => z > -40 && z < 120),
+  south: sh(SHORE_S, -430, 200, 22, 12),
 };
-const IDLE_SPOTS = [[-50, -60, 1.6], [-48, -120, 1.6], [10, -166, 0], [-25, -167, 0], [62, -166, 0], [74, -90, -1.6], [-52, 2, 0.2], [175, 28, 0], [-200, 1278, 3.1], [-180, 1278, 3.1], [-150, 1290, 3.1], [150, 26, 0], [5, -180, 2.8], [-58, -20, 1.6]];
-
+const IDLE_SPOTS = alongShore(SHORE_N, -70, 300, 37, 2.2, (x, z) => z > -215 && z < 90).concat(alongShore(SHORE_S, -320, -100, 30, 3))
+  .map((p) => [p[0], p[1], Math.atan2(-p[3], -p[4])]).filter((_, i) => i % 2 === 0).slice(0, 16);
 export function createPeds(G, { avatars, col }) {
   const list = [];
   const pool = [...FEMALE.filter((n) => n !== PLAYER_AVATAR), ...MALE];

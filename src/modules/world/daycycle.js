@@ -86,7 +86,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
   const U = sky.material.uniforms, P = () => G.post && G.post.params;
   const base = P() ? { sat: P().sat, vol: P().volStrength, bloom: P().bloomStrength } : null;
   const cover0 = U.uCloud.value[0];
-  let lastBake = -1e9, lastFitDir = new Vector3(), cur = null;
+  let lastBake = -1e9, lastFitDir = new Vector3(), lastBakeDir = new Vector3(), cur = null;
   const tmp = new Vector3();
 
   function apply(force) {
@@ -121,7 +121,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
     }
     stars.material.opacity = night * 0.95; moon.material.opacity = Math.min(1, night * 1.3);
     // re-bake the environment and refit shadows when the sky has moved enough
-    if (force || G.t - lastBake > 4) { env.bake(); lastBake = G.t; }
+    if (force || (G.t - lastBake > 4 && G.sun.dir.angleTo(lastBakeDir) > 0.004)) { env.bake(); lastBake = G.t; lastBakeDir.copy(G.sun.dir); }
     if (force || G.sun.dir.angleTo(lastFitDir) > 0.01) { lastFitDir.copy(G.sun.dir); shadows?.fit?.(true); }
   }
   apply(true);

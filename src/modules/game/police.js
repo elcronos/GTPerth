@@ -40,7 +40,7 @@ export function createPolice(G, { avatars, M, BM, col, sea, traffic, peds, fx, g
   }
   function spawnBoat(pl) {
     // launch from Barrack Street Jetty or from further along Perth Water, out of sight
-    const opts = [[230, 120], [-260, 300], [300, 600], [-500, 800], [0, 900]];
+    const opts = [[240, 220], [-260, 300], [300, 600], [-420, 820], [0, 900]];
     let p = opts[0], bd = 0;
     for (const o of opts) { const d = Math.hypot(o[0] - pl.x, o[1] - pl.z); if (d > 160 && d < 600 && d > bd) { bd = d; p = o; } }
     const b = new Boat(G, 'policeboat', buildPoliceBoat(BM), sea);

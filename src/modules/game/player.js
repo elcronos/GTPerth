@@ -2,7 +2,7 @@
 // GTA-style orbit camera (shoulder offset, collision pull-in, speed FOV, look-behind) and vehicle control mapping.
 import { Vector3, MathUtils } from 'three';
 import { PLAYER } from '../../contracts.js';
-import { heightAt, isLand, PROMENADE_Y } from '../../map.js';
+import { heightAt, isLand, PROMENADE_Y, deckAt } from '../../map.js';
 import { Character } from './character.js';
 import { bridgeCurve, bridgeDeckY } from '../world/landmarks.js';
 
@@ -14,6 +14,7 @@ export function groundAt(x, z, y = 0) {
   for (let i = 0; i < BPTS.length; i += 2) { const d = (BPTS[i].x - x) ** 2 + (BPTS[i].z - z) ** 2; if (d < best) { best = d; bi = i; } }
   if (best < 2.4 * 2.4) { const by = bridgeDeckY(bi / 90) + 0.12; if (y > by - 1.2) return { y: by, water: false }; }
   if (isLand(x, z)) return { y: heightAt(x, z), water: false };
+  const dy = deckAt(x, z); if (dy !== null) return { y: dy, water: false };
   return { y: -1.15, water: true };
 }
 

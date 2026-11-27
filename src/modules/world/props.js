@@ -7,7 +7,7 @@ import {
 import { scatter, treeGeo, leafTexture, foliagePatch, poissonDisk, bushGeo } from '../../cookbook/geo/scatter.js';
 import { Kit, tube, lathe, roundedBox, mergeGeos, normalizeGeo } from '../../cookbook/geo/kit.js';
 import { rngFrom } from '../../cookbook/geo/noise.js';
-import { heightAt, isLand, ROADS, PLACES, PROMENADE_Y, distPoly, ISLAND } from '../../map.js';
+import { heightAt, isLand, ROADS, PLACES, PROMENADE_Y, distPoly, ISLAND, SHORE_N, SHORE_S, nearRoad, alongShore } from '../../map.js';
 
 // ---------------------------------------------------------------- palm
 function frondTexture() {
@@ -106,76 +106,56 @@ export function create(G, { mats, roads, footprints = [] }) {
   const euc2 = treeGeo({ seed: 12, height: 11, trunkR: 0.25, branches: 7, leafSize: 1.5, density: 0.9, lean: 0.7 });
   const lineTrees = (P, spacing, off) => { const pts = []; for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const tx = (b[0] - a[0]) / L, tz = (b[1] - a[1]) / L; for (let d = spacing / 2; d < L; d += spacing) for (const s of [-1, 1]) pts.push(a[0] + tx * d + tz * off * s, a[1] + tz * d - tx * off * s); } return pts; };
   // London planes on Barrack Street + The Esplanade, Moreton Bay fig-like big trees around One The Esplanade
-  const barrack = ROADS.find((r) => r.name === 'Barrack Street'), espl = ROADS.find((r) => r.name === 'The Esplanade');
-  const planePts = [...lineTrees(barrack.pts.slice(0, 3), 16, barrack.w / 2 + 2.2), ...lineTrees(espl.pts, 18, espl.w / 2 + 2.0), ...lineTrees(ROADS.find((r) => r.name === 'Geoffrey Bolton Avenue').pts, 20, 6.8)];
+  const planePts = []; for (const r of ROADS) { if (r.cls === 'm' || !r.pts.some((p) => p[1] < -150 && p[1] > -1000 && p[0] > -480 && p[0] < 700)) continue; planePts.push(...lineTrees(r.pts, 17, r.w / 2 + 2.4)); }
   const inFoot = (x, z) => footprints.some((f) => { const P = f.pts; let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; } return c; });
   const keep = (arr, pad = 0) => { const o = []; for (let i = 0; i < arr.length; i += 2) if (!inFoot(arr[i], arr[i + 1]) && !inFoot(arr[i] + pad, arr[i + 1]) && !inFoot(arr[i] - pad, arr[i + 1]) && !inFoot(arr[i], arr[i + 1] + pad) && !inFoot(arr[i], arr[i + 1] - pad)) o.push(arr[i], arr[i + 1]); return o; };
   const pm = leafMat(leafTex, 0xb4cc94), pb = barkMat();
   group.add(scatter(G, { parts: [{ geo: plane.trunk, material: pb }, { geo: plane.leaves, material: pm }], points: keep(planePts, 4), heightAt, scale: [0.85, 1.15], tint: { color: 0xffffff, l: 0.08 }, fade: [500, 700], cell: 60, seed: 4, sway: { amp: 0.06, freq: 0.9, height: 12 } }).group);
   // eucalypts: Kings Park bushland (dense), foreshores, Langley Park, South Perth park
-  const eucPts = poissonDisk({ x0: -1500, z0: -800, w: 1200, h: 1150, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && distPoly(x, z, ROADS.find((r) => r.name === 'Mounts Bay Road').pts) > 14; } });
-  const parkPts = poissonDisk({ x0: -900, z0: 560, w: 1700, h: 950, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, [[-860, 590], [-620, 862], [-430, 1102], [-232, 1260], [0, 1300], [420, 1354], [800, 1406]]) > 14 && distPoly(x, z, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480]]) < 90 && !(x > -260 && x < -120 && z > 1250 && z < 1340) });
-  const langPts = poissonDisk({ x0: 300, z0: -200, w: 1100, h: 230, r: 30, rng, accept: (x, z) => isLand(x, z) && (z < -80 ? x < 420 : z < 15 && z > -60) });
-  const foreshore = poissonDisk({ x0: -900, z0: -150, w: 760, h: 420, r: 24, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, ROADS.find((r) => r.name === 'Mounts Bay Road').pts) > 12 });
+  const eucPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 11, rng, accept: (x, z) => { const h = heightAt(x, z); return h > 7 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 70 && !nearRoad(x, z) && !inFoot(x, z); } });
+  const parkPts = poissonDisk({ x0: -900, z0: 520, w: 2900, h: 1300, r: 24, rng, accept: (x, z) => isLand(x, z) && z > 520 && distPoly(x, z, SHORE_S) > 10 && distPoly(x, z, SHORE_S) < 170 && !nearRoad(x, z) && !inFoot(x, z) && !(x > -300 && x < -130 && z > 1250 && z < 1400) });
+  const langPts = poissonDisk({ x0: 300, z0: -250, w: 1700, h: 900, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, SHORE_N) < 140 && distPoly(x, z, SHORE_N) > 8 && !nearRoad(x, z) && !inFoot(x, z) });
+  const foreshore = poissonDisk({ x0: -1400, z0: -350, w: 1300, h: 1000, r: 22, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, SHORE_N) < 120 && !nearRoad(x, z) && !inFoot(x, z) });
   const em = leafMat(euTex, 0x7c8a5c), eb = barkMat(); eb.color.set(0xb8aa98);   // eucalypt olive / grey-green (photo-matched)
   group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: [900, 1300], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
   const em2 = leafMat(euTex, 0x8c9a6c), eb2 = barkMat(); eb2.color.set(0xa89a88);
   group.add(scatter(G, { parts: [{ geo: euc2.trunk, material: eb2 }, { geo: euc2.leaves, material: em2 }], points: [...langPts, ...foreshore, ...parkPts.slice(Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.8, 1.2], tint: { color: 0xffffff, l: 0.1 }, fade: [700, 1000], cell: 80, seed: 9, sway: { amp: 0.05, freq: 0.8, height: 11 } }).group);
   // Kings Park bushland as photographed from the city: a closed, lumpy olive canopy over the whole of Mount Eliza
   // and the escarpment, with a dark shrub understorey. Dense low-cost canopy clumps fill between the full trees.
-  const mounts = ROADS.find((r) => r.name === 'Mounts Bay Road').pts;
-  const kpAccept = (x, z) => heightAt(x, z) > 6 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 55 && distPoly(x, z, mounts) > 12;
-  const clumpPts = poissonDisk({ x0: -1500, z0: -800, w: 1200, h: 1150, r: 8.5, rng, accept: kpAccept });
-  const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: 64, leafSize: 3.0 });   // 15–20 m jarrah / marri / tuart crowns
+  const kpAccept = (x, z) => heightAt(x, z) > 6 && isLand(x, z) && Math.hypot(x - PLACES.warMemorial[0], z - PLACES.warMemorial[1]) > 55 && !nearRoad(x, z) && !inFoot(x, z);
+  const clumpPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 9.5, rng, accept: kpAccept });
+  const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: 48, leafSize: 3.3 });   // 15–20 m jarrah / marri / tuart crowns
   clump.translate(0, 7.5, 0);
   const stem = lathe([[0.3, 0], [0.18, 8], [0, 8.6]], { seg: 4, crease: 89 });
   const cm = leafMat(euTex, 0x6e7c50), cb = barkMat(); cb.color.set(0xb0a490);
   group.add(scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.75, 1.45], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: [1100, 1600], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group);
-  const shrubPts = poissonDisk({ x0: -1500, z0: -800, w: 1200, h: 1150, r: 8, rng, accept: kpAccept });
+  const shrubPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 10, rng, accept: kpAccept });
   const shrub = bushGeo({ seed: 23, radius: 1.5, height: 1.6, cards: 36, leafSize: 1.1 });
   const sm = leafMat(euTex, 0x5f6a44);
   group.add(scatter(G, { parts: [{ geo: shrub, material: sm }], points: shrubPts, heightAt, scale: [0.7, 1.4], tint: { color: 0xffffff, l: 0.12 }, fade: [450, 650], cell: 70, seed: 29 }).group);
   // South Perth: street trees and garden trees through the suburbs behind Mill Point Road, plus a band of
   // shady trees along the foreshore path of Sir James Mitchell Park
-  const spAccept = (x, z) => isLand(x, z) && z > 700 && distPoly(x, z, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480], [800, 1520], [1400, 1560]]) > 16 && !inFoot(x, z);
-  const spTrees = poissonDisk({ x0: -1100, z0: 800, w: 2400, h: 1100, r: 15, rng, accept: (x, z) => spAccept(x, z) && (x > -1000) });
+  const spAccept = (x, z) => isLand(x, z) && z > 520 && !nearRoad(x, z) && !inFoot(x, z) && distPoly(x, z, SHORE_S) > 160;
+  const spTrees = poissonDisk({ x0: -1000, z0: 520, w: 3100, h: 1780, r: 19, rng, accept: spAccept });
   const cb2 = barkMat(); cb2.color.set(0xb0a490);
   group.add(scatter(G, { parts: [{ geo: stem, material: cb2 }, { geo: clump, material: leafMat(euTex, 0x7a8a58) }], points: spTrees, heightAt, scale: [0.8, 1.6], scaleY: [0.9, 1.5], tint: { color: 0xffffff, l: 0.14, h: 0.03 }, fade: [1500, 2200], cell: 120, seed: 31 }).group);
-  // low-rise South Perth houses (single/double storey, hipped tile or Colorbond roofs) between the trees
-  const houseKits = [0, 1, 2, 3].map((v) => { // ~22 tris each: plain box walls + 4-sided hip roof
-    const k = new Kit(); const w = 11 + v * 1.5, d = 14 - v, h = v === 3 ? 5.8 : 3.0;
-    k.add(new BoxGeometry(w, h, d).toNonIndexed(), v % 2 ? 'render' : 'brick', { at: [0, h / 2, 0] });
-    const roof = new ConeGeometry(Math.SQRT2 / 2, 1, 4, 1, true); roof.rotateY(Math.PI / 4); roof.scale(w + 1.2, 2.4, d + 1.2); roof.translate(0, h + 1.2, 0);
-    k.add(roof.toNonIndexed(), v === 2 ? 'roofMetal' : 'tile');
-    return k;
-  });
-  const houseM = [[], [], [], []];
-  for (let x = -980; x < 1300; x += 24) for (let z = 900; z < 2000; z += 24) {
-    const jx = x + (rng() - 0.5) * 8, jz = z + (rng() - 0.5) * 8;
-    if (!isLand(jx, jz) || inFoot(jx, jz) || inFoot(jx + 9, jz) || inFoot(jx - 9, jz)) continue;
-    if (distPoly(jx, jz, [[-780, 760], [-610, 990], [-360, 1260], [-188, 1420], [300, 1480], [800, 1520], [1400, 1560]]) < 150) continue;
-    if (Math.abs(jx + 185) < 20 || rng() < 0.12) continue;
-    houseM[(rng() * 4) | 0].push(M(jx, heightAt(jx, jz), jz, Math.round(rng() * 2) * (Math.PI / 2) + (rng() - 0.5) * 0.1));
-  }
-  houseKits.forEach((k, i) => { if (houseM[i].length) group.add(instanced(G, k, mats, houseM[i], 'houses' + i)); });
   // Washingtonia palms: Barrack Square, Riverside Drive median, Mends Street, South Perth Esplanade
   const palm = palmGeo(5);
   const fm = new MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: DoubleSide, vertexColors: true, roughness: 0.7 }); foliagePatch(fm, { trans: 0.4 }); fm.name = 'fronds';
   const tm = new MeshStandardMaterial({ color: 0x7a6a58, roughness: 0.95, vertexColors: true }); tm.name = 'palm-trunk';
   const palmPts = [];
-  for (let x = 150; x <= 330; x += 22) if (Math.abs(x - 214) > 22) palmPts.push(x, -6);
-  for (let x = 360; x <= 900; x += 30) palmPts.push(x, -66);
-  for (const [x, z] of [[-215, 1300], [-170, 1300], [-232, 1330], [-150, 1335], [-120, 1310], [-260, 1290], [-60, 1322], [20, 1330]]) palmPts.push(x, z);
-  for (let x = -520; x < 600; x += 46) { const z = x < -193 ? 1205 + (x + 400) * 0.6 : 1342 + (x + 193) * 0.12; if (isLand(x, z + 18)) palmPts.push(x, z + 18); }
+  for (const p of alongShore(SHORE_N, 150, 1100, 30, 14, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
+  for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
+  for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   group.add(scatter(G, { parts: [{ geo: palm.trunk, material: tm }, { geo: palm.fronds, material: fm }], points: palmPts, heightAt, scale: [0.85, 1.2], fade: [800, 1100], cell: 80, seed: 2, sway: { amp: 0.12, freq: 0.8, height: 14, flutter: 0.4 } }).group);
 
   // ----- street lights along roads + promenades, benches, bollards
   const lampM = [], benchM = [];
   for (const r of ROADS) {
-    if (r.name === 'St Georges Terrace' || r.name === 'Hay Street') continue;
+    if (r.cls === 'm') continue;
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i], b = r.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); const tx = (b[0] - a[0]) / L, tz = (b[1] - a[1]) / L;
-      for (let d = 12; d < L; d += 34) for (const s of [-1, 1]) {
+      for (let d = 12; d < L; d += 42) for (const s of (r.cls === 's' ? [1] : [-1, 1])) {
         const x = a[0] + tx * d + tz * (r.w / 2 + 0.8) * s, z = a[1] + tz * d - tx * (r.w / 2 + 0.8) * s;
         if (!isLand(x, z)) continue;
         lampM.push(M(x, heightAt(x, z), z, Math.atan2(-tz * s, tx * s) + Math.PI / 2 * 0));
@@ -183,8 +163,7 @@ export function create(G, { mats, roads, footprints = [] }) {
     }
   }
   // EQ promenade lights + benches around the inlet
-  const ring = [[-58, -10], [-58, -60], [-58, -110], [-58, -138], [-30, -164], [20, -164], [60, -164], [80, -138], [80, -100], [80, -50], [-120, 12], [-200, 26], [-300, 40], [120, 28], [160, 30], [300, 34]];
-  for (const [x, z] of ring) { lampM.push(M(x + (x < 0 ? -3 : 3), PROMENADE_Y, z, x < 0 ? 0 : Math.PI)); benchM.push(M(x + (x < 0 ? -1.8 : 1.8), PROMENADE_Y, z + 6, x < 0 ? Math.PI / 2 : -Math.PI / 2)); }
+  for (const p of alongShore(SHORE_N, -110, 330, 26, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z))) { lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
   (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));
@@ -193,9 +172,8 @@ export function create(G, { mats, roads, footprints = [] }) {
 
   // ----- The Landing furniture: limestone planter benches, bollards, a kiosk umbrella cluster
   const k0 = new Kit();
-  for (const [x, z, w] of [[-20, -176, 9], [30, -176, 9], [52, -186, 6], [-36, -188, 6]]) { k0.box(w, 0.48, 1.6, 'limestone', { at: [x, PROMENADE_Y + 0.24, z], r: 0.06 }); k0.box(w - 0.4, 0.3, 1.2, 'soil', { at: [x, PROMENADE_Y + 0.5, z], r: 0.03 }); colliders.push({ poly: [[x - w / 2, z - 0.8], [x + w / 2, z - 0.8], [x + w / 2, z + 0.8], [x - w / 2, z + 0.8]] }); }
-  for (let x = -44; x <= 64; x += 4) k0.cyl(0.11, 0.9, 'steel', { at: [x, PROMENADE_Y + 0.45, -192.5], seg: 10 });
-  for (const [x, z] of [[18, -186], [24, -186], [21, -190]]) { k0.cyl(0.05, 2.6, 'steel', { at: [x, PROMENADE_Y + 1.3, z] }); k0.add(lathe([[1.6, 0], [0.1, 0.5], [0, 0.52]], { seg: 8 }), 'canopy', { at: [x, PROMENADE_Y + 2.5, z] }); k0.cyl(0.4, 0.75, 'steel', { at: [x + 0.8, PROMENADE_Y + 0.37, z], seg: 12 }); }
+  for (const [x, z, w] of [[30, -214, 9], [82, -206, 9], [128, -186, 6], [6, -222, 6]]) { k0.box(w, 0.48, 1.6, 'limestone', { at: [x, PROMENADE_Y + 0.24, z], r: 0.06 }); k0.box(w - 0.4, 0.3, 1.2, 'soil', { at: [x, PROMENADE_Y + 0.5, z], r: 0.03 }); colliders.push({ poly: [[x - w / 2, z - 0.8], [x + w / 2, z - 0.8], [x + w / 2, z + 0.8], [x - w / 2, z + 0.8]] }); }
+  for (const [x, z] of [[38, -205], [44, -205], [41, -209]]) { k0.cyl(0.05, 2.6, 'steel', { at: [x, PROMENADE_Y + 1.3, z] }); k0.add(lathe([[1.6, 0], [0.1, 0.5], [0, 0.52]], { seg: 8 }), 'canopy', { at: [x, PROMENADE_Y + 2.5, z] }); k0.cyl(0.4, 0.75, 'steel', { at: [x + 0.8, PROMENADE_Y + 0.37, z], seg: 12 }); }
   k0.bakeAO({ radius: 0.5, samples: 6, strength: 0.6, ground: PROMENADE_Y - 0.02 });
   group.add(k0.build({ ...mats, soil: new MeshStandardMaterial({ color: 0x2a3a1a, roughness: 1, vertexColors: true }) }));
   // ----- Landing carousel (west of Spanda) + BHP water park pad + Fifteen The Esplanade hoarding
@@ -213,18 +191,10 @@ export function create(G, { mats, roads, footprints = [] }) {
     for (let i = 0; i < 4; i++) { k.cyl(0.08, 4.5, 'steel', { at: [x - 12 + i * 8, PROMENADE_Y + 2.3, z - 9] }); }
     k.box(32, 0.1, 22, 'canopy', { at: [x, PROMENADE_Y + 4.6, z], r: 0.05 });
   }
-  { // hoarding around the empty Fifteen The Esplanade lot
-    const x0 = -60, x1 = -14, z0 = -252, z1 = -212, y = heightAt(-37, -232);
-    for (const [a, b] of [[[x0, z0], [x1, z0]], [[x1, z0], [x1, z1]], [[x1, z1], [x0, z1]], [[x0, z1], [x0, z0]]]) {
-      const L = Math.hypot(b[0] - a[0], b[1] - a[1]); k.push((a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2, Math.atan2(b[1] - a[1], b[0] - a[0]) * -1 + 0);
-      k.box(L, 2.4, 0.1, 'hoarding', { at: [0, 1.2, 0], r: 0.01 }); k.pop();
-    }
-    colliders.push({ poly: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]] });
-  }
   // ----- moored boats along the inlet's east shore + a few on Perth Water
   const boatCols = [0xf2f2ee, 0x1c2c44, 0xe8e2d4, 0x7a1a14, 0xf5f5f0, 0x2a4a5a];
-  for (let i = 0; i < 8; i++) { k.push(70, -0.45, -136 + i * 14, Math.PI / 2 * (i % 2 ? 1 : -1) * 0 + Math.PI); boatKit(k, 8 + rng() * 5, boatCols[i % 6], i % 3 === 0 ? 'yacht' : 'motor'); k.pop(); }
-  for (const [x, z, r] of [[380, 160, 0.4], [520, 420, 1.2], [-420, 700, 2.0], [150, 900, 0.8], [-300, 280, 2.6]]) { k.push(x, -0.45, z, r); boatKit(k, 11, 0xf2f2ee, 'yacht'); k.pop(); }
+  for (let i = 0; i < 7; i++) { const t = i / 6; k.push(134 - 30 * t - 7, -0.45, -128 + 78 * t, 0.37 + Math.PI); boatKit(k, 8 + rng() * 5, boatCols[i % 6], i % 3 === 0 ? 'yacht' : 'motor'); k.pop(); }   // along the Ritz pier
+  for (const [x, z, r] of [[380, 260, 0.4], [620, 520, 1.2], [-420, 700, 2.0], [150, 900, 0.8], [-300, 280, 2.6]]) { k.push(x, -0.45, z, r); boatKit(k, 11, 0xf2f2ee, 'yacht'); k.pop(); }
   const extra = { ...mats,
     canopyRed: new MeshStandardMaterial({ color: 0x8a1a1a, roughness: 0.6, vertexColors: true }), gold: new MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.35, metalness: 0.9, vertexColors: true }),
     wetPad: new MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.08, metalness: 0.1, vertexColors: true }),

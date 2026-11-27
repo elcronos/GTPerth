@@ -63,25 +63,41 @@ varying vec4 vRoad; float rmPaint;`)
 }
 
 export function create(G, { mats }) {
-  const meshes = []; const lanes = [];
+  const lanes = [];
+  // segment hash (20 m cells) for the junction-fade query: distance to any OTHER road's asphalt edge
+  const CELL = 20, hash = new Map(); const key = (i, j) => i * 100003 + j;
+  ROADS.forEach((o, oi) => { for (let i = 0; i < o.pts.length - 1; i++) {
+    const a = o.pts[i], b = o.pts[i + 1], pad = o.w / 2 + 10;
+    const i0 = Math.floor((Math.min(a[0], b[0]) - pad) / CELL), i1 = Math.floor((Math.max(a[0], b[0]) + pad) / CELL), j0 = Math.floor((Math.min(a[1], b[1]) - pad) / CELL), j1 = Math.floor((Math.max(a[1], b[1]) + pad) / CELL);
+    for (let ii = i0; ii <= i1; ii++) for (let jj = j0; jj <= j1; jj++) { const k = key(ii, jj); let L = hash.get(k); if (!L) hash.set(k, (L = [])); L.push(oi, i); } } });
+  const jdist = (x, z, ri) => {
+    const L = hash.get(key(Math.floor(x / CELL), Math.floor(z / CELL))); if (!L) return 1e9;
+    let best = 1e9;
+    for (let n = 0; n < L.length; n += 2) { const oi = L[n]; if (oi === ri) continue; const o = ROADS[oi], i = L[n + 1];
+      const ax = o.pts[i][0], az = o.pts[i][1], vx = o.pts[i + 1][0] - ax, vz = o.pts[i + 1][1] - az, l2 = vx * vx + vz * vz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / l2));
+      best = Math.min(best, Math.hypot(ax + vx * t - x, az + vz * t - z) - o.w / 2); }
+    return best;
+  };
+  // everything merges into ONE road mesh + ONE kerb mesh (≈1000 OSM streets)
+  const pos = [], uv = [], road = [], idx = [], kpos = [], kuv = [], kidx = [];
+  const LIFT = { t: 0.1, p: 0.09, s: 0.08, m: 0.065 };
   ROADS.forEach((r, ri) => {
     const pts = densify(r.pts);
-    const pos = [], uv = [], road = [], idx = [], kpos = [], kuv = [], kidx = [];
-    let u = 0; const hw = r.w / 2, lift = 0.05 + ri * 0.004;
+    const v0 = pos.length / 3, k0 = kpos.length / 3;
+    let u = 0; const hw = r.w / 2, lift = (LIFT[r.cls] ?? 0.06) + (ri % 7) * 0.0015;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
       let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
       const nx = tz, nz = -tx;
       if (i > 0) u += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
-      // junction fade: near other roads' asphalt → no paint
-      let jd = 1e9; ROADS.forEach((o, oi) => { if (oi !== ri) jd = Math.min(jd, distToRoad(p[0], p[1], o) - o.w / 2); });
+      const jd = jdist(p[0], p[1], ri);
       const jf = Math.round(9 * Math.min(1, Math.max(0, (jd - 2) / 6)));
       const L = [p[0] + nx * hw, p[1] + nz * hw], R = [p[0] - nx * hw, p[1] - nz * hw];
       pos.push(L[0], heightAt(L[0], L[1]) + lift, L[1], R[0], heightAt(R[0], R[1]) + lift, R[1]);
       uv.push(u, -hw, u, hw);
       road.push(u, hw, r.w, r.lanes + 10 * jf, u, -hw, r.w, r.lanes + 10 * jf);
-      if (i > 0) { const k = (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
-      // kerbs (skip through junctions)
+      if (i > 0) { const k = v0 + (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
       for (const side of [1, -1]) {
         const ex = p[0] + nx * hw * side, ez = p[1] + nz * hw * side, ox = nx * 0.3 * side, oz = nz * 0.3 * side;
         const y0 = heightAt(ex, ez) + lift, y1 = y0 + 0.13;
@@ -89,8 +105,7 @@ export function create(G, { mats }) {
         kuv.push(u, 0, u, 0.13, u, 0.43);
       }
       if (i > 0 && jf > 3) {
-        const k = (i - 1) * 6;
-        // side +1: verts k..k+2, next k+6..k+8 ; side -1: k+3..k+5, next k+9..k+11
+        const k = k0 + (i - 1) * 6;
         for (const o of [0, 3]) {
           const a0 = k + o, b0 = k + 6 + o;
           if (o === 0) kidx.push(a0, b0, a0 + 1, a0 + 1, b0, b0 + 1, a0 + 1, b0 + 1, a0 + 2, a0 + 2, b0 + 1, b0 + 2);
@@ -98,24 +113,22 @@ export function create(G, { mats }) {
         }
       }
     }
-    const g = new BufferGeometry();
-    g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
-    g.setAttribute('aRoad', new Float32BufferAttribute(road, 4)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new Mesh(g, mats.road); m.name = 'road-' + r.name; m.receiveShadow = true; m.renderOrder = -1;
-    meshes.push(m);
-    const kg = new BufferGeometry();
-    kg.setAttribute('position', new Float32BufferAttribute(kpos, 3)); kg.setAttribute('uv', new Float32BufferAttribute(kuv, 2)); kg.setIndex(kidx); kg.computeVertexNormals();
-    const km = new Mesh(kg, mats.kerb); km.name = 'kerb'; km.receiveShadow = true; meshes.push(km);
-    // lanes for traffic: left-hand traffic → drive on the LEFT of the centreline in the direction of travel
+    if (r.traffic === false) return;
     const nl = Math.max(1, Math.floor(r.lanes / 2)), lw = (r.w * 0.5 - 0.5) / nl;
     for (let li = 0; li < nl; li++) {
       const off = lw * (li + 0.5);
-      // direction +: points in order, keep left (left of travel = +n side since n = (tz,-tx) is the left normal in x-right/z-down)
       lanes.push({ road: r.name, off, pts: offsetLine(r.pts, off) });
       lanes.push({ road: r.name, off, pts: offsetLine([...r.pts].reverse(), off) });
     }
   });
-  return { meshes, lanes };
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.setAttribute('aRoad', new Float32BufferAttribute(road, 4)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new Mesh(g, mats.road); m.name = 'roads'; m.receiveShadow = true; m.renderOrder = -1;
+  const kg = new BufferGeometry();
+  kg.setAttribute('position', new Float32BufferAttribute(kpos, 3)); kg.setAttribute('uv', new Float32BufferAttribute(kuv, 2)); kg.setIndex(kidx); kg.computeVertexNormals();
+  const km = new Mesh(kg, mats.kerb); km.name = 'kerbs'; km.receiveShadow = true;
+  return { meshes: [m, km], lanes };
 }
 // offset to the left of travel (x east, z south: left of direction (tx,tz) is (tz,-tx))
 function offsetLine(P, off) {

@@ -2,7 +2,7 @@
 // entry/exit; crime → wanted; harness/debug hooks (__G.game) and ?show=chase for the action pose.
 import { CatmullRomCurve3, Vector3 } from 'three';
 import { PATH, PLAYER } from '../../contracts.js';
-import { PLACES, isLand } from '../../map.js';
+import { PLACES, isLand, ROADS } from '../../map.js';
 import { loadAvatars, MALE } from './avatars.js';
 import { loadModels } from './models.js';
 import { createCollision } from './collide.js';
@@ -31,10 +31,19 @@ export async function create(G, { input, world, fx, quality }) {
   const traffic = createTraffic(G, { lanes: world.roads.lanes, M, col, peds, getPlayer: () => player });
   // the ferry, berthed at the Elizabeth Quay Jetty, bow north
   const ferry = new Boat(G, 'ferry', buildFerry(BM), world.sea);
-  const dockFerry = () => { ferry.place(PLACES.ferryDock[0], PLACES.ferryDock[1], -Math.PI / 2); ferry.health = 100; ferry.throttle = 0; ferry.steer = 0; };
+  const dockFerry = () => { ferry.place(PLACES.ferryDock[0], PLACES.ferryDock[1], Math.atan2(PLACES.eqJettyDir[1], PLACES.eqJettyDir[0])); ferry.health = 100; ferry.throttle = 0; ferry.steer = 0; };
   dockFerry();
   // a few parked cars at the kerbs near the Quay (easy to steal)
-  const parked = [[-30, -201.6, Math.PI], [70, -194.4, 0], [120.4, -130, -Math.PI / 2], [-42, -300, -Math.PI / 2], [-150, -226, Math.PI], [-205, 1338, 0]];
+  const parked = [];
+  { const want = [[60, -200, 6], [-200, 1380, 1]];
+    for (const [cx, cz, n] of want) {
+      let got = 0;
+      for (const r of ROADS) { if (got >= n) break; if (r.cls !== 's' && r.cls !== 'm') continue;
+        for (let i = 0; i < r.pts.length - 1 && got < n; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], L = Math.hypot(bx - ax, bz - az); if (L < 20) continue;
+          const mx = (ax + bx) / 2, mz = (az + bz) / 2, d = Math.hypot(mx - cx, mz - cz); if (d < 40 || d > 240) continue;
+          const tx = (bx - ax) / L, tz = (bz - az) / L, off = r.w / 2 - 1.3; // left kerb (left-hand traffic)
+          const x = mx + tz * off, z = mz - tx * off; if (!isLand(x, z) || parked.some((p) => Math.hypot(p[0] - x, p[1] - z) < 30)) continue;
+          parked.push([x, z, Math.atan2(tz, tx)]); got++; } } } }
   for (const [x, z, h] of parked) { const c = traffic.spawnAt(['sedan', 'ute', 'suv', 'hatch'][(Math.random() * 4) | 0], x, z, h, CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0]); c.parked = true; }
 
   const state = { mode: auto ? 'playing' : 'title', t: 0, deadT: 0, timeScale: 1, passedT: 0 };
@@ -270,10 +279,10 @@ export async function create(G, { input, world, fx, quality }) {
   // ---------------------------------------------------------------- debug / playtest hooks
   G.game = {
     player, ferry, traffic, peds, wanted, mission, hud, state,
-    debugWin: () => { if (player.vehicle !== ferry) { if (player.vehicle) exitVehicle(); enterVehicle(ferry); } ferry.place(PLACES.mendsHead[0], PLACES.mendsHead[1] - 22, Math.PI / 2); },
+    debugWin: () => { if (player.vehicle !== ferry) { if (player.vehicle) exitVehicle(); enterVehicle(ferry); } ferry.place(PLACES.mendsHead[0] + 6, PLACES.mendsHead[1] - 18, 1.88); },
     debugLose: () => { player.health = 0; },
     debugBusted: () => fail('busted'),
-    boardFerry: () => { player.teleport(-56, -80, Math.PI / 2); enterVehicle(ferry); },
+    boardFerry: () => { player.teleport(14, -126, Math.PI / 2); enterVehicle(ferry); },
     teleport: (x, z) => player.teleport(x, z, player.yaw),
     start: startGame,
   };

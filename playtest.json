@@ -36,7 +36,7 @@
    "msg": "click punches"
   },
   {
-   "eval": "__G.game.teleport(-55, -80)"
+   "eval": "__G.game.teleport(14, -126)"
   },
   {
    "wait": 1500
