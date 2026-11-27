@@ -1,0 +1,26 @@
+{
+  "name": "onefile-game",
+  "gameTitle": "Untitled",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Single-file procedural three.js game (built by the onefile-aaa skill)",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:readable": "node build.mjs --readable",
+    "serve": "node tools/serve.mjs dist",
+    "shots": "node tools/capture.mjs --url dist/index.html --out shots/latest --critic --shimmer",
+    "bench": "node tools/bench.mjs --url dist/index.html",
+    "playtest": "node tools/playtest.mjs --url dist/index.html --script playtest.json",
+    "size": "node tools/size-report.mjs dist/index.html"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.0",
+    "jpeg-js": "^0.4.4",
+    "playwright": "^1.56.1",
+    "pngjs": "^7.0.0"
+  }
+}

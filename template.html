@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="color-scheme" content="dark">
+<title>{{TITLE}}</title>
+<link rel="icon" href="data:,">
+<style>/*CSS*/</style>
+</head>
+<body>
+<!-- The canvas is the only thing a ?shot=1 capture shows: html.shot hides every .ui element. -->
+<canvas id="c" aria-label="{{TITLE}}"></canvas>
+
+<div id="ui" class="ui" data-state="boot">
+  <!-- title: the live scene flies along PATH behind it (never a black first frame) -->
+  <section id="title" class="screen screen-title" hidden>
+    <div class="title-block">
+      <p class="kicker" data-bind="kicker">A single-file game</p>
+      <h1 class="game-title">{{TITLE}}</h1>
+      <p class="tagline" data-bind="tagline"></p>
+    </div>
+    <nav class="menu">
+      <button class="btn btn-primary" data-act="start">Start</button>
+      <button class="btn" data-act="settings">Settings</button>
+    </nav>
+    <p class="hint">Click to capture the mouse · WASD move · Shift sprint · Space jump · Esc pause</p>
+  </section>
+
+  <section id="pause" class="screen screen-pause" hidden>
+    <h2 class="screen-heading">Paused</h2>
+    <nav class="menu">
+      <button class="btn btn-primary" data-act="resume">Resume</button>
+      <button class="btn" data-act="settings">Settings</button>
+      <button class="btn" data-act="restart">Restart</button>
+    </nav>
+  </section>
+
+  <section id="settings" class="screen screen-settings" hidden>
+    <h2 class="screen-heading">Settings</h2>
+    <form class="settings-grid" onsubmit="return false">
+      <label>Quality
+        <select name="quality"><option value="auto">Auto</option><option value="low">Low</option><option value="med">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select>
+      </label>
+      <label>Mouse sensitivity <input name="sens" type="range" min="0.3" max="3" step="0.05" value="1"></label>
+      <label>Field of view <input name="fov" type="range" min="60" max="100" step="1" value="74"></label>
+      <label>Volume <input name="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+      <label class="check"><input name="invertY" type="checkbox"> Invert Y</label>
+    </form>
+    <nav class="menu"><button class="btn btn-primary" data-act="back">Back</button></nav>
+  </section>
+
+  <!-- HUD skeleton: games fill these; keep it sparse (e.g. objective, prompt, ammo, damage edge) -->
+  <div id="hud" class="hud" hidden>
+    <div class="hud-objective" data-bind="objective"></div>
+    <div class="crosshair" aria-hidden="true"></div>
+    <div class="hud-prompt" data-bind="prompt"></div>
+    <div class="hud-subtitle" data-bind="subtitle"></div>
+    <div class="hud-status"><div class="bar"><i data-bind="health"></i></div><span data-bind="ammo"></span></div>
+    <div class="damage-edge" data-bind="damage"></div>
+  </div>
+</div>
+
+<!-- loading screen: engine/boot.js drives .boot-bar>i width and .boot-msg text -->
+<div id="boot" class="ui boot">
+  <div class="boot-title">{{TITLE}}</div>
+  <div class="boot-msg">Loading</div>
+  <div class="boot-bar"><i></i></div>
+</div>
+<noscript><p class="noscript">This game needs JavaScript and WebGL2.</p></noscript>
+<script>/*SCRIPT*/</script>
+</body>
+</html>

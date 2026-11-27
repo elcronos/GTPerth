@@ -1,0 +1,27 @@
+{
+  "query": "autostart=1&seed=4207",
+  "w": 1280, "h": 720,
+  "steps": [
+    { "waitFor": "__G.mods.ui && __G.mods.ui.state === 'playing'", "timeout": 8000 },
+    { "assert": "__stats().modules.every(m => m.ok)", "msg": "every boot stage ok (no stubs)" },
+    { "assert": "__G.quality.tier && __G.quality.scale > 0", "msg": "quality tier detected" },
+    { "eval": "__G.mods.player.position.toArray()", "as": "p0" },
+    { "eval": "__G.mods.player.yaw", "as": "yaw0" },
+    { "hold": "forward", "ms": 1200 },
+    { "assert": "__G.mods.player.position.distanceTo(new __G.camera.position.constructor().fromArray(__pt.p0)) > 2", "msg": "W moves the player > 2 m in 1.2 s" },
+    { "look": [300, 0] },
+    { "wait": 100 },
+    { "assert": "Math.abs(__G.mods.player.yaw - __pt.yaw0) > 0.3", "msg": "mouse look turns the player" },
+    { "press": "jump", "after": 150 },
+    { "assert": "__G.mods.player.position.y > 0.2", "msg": "Space jumps" },
+    { "wait": 900 },
+    { "assert": "__G.mods.player.grounded", "msg": "player lands again" },
+    { "move": [1, 0], "ms": 600 },
+    { "shot": "after-moves" },
+    { "press": "pause", "after": 200 },
+    { "assert": "__G.mods.ui.state === 'paused' && __G.paused", "msg": "P pauses" },
+    { "press": "pause", "after": 200 },
+    { "assert": "__G.mods.ui.state === 'playing'", "msg": "P resumes" },
+    { "assert": "__stats().calls > 0 && __stats().tris > 0", "msg": "renders geometry" }
+  ]
+}
