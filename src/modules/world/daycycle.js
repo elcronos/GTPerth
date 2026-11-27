@@ -29,8 +29,8 @@ export function solar(hoursAWST) {
 
 // keyframes by solar elevation (deg). Linear colours.
 const K = [
-  { el: -18, zen: [0.0016, 0.0024, 0.0062], hor: [0.010, 0.010, 0.016], sun: [0.55, 0.65, 1.0], si: 0.0, fogSc: [0.10, 0.11, 0.16], sat: 1.05, key: 0.07, amax: 7, env: 0.42, glow: 0.2 },
-  { el: -8, zen: [0.004, 0.008, 0.024], hor: [0.05, 0.035, 0.05], sun: [0.6, 0.6, 0.9], si: 0.0, fogSc: [0.25, 0.22, 0.28], sat: 1.12, key: 0.09, amax: 6, env: 0.55, glow: 0.4 },
+  { el: -18, zen: [0.0016, 0.0024, 0.0062], hor: [0.010, 0.010, 0.016], sun: [0.55, 0.65, 1.0], si: 0.0, fogSc: [0.10, 0.11, 0.16], sat: 1.05, key: 0.07, amax: 4.5, env: 0.42, glow: 0.2 },
+  { el: -8, zen: [0.004, 0.008, 0.024], hor: [0.05, 0.035, 0.05], sun: [0.6, 0.6, 0.9], si: 0.0, fogSc: [0.25, 0.22, 0.28], sat: 1.12, key: 0.09, amax: 4, env: 0.55, glow: 0.4 },
   { el: -3, zen: [0.012, 0.025, 0.075], hor: [0.42, 0.20, 0.13], sun: [1.0, 0.42, 0.22], si: 0.0, fogSc: [0.75, 0.42, 0.33], sat: 1.2, key: 0.12, amax: 4, env: 0.8, glow: 0.9 },
   { el: 0.5, zen: [0.035, 0.08, 0.19], hor: [1.0, 0.46, 0.22], sun: [1.0, 0.48, 0.24], si: 6.0, fogSc: [0.98, 0.58, 0.38], sat: 1.22, key: 0.17, amax: 2.6, env: 1.1, glow: 1.5 },
   { el: 8, zen: [0.05, 0.13, 0.30], hor: [0.88, 0.52, 0.30], sun: [1.0, 0.6, 0.33], si: 12.0, fogSc: [0.88, 0.64, 0.50], sat: 1.20, key: 0.2, amax: 1.6, env: 1.1, glow: 1.1 },
@@ -103,7 +103,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
       const m = night;
       G.sun.dir.copy(sunV).lerp(moonDir, m).normalize();
       G.sun.color.setRGB(lerp(k.sun[0], 0.55, m), lerp(k.sun[1], 0.65, m), lerp(k.sun[2], 1.0, m));
-      G.sun.intensity = lerp(k.si, 0.8, m);
+      G.sun.intensity = lerp(k.si, 0.5, m);
     }
     syncAtmos(G);
     U.uZenith.value.fromArray(k.zen); U.uHorizon.value.fromArray(k.hor); U.uSunTint.value.fromArray(k.sun);
@@ -114,6 +114,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
     const p = P();
     if (p) { p.adaptKey = k.key; p.adaptMax = k.amax; p.sat = k.sat; if (base) { p.volStrength = base.vol * (1 - night); p.bloomStrength = base.bloom * (1 + 0.6 * night); } }
     uNight.value = Math.min(1, Math.max(0, (4 - el) / 10));          // lights come on through sunset
+    if (U.uLowSun) U.uLowSun.value = (1 - Math.min(1, Math.max(0, (el - 6) / 14))) * (el > -2 ? 1 : 0);
     if (patchUniforms.uCharRim) {   // character rim: warm back-light while the sun is low, moon-blue at night
       const day = Math.max(0, 1 - Math.max(0, el - 6) / 30) * (1 - night), nb = night;
       // back-light mask: strongest when the camera looks toward the sun (rim on the silhouette), faint otherwise

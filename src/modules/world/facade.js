@@ -103,7 +103,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
     vec2 pf = fract(vFUv / vec2(1.6, 1.2)); vec2 pe = min(pf, 1.0 - pf);
     float j = 1.0 - smoothstep(0.02, 0.02 + fw.x * 2.0, min(pe.x, pe.y));
     frame = mix(pal * (0.9 + 0.2 * fcH(pc * 2.3)), vec3(0.08), j * (1.0 - far));
-    frame = mix(frame, vec3(0.42, 0.37, 0.3), far);
+    frame = mix(frame, vec3(0.30, 0.28, 0.26), far);
   } else {                                            // roof
     vec2 g = vWthPos.xz * 0.5; float n = fcH(floor(g)) * 0.15;
     frame *= 0.85 + n;
@@ -140,16 +140,19 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
     // illuminated lettering-free sign box centred in the fascia of most tenancies
     float sx = abs(fract(vFUv.x / 9.6) - 0.5) * 9.6, sy = abs(gy - 4.1);
     shopSign = step(0.35, hu2) * (1.0 - smoothstep(2.4, 2.45, sx)) * (1.0 - smoothstep(0.26, 0.28, sy));
-    frame = mix(frame, vec3(0.85, 0.82, 0.75), shopSign * 0.6);
+    // sign box: dark backing with abstract glyph blocks (reads as lettering from the street, no real text)
+    float glyph = step(0.5, fract(sx * 3.1 + hu2 * 7.0)) * step(0.3, fract(sx * 0.9)) * (1.0 - smoothstep(0.12, 0.14, sy));
+    frame = mix(frame, mix(signC * 0.35 + 0.04, vec3(0.86, 0.83, 0.76), glyph), shopSign);
+    shopSign *= 0.25 + 0.75 * glyph;
   }
-  float avgGlass = style < 0.5 ? 0.80 : style < 1.5 ? 0.54 : style < 2.5 ? 0.58 : style < 3.5 ? 0.74 : style < 4.5 ? 0.76 : 0.0;
+  float avgGlass = style < 0.5 ? 0.72 : style < 1.5 ? 0.64 : style < 2.5 ? 0.68 : style < 3.5 ? 0.74 : style < 4.5 ? 0.76 : 0.0;
   if (shop > 0.5) avgGlass = 0.6;
   glass = mix(glass, avgGlass, far);
   slab = mix(slab, style < 0.5 ? 0.18 : style < 3.5 && style > 2.5 ? 0.13 : style > 3.5 && style < 4.5 ? 0.12 : 0.0, far);
   fcGlass = glass;
   // per-panel tint/roughness variation; oil-canning tilt (faded with distance)
-  vec3 gl = vGlass * (0.95 + 0.1 * rnd2) * (0.85 + 0.3 * fcH(vec2(seed, 3.7)));   // per-tower glass value
-  fcRough = mix(0.08 + 0.05 * rnd, 0.1, far);
+  vec3 gl = vGlass * (0.95 + 0.1 * rnd2) * (0.85 + 0.3 * fcH(vec2(seed, 3.7))) * mix(1.0, 0.68, far);   // per-tower value; far glass darker (no ghost skyline)
+  fcRough = mix(0.08 + 0.05 * rnd, 0.18, far);
   fcTilt = (vec2(rnd, rnd2) - 0.5) * 0.022 * (1.0 - far);
   // ---------------- interior mapping (rooms behind the glass)
   vec3 V = normalize(vWthPos - cameraPosition);
@@ -165,7 +168,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   float t = min(min(ttx, tty), ttz);
   vec3 hp = p0 + d * t;
   float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.38 * uNight, 0.8 * fcH(vec2(floor(cell.x / 6.0), cell.y) * 0.73 + seed) + 0.2 * fcH(cell * 0.73 + seed));
-  vec3 lampC = mix(vec3(1.0, 0.86, 0.66), vec3(0.85, 0.92, 1.0), step(0.7, fcH(cell + 9.1)));
+  vec3 lampC = mix(vec3(1.0, 0.76, 0.50), vec3(0.85, 0.92, 1.0), step(0.7, fcH(cell + 9.1)));
   // every surface is evaluated unconditionally (derivatives in divergent branches are undefined → pixel speckle),
   // then selected by ordering rather than float equality
   vec2 hw = fwidth(hp.xy) + 1e-3;
@@ -180,12 +183,12 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   vec3 room = ttz <= min(ttx, tty) ? rBack : (tty <= ttx ? (d.y > 0.0 ? rCeil : rFloor) : rSide);
   float dark = 0.08 + 0.10 * rnd;
   if (shop > 0.5) { room = mix(room, room * mix(vec3(1.0), signC * 2.5 + 0.4, 0.35), step(0.5, fcH(cell + 3.3))); lampC = vec3(1.0, 0.88, 0.7); }
-  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.38 + 2.4 * uNight) : 0.32 * lampC * (0.45 + 2.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  room *= lit > 0.5 ? (shop > 0.5 ? 0.9 * lampC * (0.38 + 2.4 * uNight) : 0.26 * lampC * (0.45 + 2.2 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
   vec2 zone = vec2(floor(cell.x / 5.0), cell.y);   // blinds set per tenancy zone, not per window (no pixel confetti)
   float blind = step(1.0 - fcH(zone + 4.2) * 0.7, f.y) * step(0.62, fcH(zone + 2.3)) * (1.0 - shop);
-  room = mix(room, vec3(0.30, 0.30, 0.29) * (lit > 0.5 ? 0.8 : 0.18), blind);
+  room = mix(room, vec3(0.30, 0.30, 0.29) * (lit > 0.5 ? mix(0.8, 0.45, uNight) : 0.18), blind);
   vec3 roomAvg = vec3(0.04, 0.038, 0.035) + (0.06 + 0.3 * uNight) * lampC;
   room = mix(room, roomAvg * 0.6, shop > 0.5 ? far : farRoom);
   float NdV = clamp(dot(-V, Nw), 0.0, 1.0);
@@ -196,7 +199,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   // final albedo / metal
   if (shop > 0.5) gl *= 0.8;   // shop glass: darker, less mirror, interiors read
   vec3 spandrel = gl * 0.6;
-  frame *= mix(1.0, 0.65, uNight * (1.0 - shop));   // unlit cladding drops away at night
+  frame *= mix(1.0, 0.45, uNight * (1.0 - shop));   // unlit cladding drops away at night
   vec3 glassAlb = mix(gl, spandrel, slab);
   diffuseColor.rgb = mix(frame, glassAlb, glass);
   fcMetal = glass;

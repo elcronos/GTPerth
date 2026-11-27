@@ -30,7 +30,7 @@ void surf(vec2 uv, inout Surf s) {
   col = mix(col, vec3(0.035, 0.033, 0.03), joint);
   s.albedo = col;
   s.height = 0.7 + 0.04 * fine + 0.02 * mid - bevel * bevel * 0.25 - joint * 0.5;
-  s.rough = clamp(0.52 + 0.1 * fine + grime * 0.08 + joint * 0.2 - step(0.55, h1) * 0.05 - wearPath * 0.08, 0.0, 1.0);
+  s.rough = clamp(0.62 + 0.1 * fine + grime * 0.08 + joint * 0.2 - step(0.55, h1) * 0.05 - wearPath * 0.04, 0.0, 1.0);
   s.ao = mix(1.0, 0.45, joint);
   s.mask = 1.0;
 }`;

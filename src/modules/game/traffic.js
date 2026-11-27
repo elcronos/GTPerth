@@ -106,11 +106,17 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
   T.spawnAt = (kind, x, z, h, color) => { const c = new Car(G, kind, color ?? CAR_COLORS[0], M, col); c.place(x, z, h); cars.push(c); return c; };
   // prime: most cars on lanes 20-160 m ahead of the camera (photo cams, first frame), the rest anywhere legal
   T.prime = (near) => {
-    const cf = G.camera.getWorldDirection(_cf), cp = G.camera.position; let placed = 0;
-    for (let tries = 0; tries < 400 && placed < Math.ceil(T.target * 0.6); tries++) {
-      const li = Math.floor(Math.random() * usable.length), l = usable[li], d = Math.random() * lens[li];
-      const [x, z, h] = pointOn(l, d), dist = Math.hypot(x - near.x, z - near.z);
-      if (dist < 20 || dist > 160 || (x - cp.x) * cf.x + (z - cp.z) * cf.z < 0) continue;
+    // candidates: every usable lane sampled each 10 m, kept if 15-180 m from the focus and in front of the camera
+    const cf = G.camera.getWorldDirection(_cf), cp = G.camera.position, C = [];
+    for (let li = 0; li < usable.length; li++) for (let d = 5; d < lens[li]; d += 10) {
+      const q = pointOn(usable[li], d), dist = Math.hypot(q[0] - near.x, q[1] - near.z);
+      if (dist < 15 || dist > 180) continue; const dx = q[0] - cp.x, dz = q[1] - cp.z, dl = Math.hypot(dx, dz) || 1;
+      if ((dx * cf.x + dz * cf.z) / dl > 0.3) C.push([li, d, q]);
+    }
+    for (let i = C.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [C[i], C[j]] = [C[j], C[i]]; }
+    let placed = 0;
+    for (const [li, d, [x, z, h]] of C) {
+      if (placed >= Math.ceil(T.target * 0.8)) break;
       if (cars.some((c) => Math.hypot(c.x - x, c.z - z) < 14)) continue;
       const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
       const c = new Car(G, kind, CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)], M, col); c.place(x, z, h);

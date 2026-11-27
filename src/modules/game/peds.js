@@ -53,13 +53,35 @@ export function createPeds(G, { avatars, col }) {
   for (let i = 0; i < (busy ? 16 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
   for (let i = 0; i < (busy ? 8 : 4); i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0], w[1], 'landing'); }
   for (let i = 0; i < 3; i++) { const L = LOOPS.west, w = L[Math.floor(R() * L.length)]; add('jog', w[0], w[1], 'west', { avatar: i % 2 ? 'Sports_Male_04' : 'Sports_Female_02' }); }
-  for (let i = 0; i < (busy ? 12 : 5); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt'); }
-  for (let i = 0; i < 3; i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0] + (R() - 0.5) * 6, w[1] + (R() - 0.5) * 6, 'landing'); }   // a few near the spawn edge
+  for (let i = 0; i < (busy ? 22 : 8); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt'); }
   for (let i = 0; i < (busy ? 7 : 4); i++) { const L = LOOPS.barrack, w = L[Math.floor(R() * L.length)]; add('walk', w[0], w[1], 'barrack'); }
   for (let i = 0; i < 7; i++) { const L = LOOPS.south, w = L[Math.floor(R() * L.length)]; add(R() < 0.5 ? 'stroll' : 'walk', w[0], w[1], 'south'); }
   IDLE_SPOTS.forEach(([x, z, yaw], i) => { if (!busy && i >= 16) return; const g = ['photo', 'phone', 'look', null][i % 4]; add('idle', x, z, null, { yaw, gesture: g, avatar: g === 'photo' ? FEMALE[(i % 4) + 1] : g === 'phone' ? MALE[(i % 5)] : undefined }); });
 
   const S = { list, onHit: null, onFlee: null };
+  // prime for a photo/fly camera: move most walkers of the loops near the focus onto waypoints 12-140 m ahead, in view
+  // move anyone standing in the camera-to-player sightline (or on the player) to a waypoint well away
+  S.clearView = (camPos, pl) => {
+    const ax = camPos.x, az = camPos.z, wx = pl.x - ax, wz = pl.z - az, l2 = wx * wx + wz * wz || 1;
+    for (const p of list) {
+      const q = p.ch.root.position, t = Math.max(0, Math.min(1.5, ((q.x - ax) * wx + (q.z - az) * wz) / l2));
+      const qd = Math.hypot(q.x - (ax + wx * t), q.z - (az + wz * t)), pd = Math.hypot(q.x - pl.x, q.z - pl.z);
+      if (qd > 2.5 && pd > 3) continue;
+      const P = p.path || LOOPS.eq; const far = P.filter(([x, z]) => Math.hypot(x - pl.x, z - pl.z) > 18 && Math.hypot(x - ax, z - az) > 18);
+      if (!far.length) continue; const w = far[Math.floor(Math.random() * far.length)];
+      q.set(w[0], groundAt(w[0], w[1]).y, w[1]); if (p.path) p.wp = p.path.indexOf(w); if (p.kind === 'idle') { p.kind = 'walk'; p.state = 'walk'; p.path = P; p.wp = P.indexOf(w); }
+    }
+  };
+  S.prime = (focus, camPos, camFwd) => {
+    for (const p of list) {
+      if (!p.path || p.kind === 'idle' || Math.random() > 0.7) continue;
+      const cand = p.path.filter(([x, z]) => { const d = Math.hypot(x - focus.x, z - focus.z), dx = x - camPos.x, dz = z - camPos.z, dl = Math.hypot(dx, dz) || 1;
+        return d < 140 && dl > 12 && (dx * camFwd.x + dz * camFwd.z) / dl > 0.55; });
+      if (!cand.length) continue;
+      const w = cand[Math.floor(Math.random() * cand.length)]; p.ch.root.position.set(w[0] + (Math.random() - 0.5) * 2, groundAt(w[0], w[1]).y, w[1] + (Math.random() - 0.5) * 2);
+      p.wp = p.path.indexOf(w);
+    }
+  };
   S.scare = (x, z, r = 18, dur = 6) => { for (const p of list) { if (p.ch.state !== 'ok') continue; const d = Math.hypot(p.ch.position.x - x, p.ch.position.z - z); if (d < r) { p.state = 'flee'; p.fleeT = dur * (0.7 + Math.random() * 0.6); p.from = [x, z]; p.ch.stopGesture(); } } };
   S.hitByVehicle = (car) => {
     const fx = Math.cos(car.h), fz = Math.sin(car.h), v = car.speed;
@@ -123,7 +145,15 @@ export function createPeds(G, { avatars, col }) {
       if (!isLand(nx, nz) && !onBridge(nx, nz)) { nx = pos.x; nz = pos.z; p.yaw += Math.PI * 0.5; if (p.path) p.wp = (p.wp + p.dir + p.path.length) % p.path.length; }
       // camera bubble: walkers step around the lens instead of filling it (GTA keeps a clear near field)
       { const cp = G.camera.position, cx = nx - cp.x, cz = nz - cp.z, cd = Math.hypot(cx, cz);
-        if (cd < 3.5 && cd > 1e-3) { const k = (3.5 - cd) * 0.8 * dt; nx += (cx / cd) * k * 3; nz += (cz / cd) * k * 3; p.speed *= 0.97; } }
+        if (cd < 2.0 && cd > 1e-3) { const k = (2.0 - cd) * 0.8 * dt; nx += (cx / cd) * k * 3; nz += (cz / cd) * k * 3; p.speed *= 0.97; } }
+      // keep the camera-to-player sightline clear (walkers must never bury the player in the frame)
+      if (!player.vehicle && !G.camLocked) {
+        const cp = G.camera.position, ax = cp.x, az = cp.z, bx0 = player.x, bz0 = player.z, vx = bx0 - ax, vz = bz0 - az, vl = Math.hypot(vx, vz) || 1;
+        const bx = bx0 + vx / vl * 2, bz = bz0 + vz / vl * 2, wx = bx - ax, wz = bz - az, l2 = wx * wx + wz * wz || 1;
+        const t = Math.max(0, Math.min(1, ((nx - ax) * wx + (nz - az) * wz) / l2)), qx = nx - (ax + wx * t), qz = nz - (az + wz * t), qd = Math.hypot(qx, qz);
+        if (qd < 1.8 && qd > 1e-3) { const k = (1.8 - qd) * 2.4 * dt; nx += qx / qd * k; nz += qz / qd * k; p.speed *= 0.9; }
+        const pd = Math.hypot(nx - bx0, nz - bz0); if (pd < 2.5 && pd > 1e-3) { const k = (2.5 - pd) * 1.6 * dt; nx += (nx - bx0) / pd * k; nz += (nz - bz0) / pd * k; }
+      }
       // separation from other peds
       for (const o of list) if (o !== p && o.ch.root.visible) { const ox = nx - o.ch.position.x, oz = nz - o.ch.position.z, od = Math.hypot(ox, oz); if (od < 0.7 && od > 1e-3) { nx += (ox / od) * (0.7 - od) * 0.5; nz += (oz / od) * (0.7 - od) * 0.5; } }
       pos.x = nx; pos.z = nz;

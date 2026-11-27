@@ -211,8 +211,8 @@ export function create(G, { mats, roads, footprints = [] }) {
   // night: street-lamp light map — every lamp head splatted (Gaussian, sigma ~5 m) into a 1024² ground texture that the
   // ground and road shaders multiply by their own albedo (keeps the paving texture; no extra draw call)
   {
-    const N = 1024, box = [-2000, -1300, 4100, 3600], data = new Uint8Array(N * N);
-    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 6.0;
+    const N = 2048, box = [-2000, -1300, 4100, 3600], data = new Uint8Array(N * N);
+    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 4.5;
     const tx = (x) => ((x - box[0]) / box[2]) * N, tz = (z) => ((z - box[1]) / box[3]) * N, px = box[2] / N;
     const R = Math.ceil((sig * 2.6) / px);
     for (const m of [...lampM, ...ghostLamps]) {

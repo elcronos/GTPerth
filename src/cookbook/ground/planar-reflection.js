@@ -115,8 +115,10 @@ export function createPlanarReflection(G, opts = {}) {
     for (let i = 0; i < hidden.length; i++) { wasVisible[i] = hidden[i].visible; hidden[i].visible = false; }
 
     const r = G.renderer;
-    const prevTarget = r.getRenderTarget(), prevXr = r.xr.enabled, prevShadow = r.shadowMap.autoUpdate, prevAuto = r.autoClear;
-    r.xr.enabled = false; r.shadowMap.autoUpdate = false; r.autoClear = true;
+    const prevTarget = r.getRenderTarget(), prevXr = r.xr.enabled, prevShadow = r.shadowMap.autoUpdate, prevAuto = r.autoClear, prevNeeds = r.shadowMap.needsUpdate;
+    // the mirror pass must never (re)draw the shadow map: it hides casters (street trees, benches…) and would consume
+    // a scheduled shadow update, leaving the main pass with shadows missing those casters
+    r.xr.enabled = false; r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = false; r.autoClear = true;
     // a material visible in the mirror must not sample the target it is rendering into (GL feedback loop):
     // swap the shared uniform to a 1x1 black texture for the duration of the pass
     uniforms.uReflOn.value = 0;
@@ -127,7 +129,7 @@ export function createPlanarReflection(G, opts = {}) {
       r.render(G.scene, cam);
     } finally {
       r.setRenderTarget(prevTarget);
-      r.xr.enabled = prevXr; r.shadowMap.autoUpdate = prevShadow; r.autoClear = prevAuto;
+      r.xr.enabled = prevXr; r.shadowMap.autoUpdate = prevShadow; r.shadowMap.needsUpdate = prevNeeds; r.autoClear = prevAuto;
       for (let i = 0; i < hidden.length; i++) hidden[i].visible = wasVisible[i];
     }
     uniforms.uReflTex.value = target.texture;
