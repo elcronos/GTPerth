@@ -12,7 +12,7 @@ function charPatch(m) {
   patch(m, 'char-rim', (sh) => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
   { float ndv = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
-    totalEmissiveRadiance += uCharRim * pow(1.0 - ndv, 3.0) + diffuseColor.rgb * uCharFill; }`);
+    totalEmissiveRadiance += uCharRim * pow(1.0 - ndv, 4.5) + diffuseColor.rgb * uCharFill; }`);
   });
 }
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';

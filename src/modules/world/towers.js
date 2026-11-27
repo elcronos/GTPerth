@@ -133,7 +133,7 @@ const GL = {
   bronze: [0.22, 0.17, 0.12], clear: [0.13, 0.19, 0.25], dark: [0.07, 0.09, 0.11], teal: [0.1, 0.21, 0.25],
 };
 const FR = { white: [0.42, 0.43, 0.44], alu: [0.36, 0.38, 0.4], lightAlu: [0.5, 0.52, 0.53], dark: [0.12, 0.12, 0.13], bronze: [0.33, 0.28, 0.23],
-  granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.56, 0.52, 0.45], precast: [0.44, 0.42, 0.39] };
+  granite: [0.36, 0.28, 0.24], sandstone: [0.6, 0.48, 0.34], cream: [0.46, 0.43, 0.38], precast: [0.34, 0.33, 0.31] };
 
 export const NAMED = [
   // ---- Elizabeth Quay (positions from OSM; podiums are the mapped footprints, towers raked with the city grid)
@@ -205,13 +205,13 @@ const NAMED_STYLE = [
   [/140 St Georges/, { style: 'punched', frame: FR.precast, glass: GL.dark }],
   [/Bankwest/, { style: 'curtain', frame: FR.alu, glass: GL.green }],
 ];
-const NAMED_COL = { white: [0.56, 0.56, 0.54], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
+const NAMED_COL = { white: [0.46, 0.46, 0.45], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
   red: [0.5, 0.16, 0.1], yellow: [0.72, 0.6, 0.3], cream: [0.6, 0.56, 0.47], black: [0.08, 0.08, 0.08], blue: [0.15, 0.25, 0.45], green: [0.2, 0.32, 0.22], orange: [0.7, 0.35, 0.15], sandstone: FR.sandstone };
 function osmColour(c) {
   if (!c) return null; c = c.trim().toLowerCase();
   if (NAMED_COL[c]) return NAMED_COL[c];
   const m = c.match(/^#?([0-9a-f]{6})$/); if (!m) return null;
-  const v = parseInt(m[1], 16), lin = (x) => Math.min(0.6, Math.pow(x / 255, 2.2));   // no paper-white cladding
+  const v = parseInt(m[1], 16), lin = (x) => Math.min(0.48, Math.pow(x / 255, 2.2));   // no paper-white cladding
   return [lin((v >> 16) & 255), lin((v >> 8) & 255), lin(v & 255)];
 }
 const HOUSE = /^(house|detached|semidetached_house|terrace|bungalow|garage|garages|shed|hut|carport|roof)$/;
@@ -221,7 +221,20 @@ function osmBuildings(rng) {
   // tallest part per OSM building group gets the named crown / mast
   const tallest = new Map();
   for (const b of OSM_BUILDINGS) { const h = b.h || (b.lv || 0) * 3.3; const t = tallest.get(b.g); if (!t || h > t) tallest.set(b.g, h); }
-  for (const b of OSM_BUILDINGS) {
+  // drop geometry that would z-fight: (1) a building outline whose area is covered by building:parts (OSM renders the
+  // parts instead), (2) exact duplicate footprints
+  const cen = (r) => { let x = 0, z = 0; for (const p of r) { x += p[0]; z += p[1]; } return [x / r.length, z / r.length]; };
+  const inPoly = (x, z, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > z) !== (P[j][1] > z) && x < ((P[j][0] - P[i][0]) * (z - P[i][1])) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; return c; };
+  const partC = OSM_BUILDINGS.filter((b) => b.part).map((b) => cen(b.p));
+  const seenRing = new Set();
+  const LIST = OSM_BUILDINGS.filter((b) => {
+    const key = b.p.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).sort().join(';') + '|' + (b.mh || 0);
+    if (seenRing.has(key)) return false; seenRing.add(key);
+    if (b.part) return true;
+    let xa = 1e9, xb = -1e9, za = 1e9, zb = -1e9; for (const q of b.p) { xa = Math.min(xa, q[0]); xb = Math.max(xb, q[0]); za = Math.min(za, q[1]); zb = Math.max(zb, q[1]); }
+    return !partC.some(([x, z]) => x > xa && x < xb && z > za && z < zb && inPoly(x, z, b.p));
+  });
+  for (const b of LIST) {
     const ring = b.p; let cx = 0, cz = 0; for (const p of ring) { cx += p[0]; cz += p[1]; } cx /= ring.length; cz /= ring.length;
     let area = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]); area = Math.abs(area) / 2;
     const r = () => rng();
@@ -236,16 +249,20 @@ function osmBuildings(rng) {
     let style, frame, glass, pw = 1.5, fh = 3.4;
     const tallish = h > 28;
     if (HOUSE.test(type) || (h < 8 && sp)) { style = 'punched'; frame = [0.72 + r() * 0.1, 0.6 + r() * 0.1, 0.5]; glass = GL.dark; pw = 2.4; fh = 3.0; }
-    else if (/apartments|residential|hotel|dormitory/.test(type)) { style = tallish ? 'resi' : 'punched'; const tn = 0.48 + r() * 0.14; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.1; }
+    else if (/apartments|residential|hotel|dormitory/.test(type)) { style = tallish ? 'resi' : 'punched'; const tn = 0.36 + r() * 0.12; frame = [tn, tn * 0.98, tn * 0.93]; glass = [GL.grey, GL.teal, GL.clear][(r() * 3) | 0]; fh = 3.1; }
     else if (/church|cathedral|chapel|civic|public|government|courthouse/.test(type)) { style = 'punched'; frame = FR.sandstone; glass = GL.dark; pw = 3; fh = 4.5; }
     else if (/train_station|transportation|retail|supermarket/.test(type)) { style = 'curtain'; frame = FR.alu; glass = GL.clear; pw = 2; fh = 4.5; }
-    else if (tallish) { style = ['curtain', 'curtain', 'ribbon', 'fins', 'punched'][(r() * 5) | 0]; frame = [FR.alu, FR.alu, FR.dark, FR.lightAlu, FR.precast][(r() * 5) | 0]; glass = [GL.blue, GL.blue, GL.grey, GL.teal, GL.silver, GL.dark][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
+    else if (tallish) { style = ['curtain', 'curtain', 'curtain', 'fins', 'ribbon'][(r() * 5) | 0]; frame = [FR.alu, FR.dark, FR.dark, FR.alu, FR.lightAlu][(r() * 5) | 0]; glass = [GL.blue, GL.blue, GL.blue, GL.grey, GL.teal, GL.dark][(r() * 6) | 0]; pw = 1.3 + r() * 1.0; fh = 3.6 + r() * 0.5; }
     else { style = ['punched', 'ribbon', 'curtain'][(r() * 3) | 0]; frame = [FR.cream, FR.sandstone, FR.precast, FR.alu][(r() * 4) | 0]; glass = GL.dark; pw = 1.8 + r(); fh = 3.6; }
     const nm = b.n && NAMED_STYLE.find(([re]) => re.test(b.n));
     let mast = null;
     if (nm) { style = nm[1].style || style; frame = nm[1].frame || frame; glass = nm[1].glass || glass; if (nm[1].mast && h >= (tallest.get(b.g) || 0) - 0.1) mast = nm[1].mast; }
     const col = osmColour(b.col); if (col) frame = col;
-    const pts = ring.map((p) => [p[0] - cx, p[1] - cz]);
+    let pts = ring.map((p) => [p[0] - cx, p[1] - cz]);
+    // a building drawn inside another (tower on its podium, tagged as two buildings): pull its walls 0.25 m in so the
+    // shared edges don't z-fight
+    const insD = b.ins || 0;
+    if (insD) pts = pts.map(([x, z]) => { const l = Math.hypot(x, z) || 1, k = Math.max(0.2, 1 - insD / l); return [x * k, z * k]; });
     let ground = 1e9; for (const p of ring) ground = Math.min(ground, heightAt(p[0], p[1]));
     const shop = !mh && !(HOUSE.test(type) || (h < 8 && sp) || /church|cathedral|chapel|civic|public|government|courthouse|parking|garage|shed|roof|service|industrial/.test(type)) && area > 120;
     out.push({ name: b.n || 'osm', x: cx, z: cz, base: ground - 0.3 + mh, style, pw, fh, frame, glass, seed: 200 + out.length, shop,

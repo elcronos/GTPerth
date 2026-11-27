@@ -25,34 +25,33 @@ function frondTexture() {
   g.strokeStyle = 'rgb(90,90,50)'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -s * 0.95); g.stroke();
   const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4; return t;
 }
-function palmGeo(seed, H = 14) {
+function palmGeo(seed, H = 14, lo = false) {
   const rnd = rngFrom(seed);
   const lean = [(rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2];
   const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([lean[0] * t * t, t * H, lean[1] * t * t]); }
-  const trunk = tube(pts, (t) => 0.32 * (1 - 0.35 * t) + 0.04 * Math.sin(t * 90), { radial: 12, curve: true, samples: 40 });
-  // skirt of dead fronds (Washingtonia petticoat) + crown
+  const trunk = tube(pts, (t) => 0.32 * (1 - 0.28 * t) + 0.012 * Math.sin(t * 90), { radial: lo ? 6 : 12, curve: true, samples: lo ? 16 : 40 });
   const top = pts[12];
-  const cards = { p: [], n: [], u: [], i: [] };
-  const n = 24;
-  for (let k = 0; k < n; k++) {
-    const a = (k / n) * Math.PI * 2 + rnd() * 0.3, droop = 0.2 + rnd() * 0.9, L = 4.2 + rnd() * 1.2, W = 1.9;
-    const base = cards.p.length / 3;
-    const dir = [Math.cos(a), Math.sin(a)];
-    const segs = 4;
+  const cards = { p: [], n: [], u: [], i: [], c: [] };
+  const card = (a, droop, L, W, y0, col, lift = 1.1) => {
+    const base = cards.p.length / 3, dir = [Math.cos(a), Math.sin(a)], segs = 4;
     for (let sgi = 0; sgi <= segs; sgi++) {
-      const t = sgi / segs, r = t * L, y = Math.sin(t * 1.6) * 1.1 - droop * t * t * 2.8;
+      const t = sgi / segs, r = t * L, y = y0 + Math.sin(t * 1.6) * lift - droop * t * t * 2.8;
       const cx = top[0] + dir[0] * r, cz = top[2] + dir[1] * r, cy = top[1] + y;
       const sx = -dir[1] * W * 0.5 * (1 - 0.6 * t), sz = dir[0] * W * 0.5 * (1 - 0.6 * t);
-      cards.p.push(cx - sx, cy, cz - sz, cx + sx, cy, cz + sz);
-      cards.n.push(0, 1, 0, 0, 1, 0);
-      cards.u.push(0, t, 1, t);
+      cards.p.push(cx - sx, cy, cz - sz, cx + sx, cy, cz + sz); cards.n.push(0, 1, 0, 0, 1, 0); cards.u.push(0, t, 1, t);
+      cards.c.push(...col, ...col);
       if (sgi > 0) { const b = base + (sgi - 1) * 2; cards.i.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
     }
-  }
+  };
+  const n = lo ? 14 : 24;
+  for (let k = 0; k < n; k++) card((k / n) * Math.PI * 2 + rnd() * 0.3, 0.2 + rnd() * 0.9, 4.8 + rnd() * 1.4, 1.9, 0, [1, 1, 1]);
+  // dead fronds hanging against the trunk (Washingtonia petticoat remnants), straw-brown
+  if (!lo) for (let k = 0; k < 10; k++) card((k / 10) * Math.PI * 2 + rnd() * 0.5, 2.4 + rnd() * 0.6, 2.2, 1.2, -0.5, [1.55, 1.05, 0.55], 0.2);
   const fg = new BufferGeometry();
   fg.setAttribute('position', new Float32BufferAttribute(cards.p, 3)); fg.setAttribute('normal', new Float32BufferAttribute(cards.n, 3));
-  fg.setAttribute('uv', new Float32BufferAttribute(cards.u, 2)); fg.setIndex(cards.i); normalizeGeo(fg);
-  const skirt = tube([[top[0], top[1] - 3.2, top[2]], [top[0], top[1] - 0.2, top[2]]], (t) => 0.5 + 0.32 * t, { radial: 12 });
+  fg.setAttribute('uv', new Float32BufferAttribute(cards.u, 2)); fg.setAttribute('color', new Float32BufferAttribute(cards.c, 3)); fg.setIndex(cards.i); normalizeGeo(fg);
+  // trimmed "boot" under the crown, ragged
+  const skirt = tube([[top[0], top[1] - 1.3, top[2]], [top[0], top[1] - 0.1, top[2]]], (t) => 0.36 + 0.20 * t + 0.06 * Math.sin(t * 37 + seed), { radial: lo ? 6 : 12 });
   return { trunk: mergeGeos([trunk, skirt]), fronds: fg };
 }
 
@@ -96,12 +95,25 @@ function boatKit(k, len, color, kind) {
 export function create(G, { mats, roads, footprints = [] }) {
   const group = new Group(); group.name = 'props';
   const rng = rngFrom(31);
+  const hiT = G.quality.tier === 'high' || G.quality.tier === 'ultra';
   const colliders = [];
   // ----- trees
   const leafTex = leafTexture({ size: 256, seed: 5, kind: 'broad' });
   const euTex = leafTexture({ size: 256, seed: 7, kind: 'needle', leaves: 120 });
   const leafMat = (tex, tint) => { const m = new MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: DoubleSide, vertexColors: true, roughness: 0.75, color: new Color(tint) }); foliagePatch(m, { trans: 0.22 }); m.name = 'leaves'; return m; };
-  const barkMat = () => { const m = new MeshStandardMaterial({ color: 0x8a7a68, roughness: 0.9, vertexColors: true }); m.name = 'bark'; return m; };
+  const barkMat = () => {
+    const m = new MeshStandardMaterial({ color: 0x6f655a, roughness: 0.9, vertexColors: true }); m.name = 'bark';
+    patch(m, 'bark-mottle', (sh) => {   // plane-tree camouflage patches + eucalypt streaks + darker root flare, no textures
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vBarkP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvBarkP = position;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBarkP;\nfloat bkH(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5); }\nfloat bkN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(bkH(i), bkH(i + vec2(1, 0)), f.x), mix(bkH(i + vec2(0, 1)), bkH(i + vec2(1, 1)), f.x), f.y); }')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+  { float a = atan(vBarkP.z, vBarkP.x); float n = bkN(vec2(a * 2.2, vBarkP.y * 2.0)) * 0.65 + bkN(vec2(a * 5.0, vBarkP.y * 5.0)) * 0.35;
+    vec3 camo = n < 0.45 ? vec3(1.25, 1.2, 1.02) : n < 0.62 ? vec3(0.86, 0.85, 0.7) : vec3(1.0, 0.97, 0.92);
+    float streak = 0.88 + 0.12 * sin(a * 14.0 + bkN(vec2(a, vBarkP.y * 0.6)) * 6.0);
+    diffuseColor.rgb *= camo * streak * mix(0.75, 1.0, smoothstep(0.0, 0.6, vBarkP.y)); }`);
+    });
+    return m;
+  };
   const plane = treeGeo({ seed: 3, height: 12, trunkR: 0.3, branches: 10, leafSize: 2.0, density: 1.6 });
   const euc = treeGeo({ seed: 8, height: 16, trunkR: 0.34, branches: 8, leafSize: 2.0, density: 1.1, lean: 0.9 });
   const euc2 = treeGeo({ seed: 12, height: 11, trunkR: 0.25, branches: 7, leafSize: 1.7, density: 1.3, lean: 0.7 });
@@ -117,8 +129,8 @@ export function create(G, { mats, roads, footprints = [] }) {
   const parkPts = poissonDisk({ x0: -900, z0: 520, w: 2900, h: 1300, r: 24, rng, accept: (x, z) => isLand(x, z) && z > 520 && distPoly(x, z, SHORE_S) > 10 && distPoly(x, z, SHORE_S) < 170 && !nearRoad(x, z) && !inFoot(x, z) && !(x > -300 && x < -130 && z > 1250 && z < 1400) });
   const langPts = poissonDisk({ x0: 300, z0: -250, w: 1700, h: 900, r: 26, rng, accept: (x, z) => isLand(x, z) && distPoly(x, z, SHORE_N) < 140 && distPoly(x, z, SHORE_N) > 8 && !nearRoad(x, z) && !inFoot(x, z) });
   const foreshore = poissonDisk({ x0: -1400, z0: -350, w: 1300, h: 1000, r: 22, rng, accept: (x, z) => isLand(x, z) && heightAt(x, z) < 8 && distPoly(x, z, SHORE_N) < 120 && !nearRoad(x, z) && !inFoot(x, z) });
-  const em = leafMat(euTex, 0x6a7450), eb = barkMat(); eb.color.set(0x9a8e7e);   // eucalypt olive / grey-green (photo-matched)
-  group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: [600, 900], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
+  const em = leafMat(euTex, 0x6a7450), eb = barkMat(); eb.color.set(0x8a7e6e);   // eucalypt olive / grey-green (photo-matched)
+  group.add(scatter(G, { parts: [{ geo: euc.trunk, material: eb }, { geo: euc.leaves, material: em }], points: [...eucPts, ...parkPts.slice(0, Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.7, 1.3], tint: { color: 0xffffff, l: 0.1, h: 0.02 }, fade: hiT ? [900, 1250] : [600, 900], cell: 80, seed: 8, sway: { amp: 0.05, freq: 0.7, height: 16 } }).group);
   const em2 = leafMat(euTex, 0x8c9a6c), eb2 = barkMat(); eb2.color.set(0xa89a88);
   group.add(scatter(G, { parts: [{ geo: euc2.trunk, material: eb2 }, { geo: euc2.leaves, material: em2 }], points: [...langPts, ...foreshore, ...parkPts.slice(Math.floor(parkPts.length / 4) * 2)], heightAt, scale: [0.8, 1.2], tint: { color: 0xffffff, l: 0.1 }, fade: [700, 1000], cell: 80, seed: 9, sway: { amp: 0.05, freq: 0.8, height: 11 } }).group);
   // Kings Park bushland as photographed from the city: a closed, lumpy olive canopy over the whole of Mount Eliza
@@ -128,8 +140,8 @@ export function create(G, { mats, roads, footprints = [] }) {
   const clump = bushGeo({ seed: 21, radius: 4.8, height: 6.2, cards: 48, leafSize: 3.3 });   // 15–20 m jarrah / marri / tuart crowns
   clump.translate(0, 7.5, 0);
   const stem = lathe([[0.3, 0], [0.18, 8], [0, 8.6]], { seg: 4, crease: 89 });
-  const cm = leafMat(euTex, 0x5c6844), cb = barkMat(); cb.color.set(0x7a7062);
-  group.add(scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group);
+  const cm = leafMat(euTex, 0x5c6844), cb = barkMat(); cb.color.set(0x5e564c);
+  group.add(scatter(G, { parts: [{ geo: stem, material: cb }, { geo: clump, material: cm }], points: clumpPts, heightAt, scale: [0.95, 1.8], scaleY: [0.8, 1.3], tint: { color: 0xffffff, l: 0.14, h: 0.025 }, fade: hiT ? [1400, 1900] : [800, 1150], cell: 90, seed: 19, sway: { amp: 0.03, freq: 0.6, height: 8 } }).group);
   const shrubPts = poissonDisk({ x0: -2000, z0: -950, w: 1350, h: 1700, r: 10, rng, accept: kpAccept });
   const shrub = bushGeo({ seed: 23, radius: 1.5, height: 1.6, cards: 36, leafSize: 1.1 });
   const sm = leafMat(euTex, 0x5f6a44);
@@ -138,27 +150,34 @@ export function create(G, { mats, roads, footprints = [] }) {
   // shady trees along the foreshore path of Sir James Mitchell Park
   const spAccept = (x, z) => isLand(x, z) && z > 520 && !nearRoad(x, z) && !inFoot(x, z) && distPoly(x, z, SHORE_S) > 160;
   const spTrees = poissonDisk({ x0: -1000, z0: 520, w: 3100, h: 1780, r: 19, rng, accept: spAccept });
-  const cb2 = barkMat(); cb2.color.set(0xb0a490);
+  const cb2 = barkMat(); cb2.color.set(0x6e6458);
   group.add(scatter(G, { parts: [{ geo: stem, material: cb2 }, { geo: clump, material: leafMat(euTex, 0x66744c) }], points: spTrees, heightAt, scale: [0.8, 1.6], scaleY: [0.9, 1.5], tint: { color: 0xffffff, l: 0.14, h: 0.03 }, fade: [900, 1300], cell: 120, seed: 31 }).group);
   // Washingtonia palms: Barrack Square, Riverside Drive median, Mends Street, South Perth Esplanade
-  const palm = palmGeo(5);
+  const lo = G.quality.tier === 'low';
   const fm = new MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: DoubleSide, vertexColors: true, roughness: 0.7 }); foliagePatch(fm, { trans: 0.28 }); fm.name = 'fronds';
-  const tm = new MeshStandardMaterial({ color: 0x8c7c68, roughness: 0.95, vertexColors: true }); tm.name = 'palm-trunk';
-  patch(tm, 'palm-rings', (sh) => {   // leaf-scar rings every ~16 cm + vertical fibre (instanced: object-space height)
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vPalmP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPalmP = position;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPalmP;')
-      .replace('#include <color_fragment>', `#include <color_fragment>
+  const trunkMat = (H) => {
+    const tm = new MeshStandardMaterial({ color: 0x8c7c68, roughness: 0.95, vertexColors: true }); tm.name = 'palm-trunk';
+    patch(tm, 'palm-rings' + H, (sh) => {   // leaf-scar rings every ~16 cm + vertical fibre (instanced: object-space height)
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vPalmP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPalmP = position;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPalmP;')
+        .replace('#include <color_fragment>', `#include <color_fragment>
   { float rr = fract(vPalmP.y / 0.16); float ring = 0.86 + 0.14 * smoothstep(0.0, 0.35, rr);
-    float fib = 0.9 + 0.1 * sin(atan(vPalmP.z, vPalmP.x) * 40.0 + vPalmP.y * 3.0);
-    diffuseColor.rgb *= ring * fib * mix(1.0, 0.75, smoothstep(9.0, 12.0, vPalmP.y)); }`);
-  });
+    float fib = 0.96 + 0.04 * sin(atan(vPalmP.z, vPalmP.x) * 40.0 + vPalmP.y * 3.0);
+    diffuseColor.rgb *= ring * fib * mix(1.0, 0.6, smoothstep(${(H - 1.6).toFixed(1)}, ${(H - 0.6).toFixed(1)}, vPalmP.y)); }`);
+    });
+    return tm;
+  };
+  const PALMS = (lo ? [[5, 14]] : [[5, 14], [9, 11], [13, 17]]).map(([sd, H]) => ({ H, g: palmGeo(sd, H, lo), tm: trunkMat(H) }));
   const palmPts = [];
   for (const p of alongShore(SHORE_N, 150, 1100, 14, 14, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // EQ promenade: a palm every 18 m around the inlet, set back from the lamps and benches
   for (const p of alongShore(SHORE_N, -110, 150, 18, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z))) palmPts.push(p[0], p[1]);
   for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
   for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
-  group.add(scatter(G, { parts: [{ geo: palm.trunk, material: tm }, { geo: palm.fronds, material: fm }], points: palmPts, heightAt, scale: [0.85, 1.2], fade: [800, 1100], cell: 80, seed: 2, sway: { amp: 0.12, freq: 0.8, height: 14, flutter: 0.4 } }).group);
+  PALMS.forEach((V, vi) => {   // varied heights: every 3rd palm per variant
+    const pts = []; for (let i = 0; i < palmPts.length; i += 2) if ((i / 2) % PALMS.length === vi) pts.push(palmPts[i], palmPts[i + 1]);
+    group.add(scatter(G, { parts: [{ geo: V.g.trunk, material: V.tm }, { geo: V.g.fronds, material: fm }], points: pts, heightAt, scale: [0.85, 1.15], fade: [800, 1100], cell: 80, seed: 2 + vi, sway: { amp: 0.12, freq: 0.8, height: V.H, flutter: 0.4 } }).group);
+  });
 
   // ----- street lights along roads + promenades, benches, bollards
   const lampM = [], benchM = [];
@@ -174,7 +193,8 @@ export function create(G, { mats, roads, footprints = [] }) {
     }
   }
   // EQ promenade lights + benches around the inlet
-  for (const p of alongShore(SHORE_N, -110, 330, 26, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z))) { lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
+  let bi = 0;
+  for (const p of alongShore(SHORE_N, -110, 330, 17, 3.5, (x, z) => z > -215 && z < 80 && !inFoot(x, z))) { lampM.push(M(p[0], PROMENADE_Y, p[1], p[2])); if (bi++ % 2 === 0) benchM.push(M(p[0] + Math.sin(p[2] + 1.57) * 2, PROMENADE_Y, p[1] + Math.cos(p[2] + 1.57) * 2, p[2])); }
   const lampMats = { ...mats, lamp: new MeshStandardMaterial({ color: 0x222222, emissive: new Color(1.0, 0.85, 0.6), emissiveIntensity: 0.5, roughness: 0.4 }) };
   (G.nightMats ||= []).push({ mat: lampMats.lamp, day: 0.2, night: 9 });
   group.add(instanced(G, lampGeo(), lampMats, lampM, 'lamps'));

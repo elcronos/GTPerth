@@ -103,7 +103,7 @@ void main() {
 
   // --- Mie aureole around the sun (art-directed sum of lobes) ---
   float m = max(mu, 0.0);
-  vec3 aure = mix(uSunTint, tint2, 0.6) * (0.14 * pow(m, 4.0) + 0.45 * pow(m, 32.0) + 2.0 * pow(m, 400.0)) * uGlow.x;
+  vec3 aure = mix(uSunTint, tint2, 0.6) * (0.08 * pow(m, 4.0) + 0.45 * pow(m, 32.0) + 2.0 * pow(m, 400.0)) * uGlow.x;
   col += aure * (0.6 + 0.8 * sunset);
 
   // --- cloud deck: plane at fixed altitude, uv = rd.xz / rd.y ---

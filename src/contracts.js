@@ -37,5 +37,5 @@ export const PLAYER = {
   accel: 14, turn: 10,
   jump: 4.6, gravity: 18,
   camDist: 4.4, camHeight: 1.85, camVehicleDist: 8.5, camFerryDist: 22,
-  spawn: [52, 2.2, -214], spawnYaw: -0.40,   // The Landing, facing SSW down the inlet toward the ferry terminal
+  spawn: [112, 2.2, -168], spawnYaw: -0.71,   // sunlit east edge of the inlet at golden hour, facing SW down the inlet to the EQ Bridge
 };

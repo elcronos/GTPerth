@@ -24,7 +24,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
   G.scene.add(ch.root);
   const P = {
     ch, x: PLAYER.spawn[0], z: PLAYER.spawn[2], y: PLAYER.spawn[1], vy: 0, yaw: PLAYER.spawnYaw, moveYaw: PLAYER.spawnYaw,
-    camYaw: PLAYER.spawnYaw + Math.PI, camPitch: 0.16, camDist: PLAYER.camDist, health: 100, armour: 0, stamina: 1,
+    camYaw: PLAYER.spawnYaw + Math.PI, camPitch: 0.10, camDist: PLAYER.camDist, health: 100, armour: 0, stamina: 1,
     vehicle: null, swimming: false, onGround: true, speed: 0, cash: 0, dead: false, busted: false, control: true,
     camPos: new Vector3(), camTarget: new Vector3(), fovKick: 0, lookBehind: false, punchCD: 0,
   };
@@ -97,7 +97,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     let tx, ty, tz, dist, height, fov = PLAYER.fov;
     if (mode === 'foot') {
       tx = P.x; tz = P.z; ty = P.y + (P.swimming ? 0.6 : 1.55);
-      dist = PLAYER.camDist * (P.swimming ? 1.1 : 1); height = 0.25;
+      dist = PLAYER.camDist * (P.swimming ? 1.1 : 1); height = -0.05;
       fov += Math.min(8, Math.max(0, P.speed - 4) * 2.2);
     } else {
       const v = P.vehicle;
@@ -123,7 +123,11 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     let cy = ty + Math.sin(cp) * dist + height;
     // collision pull-in against buildings (2D segment test) and the ground
     const f = col.segment(tx, tz, cx, cz, 1e9, cy);
-    if (f < 1) { cx = tx + (cx - tx) * f; cz = tz + (cz - tz) * f; }
+    if (f < 1) {
+      // keep 0.35 m off the wall; when squeezed closer than 1.4 m, rise and look over the head instead of into it
+      const fc = Math.max(0, f - 0.35 / dist); cx = tx + (cx - tx) * fc; cz = tz + (cz - tz) * fc;
+      const d = fc * dist; if (d < 1.4) cy += (1.4 - d) * 0.9;
+    }
     const gy = groundAt(cx, cz, cy).y; if (cy < gy + 0.5) cy = gy + 0.5;
     _v.set(cx, cy, cz);
     const k = Math.min(1, (mode === 'foot' ? 14 : 8) * dt);

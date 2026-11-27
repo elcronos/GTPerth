@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+import { startServer } from '/home/claude/perth/tools/serve.mjs';
+const [q, js, out] = process.argv.slice(2);
+const s = await startServer('/home/claude/perth/dist/index.html');
+const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+await p.goto(s.url + '?shot=1&autostart=1&dynres=0&' + q);
+await p.waitForFunction(() => window.__ready === true, null, { timeout: 1200000 });
+await p.evaluate(js); await p.waitForTimeout(8000);
+await p.screenshot({ path: out, quality: 90 }); console.log(await p.evaluate(() => window.__errors.slice(0,3)));
+await b.close(); s.close();

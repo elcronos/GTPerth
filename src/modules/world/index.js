@@ -34,7 +34,7 @@ export function makeWorldMaterials() {
     limestone: vc(makeMaterial('limestone')),
     rock: vc(makeMaterial('rock', { triplanar: true, tint: 0xb8a890 })),
     sand: vc(makeMaterial('river_sand')),
-    road: (() => { const r = vc(Roads.markRoadMaterial(makeMaterial('asphalt'))); r.color.multiplyScalar(2.8); return r; })(),   // sun-bleached WA bitumen (aged albedo ~0.14)
+    road: (() => { const r = vc(Roads.markRoadMaterial(makeMaterial('asphalt'))); r.color.multiplyScalar(1.7); return r; })(),   // sun-bleached WA bitumen (aged albedo ~0.12)
     kerb: vc(makeMaterial('concrete', { weather: 'ground', tint: 0xc8c4bc })),
     concrete: vc(makeMaterial('concrete', { tint: 0xd8d4cc })),
     bridgeConc: vc(makeMaterial('concrete', { tint: 0xe0dcd2, scale: 6 })),

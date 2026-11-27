@@ -18,6 +18,7 @@ export function facadeMaterial(name = 'facade') {
   const mat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.0, vertexColors: true });
   mat.name = name;
   mat.userData.weather = { dust: 0.0, wet: 0, beads: 0, porosity: 0.1 };
+  if (/[?&]nofwth/.test(location.search)) mat.userData.noWeather = true;   // debug
   patch(mat, 'facade', (shader) => {
     ensureWorldVaryings(shader);
     shader.vertexShader = shader.vertexShader
@@ -33,8 +34,12 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
       
       .replace('#include <color_fragment>', `#include <color_fragment>
 {
-  float pw = vFac.x, fh = vFac.y, style = floor(vFac.z + 0.5), seed = abs(vFac.w);
+  float pw = vFac.x, fh = vFac.y, style = floor(vFac.z + 0.5);
+  // snap the per-building seed: perspective interpolation adds ~1e-4 jitter, which the hashes below amplify into
+  // per-pixel noise (the 'TV static' in windows) when the seed is large
+  float seed = mod(floor(abs(vFac.w) + 0.5), 97.0);
   float shopOn = step(vFac.w, -0.5);
+  pw = floor(pw * 100.0 + 0.5) / 100.0; fh = floor(fh * 100.0 + 0.5) / 100.0;
   // street level of a shopfront building: 0-0.3 m plinth, 0.3-3.3 glazed bays, 3.3-3.6 awning shadow, 3.6-4.6 fascia
   float shop = shopOn * (1.0 - step(4.6, vFUv.y)) * step(-0.5, vFUv.y);
   if (shop > 0.5) { pw = 3.2; fh = 4.6; }
@@ -43,7 +48,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   vec2 cell = floor(q), f = fract(q);
   vec2 fw = fwidth(q);
   fcFoot = max(fw.x, fw.y);                         // cells per pixel
-  float far = smoothstep(0.25, 0.7, fcFoot);         // 1 = cells smaller than ~2 px: use averages
+  float far = smoothstep(0.15, 0.5, fcFoot);         // 1 = cells smaller than ~2 px: use averages
   float farRoom = smoothstep(0.06, 0.25, fcFoot);    // room interiors fade to their average much earlier (no TV static)
   vec2 dE = min(f, 1.0 - f) * cellSz;                // metres to the cell edges
   vec2 aa = fw * cellSz * 1.2 + 0.004;
@@ -57,9 +62,9 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     glass = (1.0 - max(mull, tran));
     slab = span * glass;
   } else if (style < 1.5) {                           // punched windows
-    vec2 w = vec2(0.21, 0.20);
+    vec2 w = vec2(0.14, 0.16);
     float inX = smoothstep(w.x - aa.x / pw, w.x, f.x) * (1.0 - smoothstep(1.0 - w.x, 1.0 - w.x + aa.x / pw, f.x));
-    float inY = smoothstep(w.y - aa.y / fh, w.y, f.y) * (1.0 - smoothstep(0.86, 0.86 + aa.y / fh, f.y));
+    float inY = smoothstep(w.y - aa.y / fh, w.y, f.y) * (1.0 - smoothstep(0.90, 0.90 + aa.y / fh, f.y));
     glass = inX * inY;
   } else if (style < 2.5) {                           // ribbon windows
     float band = smoothstep(0.42, 0.42 + aa.y / fh, f.y) * (1.0 - smoothstep(0.93, 0.93 + aa.y / fh, f.y));
@@ -76,7 +81,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     float mull = fcBand(dE.x, 0.035, aa.x);
     glass = (1.0 - max(edge, mull)) * (1.0 - bal * 0.5);
     slab = bal * 0.6;
-    frame = mix(frame, vec3(0.75), edge);
+    frame = mix(frame, vec3(0.40), edge);
   } else if (style < 5.5) {                           // solid panels with joints
     float j = max(fcBand(dE.x, 0.012, aa.x), fcBand(dE.y, 0.012, aa.y));
     frame *= 1.0 - j * 0.35;
@@ -118,7 +123,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
     shopSign = step(0.35, hu2) * (1.0 - smoothstep(2.4, 2.45, sx)) * (1.0 - smoothstep(0.26, 0.28, sy));
     frame = mix(frame, vec3(0.85, 0.82, 0.75), shopSign * 0.6);
   }
-  float avgGlass = style < 0.5 ? 0.88 : style < 1.5 ? 0.40 : style < 2.5 ? 0.52 : style < 3.5 ? 0.74 : style < 4.5 ? 0.70 : 0.0;
+  float avgGlass = style < 0.5 ? 0.88 : style < 1.5 ? 0.54 : style < 2.5 ? 0.58 : style < 3.5 ? 0.74 : style < 4.5 ? 0.76 : 0.0;
   if (shop > 0.5) avgGlass = 0.6;
   glass = mix(glass, avgGlass, far);
   slab = mix(slab, style < 0.5 ? 0.18 : style < 3.5 && style > 2.5 ? 0.13 : style > 3.5 && style < 4.5 ? 0.12 : 0.0, far);
@@ -140,8 +145,8 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   float ttx = abs(tt.x), tty = abs(tt.y), ttz = tt.z;
   float t = min(min(ttx, tty), ttz);
   vec3 hp = p0 + d * t;
-  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.40 * uNight, fcH(cell * 0.73 + seed));
-  vec3 lampC = mix(vec3(1.0, 0.86, 0.66), vec3(0.85, 0.92, 1.0), step(0.5, fcH(cell + 9.1)));
+  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.30 * uNight, fcH(cell * 0.73 + seed));
+  vec3 lampC = mix(vec3(1.0, 0.86, 0.66), vec3(0.85, 0.92, 1.0), step(0.7, fcH(cell + 9.1)));
   // every surface is evaluated unconditionally (derivatives in divergent branches are undefined → pixel speckle),
   // then selected by ordering rather than float equality
   vec2 hw = fwidth(hp.xy) + 1e-3;
@@ -155,7 +160,7 @@ float fcBand(float x, float w, float aa) { return 1.0 - smoothstep(w, w + aa, x)
   vec3 room = ttz <= min(ttx, tty) ? rBack : (tty <= ttx ? (d.y > 0.0 ? rCeil : rFloor) : rSide);
   float dark = 0.08 + 0.10 * rnd;
   if (shop > 0.5) { room = mix(room, room * mix(vec3(1.0), signC * 2.5 + 0.4, 0.35), step(0.5, fcH(cell + 3.3))); lampC = vec3(1.0, 0.88, 0.7); }
-  room *= lit > 0.5 ? ((shop > 0.5 ? 0.9 : 0.32) * lampC * (0.45 + 3.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
+  room *= lit > 0.5 ? ((shop > 0.5 ? 0.9 : 0.32) * lampC * (0.45 + 2.6 * uNight)) : vec3(dark * 0.5, dark * 0.52, dark * 0.6);
   float fog = exp(-t * 0.12); room *= mix(0.5, 1.0, fog);
   // blinds partly drawn
   float blind = step(1.0 - fcH(cell + 4.2) * 0.7, f.y) * step(0.45, fcH(cell + 2.3)) * (1.0 - shop);

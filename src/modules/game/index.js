@@ -82,7 +82,7 @@ export async function create(G, { input, world, fx, quality }) {
     wanted.reset();
     player.health = 100; player.stamina = 1; player.dead = false; player.swimming = false; player.control = true;
     player.teleport(PLAYER.spawn[0], PLAYER.spawn[2], PLAYER.spawnYaw);
-    player.camYaw = PLAYER.spawnYaw + Math.PI; player.camPitch = 0.14;
+    player.camYaw = PLAYER.spawnYaw + Math.PI; player.camPitch = 0.10;
     dockFerry();
     if (G.post) { G.post.params.sat = state.savedSat ?? G.ART.grade.sat; G.post.resetAdaptation?.(); }
     state.mode = 'playing'; state.timeScale = 1;

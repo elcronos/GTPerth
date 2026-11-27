@@ -29,12 +29,12 @@ export function solar(hoursAWST) {
 
 // keyframes by solar elevation (deg). Linear colours.
 const K = [
-  { el: -18, zen: [0.0016, 0.0024, 0.0062], hor: [0.010, 0.010, 0.016], sun: [0.55, 0.65, 1.0], si: 0.0, fogSc: [0.10, 0.11, 0.16], sat: 1.05, key: 0.07, amax: 7, env: 0.55, glow: 0.2 },
-  { el: -8, zen: [0.004, 0.008, 0.024], hor: [0.05, 0.035, 0.05], sun: [0.6, 0.6, 0.9], si: 0.0, fogSc: [0.25, 0.22, 0.28], sat: 1.12, key: 0.09, amax: 6, env: 0.65, glow: 0.4 },
+  { el: -18, zen: [0.0016, 0.0024, 0.0062], hor: [0.010, 0.010, 0.016], sun: [0.55, 0.65, 1.0], si: 0.0, fogSc: [0.10, 0.11, 0.16], sat: 1.05, key: 0.07, amax: 7, env: 0.80, glow: 0.2 },
+  { el: -8, zen: [0.004, 0.008, 0.024], hor: [0.05, 0.035, 0.05], sun: [0.6, 0.6, 0.9], si: 0.0, fogSc: [0.25, 0.22, 0.28], sat: 1.12, key: 0.09, amax: 6, env: 0.80, glow: 0.4 },
   { el: -3, zen: [0.012, 0.025, 0.075], hor: [0.42, 0.20, 0.13], sun: [1.0, 0.42, 0.22], si: 0.0, fogSc: [0.75, 0.42, 0.33], sat: 1.25, key: 0.12, amax: 4, env: 0.8, glow: 0.9 },
   { el: 0.5, zen: [0.035, 0.08, 0.19], hor: [1.0, 0.46, 0.22], sun: [1.0, 0.48, 0.24], si: 6.0, fogSc: [0.98, 0.58, 0.38], sat: 1.30, key: 0.17, amax: 2.6, env: 0.9, glow: 1.5 },
-  { el: 8, zen: [0.05, 0.13, 0.30], hor: [1.02, 0.6, 0.34], sun: [1.0, 0.6, 0.33], si: 12.0, fogSc: [0.98, 0.66, 0.44], sat: 1.30, key: 0.2, amax: 1.9, env: 0.70, glow: 1.35 },
-  { el: 20, zen: [0.05, 0.14, 0.40], hor: [0.75, 0.68, 0.58], sun: [1.0, 0.8, 0.6], si: 11.8, fogSc: [0.82, 0.78, 0.74], sat: 1.2, key: 0.2, amax: 1.7, env: 0.82, glow: 1.0 },
+  { el: 8, zen: [0.05, 0.13, 0.30], hor: [0.88, 0.52, 0.30], sun: [1.0, 0.6, 0.33], si: 12.0, fogSc: [0.88, 0.64, 0.50], sat: 1.30, key: 0.2, amax: 1.45, env: 0.80, glow: 1.1 },
+  { el: 20, zen: [0.05, 0.14, 0.40], hor: [0.75, 0.68, 0.58], sun: [1.0, 0.8, 0.6], si: 11.8, fogSc: [0.74, 0.74, 0.76], sat: 1.2, key: 0.2, amax: 1.45, env: 0.82, glow: 1.0 },
   { el: 45, zen: [0.045, 0.15, 0.48], hor: [0.55, 0.66, 0.78], sun: [1.0, 0.92, 0.82], si: 12.5, fogSc: [0.70, 0.76, 0.86], sat: 1.02, key: 0.2, amax: 1.6, env: 1.0, glow: 0.8 },
   { el: 90, zen: [0.04, 0.15, 0.50], hor: [0.50, 0.64, 0.80], sun: [1.0, 0.96, 0.9], si: 13.0, fogSc: [0.66, 0.74, 0.86], sat: 1.0, key: 0.2, amax: 1.6, env: 1.0, glow: 0.7 },
 ];
@@ -87,7 +87,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
   const base = P() ? { sat: P().sat, vol: P().volStrength, bloom: P().bloomStrength } : null;
   const cover0 = U.uCloud.value[0];
   let lastBake = -1e9, lastFitDir = new Vector3(), lastBakeDir = new Vector3(), cur = null;
-  const tmp = new Vector3();
+  const tmp = new Vector3(), tmp2 = new Vector3();
 
   function apply(force) {
     const h = clock.hours;
@@ -103,7 +103,7 @@ export function createDayCycle(G, { sky, env, shadows }) {
       const m = night;
       G.sun.dir.copy(sunV).lerp(moonDir, m).normalize();
       G.sun.color.setRGB(lerp(k.sun[0], 0.55, m), lerp(k.sun[1], 0.65, m), lerp(k.sun[2], 1.0, m));
-      G.sun.intensity = lerp(k.si, 0.8, m);
+      G.sun.intensity = lerp(k.si, 1.5, m);
     }
     syncAtmos(G);
     U.uZenith.value.fromArray(k.zen); U.uHorizon.value.fromArray(k.hor); U.uSunTint.value.fromArray(k.sun);
@@ -116,8 +116,12 @@ export function createDayCycle(G, { sky, env, shadows }) {
     uNight.value = Math.min(1, Math.max(0, (4 - el) / 10));          // lights come on through sunset
     if (patchUniforms.uCharRim) {   // character rim: warm back-light while the sun is low, moon-blue at night
       const day = Math.max(0, 1 - Math.max(0, el - 6) / 30) * (1 - night), nb = night;
-      patchUniforms.uCharRim.value.setRGB(1.0 * 0.25 * day + 0.61 * 0.6 * nb, 0.78 * 0.25 * day + 0.69 * 0.6 * nb, 0.56 * 0.25 * day + 0.88 * 0.6 * nb);
-      patchUniforms.uCharFill.value = 0.06 * uNight.value;
+      // back-light mask: strongest when the camera looks toward the sun (rim on the silhouette), faint otherwise
+      const fw = G.camera.getWorldDirection(tmp2); const fl = Math.hypot(fw.x, fw.z) || 1, sl = Math.hypot(sunV.x, sunV.z) || 1;
+      const bk = Math.min(1, Math.max(0, ((fw.x * sunV.x + fw.z * sunV.z) / (fl * sl) + 0.1) / 0.8)); const back = bk * bk * (3 - 2 * bk);
+      const dr = (0.08 + 0.32 * back) * day, nr = 0.22 * nb;
+      patchUniforms.uCharRim.value.setRGB(1.0 * dr + 0.61 * nr, 0.78 * dr + 0.69 * nr, 0.56 * dr + 0.88 * nr);
+      patchUniforms.uCharFill.value = 0.10 * uNight.value;
     }
     for (const n of G.nightMats) {
       const t = n.curve ? n.curve(uNight.value) : uNight.value;

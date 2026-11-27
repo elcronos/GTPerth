@@ -24,6 +24,7 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
     // also allow joining mid-lane of a crossing road near the end point
     return cands.length ? cands[Math.floor(Math.random() * cands.length)] : -1;
   }
+  const _cf = new G.camera.position.constructor();
   function spawn(near, force) {
     // pick a lane point 80-260 m from `near`, off-screen preferred
     for (let tries = 0; tries < 30; tries++) {
@@ -31,7 +32,9 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
       const d = Math.random() * lens[li];
       const [x, z, h] = pointOn(l, d);
       const dist = Math.hypot(x - near.x, z - near.z);
-      if (!force && (dist < 70 || dist > 300)) continue;
+      // closer spawns are fine when the point is behind the camera (never pops into view)
+      const cf = G.camera.getWorldDirection(_cf), behind = (x - G.camera.position.x) * cf.x + (z - G.camera.position.z) * cf.z < 0;
+      if (!force && (dist < (behind ? 30 : 70) || dist > 300)) continue;
       if (cars.some((c) => Math.hypot(c.x - x, c.z - z) < 14)) continue;
       const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
       const c = new Car(G, kind, CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)], M, col);
@@ -43,7 +46,7 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
     }
     return null;
   }
-  const T = { cars, target: 14, honk: null, onHitPed: null };
+  const T = { cars, target: G.quality.tier === 'high' || G.quality.tier === 'ultra' ? 22 : 12, honk: null, onHitPed: null };
   T.update = (dt) => {
     const pl = getPlayer();
     const focus = pl.vehicle ? pl.vehicle : { x: pl.x, z: pl.z };

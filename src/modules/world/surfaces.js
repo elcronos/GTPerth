@@ -18,8 +18,8 @@ void surf(vec2 uv, inout Surf s) {
   float joint = 1.0 - smoothstep(0.0025, 0.0045, dJ);
   float bevel = 1.0 - smoothstep(0.0, 0.012, dJ);
   float fine = nfbm(uv, 60.0, 3, 2.0), mid = nfbm(uv, 3.0, 4, 4.0), speck = step(0.78, nval(uv, 220.0, 5.0));
-  vec3 granite = vec3(0.115, 0.113, 0.11), lime = vec3(0.152, 0.148, 0.14), dark = vec3(0.078, 0.077, 0.078);   // EQ granite setts: charcoal + mid grey (photo-matched)
-  vec3 col = mix(mix(granite, lime, step(0.55, h1)), dark, step(0.86, h1));
+  vec3 granite = vec3(0.105, 0.103, 0.10), lime = vec3(0.13, 0.127, 0.12), dark = vec3(0.075, 0.074, 0.075);   // EQ granite setts: charcoal + mid grey (photo-matched)
+  vec3 col = mix(mix(granite, lime, step(0.72, h1)), dark, step(0.88, h1));
   col = mix(col, dark, step(0.93, h2) * 0.8);
   col *= (0.94 + 0.1 * h2) * (0.92 + 0.12 * fine);
   col = mix(col, col * vec3(0.55, 0.55, 0.6), speck * 0.35);
@@ -30,7 +30,7 @@ void surf(vec2 uv, inout Surf s) {
   col = mix(col, vec3(0.035, 0.033, 0.03), joint);
   s.albedo = col;
   s.height = 0.7 + 0.04 * fine + 0.02 * mid - bevel * bevel * 0.25 - joint * 0.5;
-  s.rough = clamp(0.74 + 0.1 * fine + grime * 0.08 + joint * 0.2 - step(0.55, h1) * 0.05 - wearPath * 0.08, 0.0, 1.0);
+  s.rough = clamp(0.52 + 0.1 * fine + grime * 0.08 + joint * 0.2 - step(0.55, h1) * 0.05 - wearPath * 0.08, 0.0, 1.0);
   s.ao = mix(1.0, 0.45, joint);
   s.mask = 1.0;
 }`;
@@ -42,7 +42,7 @@ void surf(vec2 uv, inout Surf s) {
   float big = nfbm(uv, 0.35, 4, 1.0), mid = nfbm(uv, 1.6, 4, 2.0);
   float blades = nfbm2(uv, vec2(90.0, 30.0), 3, 3.0), micro = nfbm(uv, 240.0, 2, 4.0);
   float clump = nvor(uv, 9.0, 1.0, 5.0).x;
-  vec3 green = vec3(0.06, 0.09, 0.034), lush = vec3(0.05, 0.10, 0.032), dry = vec3(0.18, 0.155, 0.07);
+  vec3 green = vec3(0.058, 0.078, 0.036), lush = vec3(0.05, 0.085, 0.034), dry = vec3(0.18, 0.155, 0.07);
   vec3 col = mix(green, lush, mid);
   col = mix(col, dry, smoothstep(0.50, 0.80, big) * 0.8);
   col *= 0.72 + 0.5 * blades;

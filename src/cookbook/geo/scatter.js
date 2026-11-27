@@ -147,7 +147,7 @@ export function depthFor(material, sway, fade) {
 
 // ------------------------------------------------------------------ scatter
 // Per-tier thinning (fraction of points kept) and fade-distance scale, applied by scatter() unless tiered:false.
-export const SCATTER_TIERS = { low: { keep: 0.3, fade: 0.5 }, med: { keep: 0.7, fade: 0.8 }, high: { keep: 1, fade: 1 }, ultra: { keep: 1, fade: 1.25 } };
+export const SCATTER_TIERS = { low: { keep: 0.22, fade: 0.42 }, med: { keep: 0.7, fade: 0.8 }, high: { keep: 1, fade: 1 }, ultra: { keep: 1, fade: 1.25 } };
 const _m = new Matrix4(), _q = new Quaternion(), _q2 = new Quaternion(), _p = new Vector3(), _s = new Vector3(), _n = new Vector3(), _up = new Vector3(0, 1, 0), _c = new Color();
 // opts:
 //  parts: [{geo, material}] — all share the instance transforms (trunk + leaves, rock, ...)
