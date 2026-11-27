@@ -167,16 +167,16 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   float ttx = abs(tt.x), tty = abs(tt.y), ttz = tt.z;
   float t = min(min(ttx, tty), ttz);
   vec3 hp = p0 + d * t;
-  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.38 * uNight, 0.8 * fcH(vec2(floor(cell.x / 6.0), cell.y) * 0.73 + seed) + 0.2 * fcH(cell * 0.73 + seed));
+  float lit = shop > 0.5 ? step(0.12, fcH(cell * 0.31 + seed)) : step(0.94 - 0.30 * uNight, 0.8 * fcH(vec2(floor(cell.x / (3.0 + 5.0 * fcH(vec2(cell.y, seed)))), cell.y) * 0.73 + seed) + 0.2 * fcH(cell * 0.73 + seed));
   vec3 lampC = mix(vec3(1.0, 0.76, 0.50), vec3(0.85, 0.92, 1.0), step(0.7, fcH(cell + 9.1)));
   // every surface is evaluated unconditionally (derivatives in divergent branches are undefined → pixel speckle),
   // then selected by ordering rather than float equality
   vec2 hw = fwidth(hp.xy) + 1e-3;
   float desk = (1.0 - smoothstep(0.75 - hw.y, 0.75 + hw.y, hp.y)) * smoothstep(0.15 - hw.x, 0.15 + hw.x, fract(hp.x * 0.6 + rnd));
-  vec3 rBack = mix(vec3(0.55, 0.53, 0.5), vec3(0.18, 0.16, 0.15), desk * (1.0 - farRoom));
+  vec3 rBack = mix(vec3(0.30, 0.29, 0.27), vec3(0.14, 0.12, 0.11), desk * (1.0 - farRoom));
   vec2 lpp = hp.xz * vec2(0.5, 0.45); vec2 lp = fract(lpp); vec2 lw = fwidth(lpp) + 0.02;
   float panel = smoothstep(0.3 - lw.x, 0.3 + lw.x, lp.x) * (1.0 - smoothstep(0.7 - lw.x, 0.7 + lw.x, lp.x)) * smoothstep(0.3 - lw.y, 0.3 + lw.y, lp.y) * (1.0 - smoothstep(0.7 - lw.y, 0.7 + lw.y, lp.y)) * (1.0 - farRoom);
-  vec3 rCeil = vec3(0.6) + panel * lit * 1.6 * lampC;
+  vec3 rCeil = vec3(0.5) + panel * lit * mix(1.6, 3.4, uNight) * lampC;
   vec3 rFloor = mix(vec3(0.22, 0.2, 0.19), vec3(0.32, 0.27, 0.22), rnd2);
   vec3 rSide = vec3(0.62, 0.6, 0.57);
   if (shop > 0.5) { rBack = mix(vec3(0.10, 0.09, 0.08), signC * 0.8 + 0.05, 0.4) * (0.5 + 0.5 * step(0.5, fract(hp.y * 1.4))); rSide *= 0.45; }   // shelving, merchandise
@@ -188,9 +188,9 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   // blinds partly drawn
   vec2 zone = vec2(floor(cell.x / 5.0), cell.y);   // blinds set per tenancy zone, not per window (no pixel confetti)
   float blind = step(1.0 - fcH(zone + 4.2) * 0.7, f.y) * step(0.62, fcH(zone + 2.3)) * (1.0 - shop);
-  room = mix(room, vec3(0.30, 0.30, 0.29) * (lit > 0.5 ? mix(0.8, 0.45, uNight) : 0.18), blind);
+  room = mix(room, (lit > 0.5 ? vec3(0.30, 0.25, 0.18) * mix(0.8, 0.5, uNight) : vec3(0.05)), blind);   // blinds: warm-backlit or dark
   vec3 roomAvg = vec3(0.04, 0.038, 0.035) + (0.06 + 0.3 * uNight) * lampC;
-  room = mix(room, roomAvg * 0.6, shop > 0.5 ? far : farRoom);
+  room = mix(room, (lit > 0.5 ? roomAvg * 1.4 : roomAvg * 0.15) * 0.6, shop > 0.5 ? far : farRoom);   // far average keeps lit / unlit
   float NdV = clamp(dot(-V, Nw), 0.0, 1.0);
   float F0 = dot(gl, vec3(0.333));
   float Fr = F0 + (1.0 - F0) * pow(1.0 - NdV, 5.0);

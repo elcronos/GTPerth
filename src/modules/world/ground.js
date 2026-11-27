@@ -149,6 +149,7 @@ function groundMaterial(G) {
       .replace('#include <common>', `#include <common>
 uniform sampler2D tMask, tPA, tPN, tPO, tLA, tLN, tBA, tBN, tSA, tRA, tRN;
 uniform vec4 uMask, uSc;
+#define DBG_KP ${/[?&]dbgkp/.test(location.search) ? 'true' : 'false'}
 vec4 gW; vec2 gXZ; float gRock;
 `)
       .replace('#include <map_fragment>', `#include <map_fragment>
@@ -176,8 +177,8 @@ vec4 gW; vec2 gXZ; float gRock;
   float farV = max(smoothstep(260.0, 650.0, camDg) * gW.z, smoothstep(700.0, 1300.0, camDg) * inKP * (1.0 - gW.w));   // Kings Park reads as canopy once its trees fade
   if (farV > 0.001) {
     float can = smoothstep(0.38, 0.62, vnoise3(vec3(gXZ * 0.11, 2.0)) * 0.65 + vnoise3(vec3(gXZ * 0.31, 4.0)) * 0.35);
-    vec3 canC = mix(vec3(0.024, 0.032, 0.02), vec3(0.075, 0.085, 0.05), can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));
-    alb = mix(alb, canC, farV * 0.9);
+    vec3 canC = mix(vec3(0.018, 0.028, 0.014), vec3(0.10, 0.125, 0.055), can * can) * (0.85 + 0.3 * vnoise3(vec3(gXZ * 0.02, 7.0)));
+    alb = mix(alb, DBG_KP ? vec3(1.0, 0.0, 0.0) : canC, farV * 0.9);
   }
   float ao = mix(1.0, texture2D(tPO, gXZ * uSc.x).r, gW.x);
   diffuseColor.rgb *= alb * ao;
@@ -188,7 +189,7 @@ roughnessFactor = mix(roughnessFactor, 0.85, gRock);`)
   { // street-lamp light map (props.js): albedo-lit warm pools at night
     vec2 luv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
     float lamp = texture2D(uLampMap, luv).r * step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
-    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 3.4 + 0.03) * uNight;
+    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 4.0 + 0.008) * uNight;
   }
 #include <aomap_fragment>`)
       .replace('#include <normal_fragment_maps>', `{

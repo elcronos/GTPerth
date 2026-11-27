@@ -66,7 +66,7 @@ varying vec4 vRoad; float rmPaint;`)
   { // street-lamp light map (props.js): albedo-lit warm pools at night
     vec2 luv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
     float lamp = texture2D(uLampMap, luv).r * step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
-    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 2.8 + 0.03) * uNight;
+    reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(1.0, 0.74, 0.46) * (lamp * lamp * 3.4 + 0.008) * uNight;
   }
 #include <aomap_fragment>`);
   });

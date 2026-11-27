@@ -15,7 +15,7 @@ export function lampReceive(mat, gain = 1.4) {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + GROUND_GLSL).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
   { vec2 lrUv = (vWthPos.xz - uLampBox.xy) / uLampBox.zw;
     float lr = texture2D(uLampMap, clamp(lrUv, 0.0, 1.0)).r;
-    lr *= 1.0 - smoothstep(1.2, 4.5, vWthPos.y - uLampGroundY(vWthPos.xz));   // a ground pool lights legs and benches, not whole poles
+    lr *= 1.0 - smoothstep(0.5, 2.4, vWthPos.y - uLampGroundY(vWthPos.xz));   // a ground pool lights legs and benches, not whole poles
     totalEmissiveRadiance += diffuseColor.rgb * vec3(1.0, 0.78, 0.52) * lr * lr * ${gain.toFixed(2)} * uNight; }`);
   });
   return mat;

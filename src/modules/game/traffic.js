@@ -110,7 +110,7 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
     const cf = G.camera.getWorldDirection(_cf), cp = G.camera.position, C = [];
     for (let li = 0; li < usable.length; li++) for (let d = 5; d < lens[li]; d += 10) {
       const q = pointOn(usable[li], d), dist = Math.hypot(q[0] - near.x, q[1] - near.z);
-      if (dist < 15 || dist > 180) continue; const dx = q[0] - cp.x, dz = q[1] - cp.z, dl = Math.hypot(dx, dz) || 1;
+      if (dist < 15 || dist > 180) continue; if (Math.hypot(q[0] - cp.x, q[1] - cp.z) < 40) continue; const dx = q[0] - cp.x, dz = q[1] - cp.z, dl = Math.hypot(dx, dz) || 1;
       if ((dx * cf.x + dz * cf.z) / dl > 0.3) C.push([li, d, q]);
     }
     for (let i = C.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [C[i], C[j]] = [C[j], C[i]]; }

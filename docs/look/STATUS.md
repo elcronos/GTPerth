@@ -12,6 +12,9 @@ materials only), SwiftShader renders only (no GPU perf numbers in this workspace
 | look-r2 | shots/r1 | 5.00 | vegetation 4.0, architecture/artefacts/real_game 4.5 |
 | look-r3 | shots/r2 | 5.23 | vegetation/architecture/artefacts 4.5 |
 | look-r4 | shots/r3 | 5.35 | vegetation 4.5, palette/materials/mobile/artefacts/real_game 5 |
+| look-r5 | shots/r4 | 5.50 | time_of_day/materials/real_game 5 |
+| look-r6 | shots/r5 | 5.65 | materials/artefacts 5 |
+| look-r7 | shots/r6 | 5.54 | vegetation/characters/composition/artefacts 5 (peds buried the player: regression) |
 
 Pass rule: overall >= 7.5 and no dimension < 6. Reviews: docs/reviews/look-rN-{A,B}.json, reduced look-rN.json.
 
@@ -22,6 +25,9 @@ Pass rule: overall >= 7.5 and no dimension < 6. Reviews: docs/reviews/look-rN-{A
 - Road paint erased: shader patch anchored before the material library's PBR tint.
 - BHP tower body missing from OSM (only crown slivers as parts); restored.
 - SSAO dark frame border: normals from clamped neighbours at the image edge.
+- Small casters had no shadows: the planar mirror pass consumed the scheduled shadow-map update while it hid
+  street trees, benches and bush (needsUpdate left true).
+- Shadowed streets navy / plaza shade brown: saturated sky fill + warm bounce in the env bake (now neutralised, cool at low sun).
 
 ## QA tooling
 tools/qa/shoot.mjs + views.json (12 views, real game camera rig), metrics.py (luma, player box, palette dE),

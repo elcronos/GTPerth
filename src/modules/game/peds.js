@@ -32,11 +32,13 @@ export function createPeds(G, { avatars, col }) {
   let ai = 0;
   const pick = () => pool[(ai++) % pool.length];
   function add(kind, x, z, zone, opts = {}) {
-    const inst = avatars.instance(opts.avatar || pick());
+    let nm = opts.avatar;
+    if (!nm) { for (let k = 0; k < 8; k++) { nm = pick(); if (!list.some((q) => q.avatar === nm && Math.hypot(q.ch.root.position.x - x, q.ch.root.position.z - z) < 30)) break; } }   // no twins side by side
+    const inst = avatars.instance(nm);
     const ch = new Character(G, inst);
     G.scene.add(ch.root);
     ch.root.position.set(x, groundAt(x, z).y, z);
-    const p = { ch, kind, zone, path: LOOPS[zone], wp: 0, dir: Math.random() < 0.5 ? 1 : -1, speed: 0, cruise: kind === 'jog' ? 3.2 + Math.random() * 0.8 : 1.1 + Math.random() * 0.45,
+    const p = { avatar: nm, ch, kind, zone, path: LOOPS[zone], wp: 0, dir: Math.random() < 0.5 ? 1 : -1, speed: 0, cruise: kind === 'jog' ? 3.2 + Math.random() * 0.8 : 1.1 + Math.random() * 0.45,
       state: 'walk', t: 0, fleeT: 0, from: null, yaw: Math.random() * 6.28, idleYaw: opts.yaw ?? 0, gesture: opts.gesture || null, dead: false, witnessed: 0 };
     if (p.path) { // nearest waypoint
       let b = 1e9; p.path.forEach((w, i) => { const d = Math.hypot(w[0] - x, w[1] - z); if (d < b) { b = d; p.wp = i; } });
@@ -49,11 +51,11 @@ export function createPeds(G, { avatars, col }) {
   // populate
   const R = () => Math.random();
   const busy = G.quality.tier === 'high' || G.quality.tier === 'ultra';
-  VIS_R = busy ? 220 : 140; SHADOW_R = busy ? 60 : 30;   // lived-in promenade on desktop; phones keep the light crowd
+  VIS_R = busy ? 220 : 140; SHADOW_R = busy ? 35 : 25;   // lived-in promenade on desktop; phones keep the light crowd
   for (let i = 0; i < (busy ? 16 : 10); i++) { const L = LOOPS.eq, w = L[Math.floor(R() * L.length)]; add(R() < 0.4 ? 'stroll' : 'walk', w[0] + (R() - 0.5) * 4, w[1] + (R() - 0.5) * 4, 'eq'); }
   for (let i = 0; i < (busy ? 8 : 4); i++) { const L = LOOPS.landing, w = L[Math.floor(R() * L.length)]; add('stroll', w[0], w[1], 'landing'); }
   for (let i = 0; i < 3; i++) { const L = LOOPS.west, w = L[Math.floor(R() * L.length)]; add('jog', w[0], w[1], 'west', { avatar: i % 2 ? 'Sports_Male_04' : 'Sports_Female_02' }); }
-  for (let i = 0; i < (busy ? 22 : 8); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt'); }
+  for (let i = 0; i < (busy ? 14 : 6); i++) { const L = LOOPS.sgt, w = L[Math.floor(R() * L.length)]; add(R() < 0.3 ? 'stroll' : 'walk', w[0], w[1], 'sgt').ch.root.userData.noReflect = true; }   // CBD walkers never reach the river mirror
   for (let i = 0; i < (busy ? 7 : 4); i++) { const L = LOOPS.barrack, w = L[Math.floor(R() * L.length)]; add('walk', w[0], w[1], 'barrack'); }
   for (let i = 0; i < 7; i++) { const L = LOOPS.south, w = L[Math.floor(R() * L.length)]; add(R() < 0.5 ? 'stroll' : 'walk', w[0], w[1], 'south'); }
   IDLE_SPOTS.forEach(([x, z, yaw], i) => { if (!busy && i >= 16) return; const g = ['photo', 'phone', 'look', null][i % 4]; add('idle', x, z, null, { yaw, gesture: g, avatar: g === 'photo' ? FEMALE[(i % 4) + 1] : g === 'phone' ? MALE[(i % 5)] : undefined }); });
@@ -67,7 +69,8 @@ export function createPeds(G, { avatars, col }) {
       const q = p.ch.root.position, t = Math.max(0, Math.min(1.5, ((q.x - ax) * wx + (q.z - az) * wz) / l2));
       const qd = Math.hypot(q.x - (ax + wx * t), q.z - (az + wz * t)), pd = Math.hypot(q.x - pl.x, q.z - pl.z);
       if (qd > 2.5 && pd > 3) continue;
-      const P = p.path || LOOPS.eq; const far = P.filter(([x, z]) => Math.hypot(x - pl.x, z - pl.z) > 18 && Math.hypot(x - ax, z - az) > 18);
+      const P = p.path || LOOPS.eq; const far = P.filter(([x, z]) => { const dp = Math.hypot(x - pl.x, z - pl.z), dx = x - ax, dz = z - az, dl = Math.hypot(dx, dz) || 1; const tt = (dx * wx + dz * wz) / l2, cd = Math.hypot(x - (ax + wx * tt), z - (az + wz * tt));
+        return dp > 6 && dl > 10 && dl < 60 && (dx * wx + dz * wz) / (dl * Math.sqrt(l2)) > 0.6 && cd > 3; });   // stay in shot, out of the sightline
       if (!far.length) continue; const w = far[Math.floor(Math.random() * far.length)];
       q.set(w[0], groundAt(w[0], w[1]).y, w[1]); if (p.path) p.wp = p.path.indexOf(w); if (p.kind === 'idle') { p.kind = 'walk'; p.state = 'walk'; p.path = P; p.wp = P.indexOf(w); }
     }

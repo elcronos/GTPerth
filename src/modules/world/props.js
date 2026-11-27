@@ -176,7 +176,8 @@ export function create(G, { mats, roads, footprints = [] }) {
   const palmPts = [], eqPalms = [];
   for (const p of alongShore(SHORE_N, 150, 1100, 14, 14, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // EQ promenade: a palm every 18 m around the inlet, set back from the lamps and benches
-  for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z) && Math.hypot(x - PLAYER_SPAWN[0], z - PLAYER_SPAWN[2]) > 9, 8.5)) eqPalms.push(p[0], p[1]);   // alternate with the lamps
+  for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z) && Math.hypot(x - PLAYER_SPAWN[0], z - PLAYER_SPAWN[2]) > 9, 8.5)) eqPalms.push(p[0], p[1]);
+  eqPalms.push(PLAYER_SPAWN[0] + 5.5, PLAYER_SPAWN[2] + 6.0);   // one Washingtonia framing the opening shot on the left, clear of the bridge sightline   // alternate with the lamps
   for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
   for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z))) palmPts.push(p[0], p[1]);
   // the inlet palms frame the hero view: never thinned by the phone tier
@@ -212,7 +213,7 @@ export function create(G, { mats, roads, footprints = [] }) {
   // ground and road shaders multiply by their own albedo (keeps the paving texture; no extra draw call)
   {
     const N = 2048, box = [-2000, -1300, 4100, 3600], data = new Uint8Array(N * N);
-    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 4.5;
+    const pp = new Vector3(), qq = new Quaternion(), ss = new Vector3(), sig = 3.8;
     const tx = (x) => ((x - box[0]) / box[2]) * N, tz = (z) => ((z - box[1]) / box[3]) * N, px = box[2] / N;
     const R = Math.ceil((sig * 2.6) / px);
     for (const m of [...lampM, ...ghostLamps]) {
@@ -228,7 +229,7 @@ export function create(G, { mats, roads, footprints = [] }) {
     sharedUniform('uLampMap', 'sampler2D', null).value = tex;
     sharedUniform('uLampBox', 'vec4', new Vector4()).value.set(box[0], box[1], box[2], box[3]);
   }
-  lampReceive(mats.timber); lampReceive(mats.steel);
+  lampReceive(mats.timber, 1.0); lampReceive(mats.steel, 0.45);
   nr((instanced(G, benchGeo(), mats, benchM, 'benches')));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }
 

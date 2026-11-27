@@ -48,6 +48,8 @@ for (const [gi, list] of groups.entries()) {
       G.post?.resetAdaptation?.();
     }, v);
     await S.p.waitForTimeout(v.wait || 8000);
+    await S.p.evaluate(() => { const G = window.__G; G.renderer.shadowMap.needsUpdate = true; });   // fresh shadow map after moving people
+    await S.p.waitForTimeout(2500);
     const file = `${out}/${v.id}.jpg`;
     await S.p.screenshot({ path: file, quality: 88, timeout: 400000 });
     const st = await S.p.evaluate(() => ({ ...window.__stats(), el: +window.__G.clock.state().el.toFixed(1), errs: window.__errors.slice(0, 3) }));
