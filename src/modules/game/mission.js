@@ -29,6 +29,9 @@ export function createMission(G, { hud, getPlayer, ferry, wanted, events }) {
     }
   };
   M.onLeaveFerry = () => { if (M.step === 'cross') { M.step = 'reboard'; hud.objective('Get back on the <i>ferry</i>.'); hud.target = [ferry.x, ferry.z]; hud.route = [[ferry.x, ferry.z]]; } };
+  M.onBerth = (where) => {   // the skipper left the helm and the ferry was tied up at a berth
+    if (M.step === 'cross' && where === 'mends') { M.step = 'passed'; M.done = true; hud.objective(''); hud.route = null; hud.target = null; events.onPassed?.(); }
+  };
   M.fail = (kind) => { if (M.step === 'failed' || M.step === 'passed') return; M.prev = M.step; M.step = 'failed'; hud.objective(''); hud.route = null; hud.target = null; events.onFail?.(kind); };
   M.update = (dt) => {
     M.t += dt;

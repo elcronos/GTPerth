@@ -2,7 +2,7 @@
 // entry/exit; crime → wanted; harness/debug hooks (__G.game) and ?show=chase for the action pose.
 import { CatmullRomCurve3, Vector3, BoxGeometry, MeshStandardMaterial, Mesh, Color } from 'three';
 import { PATH, PLAYER } from '../../contracts.js';
-import { PLACES, isLand, ROADS, mendsBerth } from '../../map.js';
+import { PLACES, isLand, ROADS, mendsBerth, mendsW } from '../../map.js';
 import { loadAvatars, MALE } from './avatars.js';
 import { loadModels } from './models.js';
 import { createCollision } from './collide.js';
@@ -123,17 +123,36 @@ export async function create(G, { input, world, fx, quality }) {
     if (v === ferry) mission.onBoardFerry();
     player.camYaw = Math.PI / 2 - v.h + Math.PI;
   }
+  // nearest spot a person can stand on (land or a jetty deck, clear of buildings and props): spiral search
+  function safeSpot(x, z, maxR = 80) {
+    const okAt = (px, pz) => !groundAt(px, pz).water && !col.circleVsWorld(px, pz, 0.45).hit;
+    if (okAt(x, z)) return [x, z];
+    for (let r = 1; r <= maxR; r += 1) { const n = Math.max(8, Math.round(r * 2.5)); for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r; if (okAt(px, pz)) return [px, pz]; } }
+    return [PLACES.ferryDock[0] - 8, PLACES.ferryDock[1]];
+  }
+  // ferry berths: leaving the helm near one parks the ferry alongside and puts you on the jetty deck
+  const BERTHS = [
+    { name: 'eq', pos: () => PLACES.ferryDock, h: () => Math.atan2(PLACES.eqJettyDir[1], PLACES.eqJettyDir[0]),
+      step: () => { const [cx, cz] = PLACES.eqJetty, [dx, dz] = PLACES.eqJettyDir, [fx, fz] = PLACES.ferryDock, t = (fx - cx) * dx + (fz - cz) * dz; return [cx + dx * t, cz + dz * t]; } },
+    { name: 'mends', pos: () => mendsBerth(), h: () => -1.265, step: () => mendsW(106, 0) },
+  ];
   function exitVehicle(silent) {
     const v = player.vehicle; if (!v) return;
-    v.driver = null; v.throttle = 0; v.steer = 0; v.brake = v.P ? 0 : 0.5;
-    // RHD: driver door on the right
-    let ox = v.x - Math.sin(v.h) * (v.K ? v.K.W / 2 + 0.8 : 2), oz = v.z + Math.cos(v.h) * (v.K ? v.K.W / 2 + 0.8 : 2);
-    if (v === ferry) { // step off onto the jetty / promenade if one is near, else onto the side deck → into the water
-      ox = v.x - Math.sin(v.h) * (v.model.B / 2 + 4.5); oz = v.z + Math.cos(v.h) * (v.model.B / 2 + 4.5);
-      if (!isLand(ox, oz)) { const ox2 = v.x + Math.sin(v.h) * (v.model.B / 2 + 4.5), oz2 = v.z - Math.cos(v.h) * (v.model.B / 2 + 4.5); if (isLand(ox2, oz2)) { ox = ox2; oz = oz2; } }
+    let ox, oz, face = Math.PI / 2 - v.h;
+    if (v === ferry) {
+      let best = null, bd = 160; for (const b of BERTHS) { const [bx, bz] = b.pos(), d = Math.hypot(ferry.x - bx, ferry.z - bz); if (d < bd) { bd = d; best = b; } }
+      if (!best) { if (!silent) hud.message('SKIPPER', 'Bring her alongside a jetty first: <b>Elizabeth Quay</b> or <b>Mends Street</b>.', '⚓'); return; }
+      const [bx, bz] = best.pos(); ferry.place(bx, bz, best.h()); ferry.throttle = 0; ferry.steer = 0;   // tie up alongside
+      [ox, oz] = best.step();
+      if (best.name === 'mends') mission.onBerth?.('mends');
+    } else {
+      // RHD: driver door on the right; never step out into the river (a car in the water drops you on the bank)
+      ox = v.x - Math.sin(v.h) * (v.K ? v.K.W / 2 + 0.8 : 2); oz = v.z + Math.cos(v.h) * (v.K ? v.K.W / 2 + 0.8 : 2);
     }
+    [ox, oz] = safeSpot(ox, oz);
+    v.driver = null; v.throttle = 0; v.steer = 0; v.brake = v.P ? 0 : 0.5;
     player.vehicle = null; player.ch.root.visible = true;
-    player.teleport(ox, oz, Math.PI / 2 - v.h);
+    player.teleport(ox, oz, face);
     if (!silent) audio.setVehicle(null);
     if (v === ferry) mission.onLeaveFerry();
   }
@@ -274,7 +293,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (state.hitstop > 0) { state.hitstop -= rawDt; dt *= 0.06; }   // impact freeze-frame
     else if (state.slowmo > 0) { state.slowmo -= rawDt; dt *= 0.35; }
     // GTA V health: regenerates to half after 6 s without damage
-    if (state.mode === 'playing' && !player.dead) { state.sinceHit = (state.sinceHit || 0) + rawDt; if (state.sinceHit > 6 && player.health < 50) player.health = Math.min(50, player.health + 4 * rawDt); }
+    if (state.mode === 'playing' && !player.dead) { state.sinceHit = (state.sinceHit || 0) + rawDt; if (state.sinceHit > 6 && player.health > 0 && player.health < 50) player.health = Math.min(50, player.health + 4 * rawDt); }
     state.t += dt;
     if (state.mode === 'title') {
       const u = (G.t * 0.012) % 1;
@@ -301,7 +320,12 @@ export async function create(G, { input, world, fx, quality }) {
       if (v !== ferry && !v.P) { v.update(dt); if (v.inWater > 1.5) exitVehicle(); }
       player.x = v.x; player.z = v.z; player.y = v.y + 1;
       if (v.K && Math.abs(v.speed) > 2.5) peds.hitByVehicle(v);
-    } else player.updateOnFoot(dt);
+    } else {
+      player.updateOnFoot(dt);
+      // nobody ends up in the river: if anything ever drops the player into the water, pull them out onto the nearest
+      // bank or jetty straight away (the quay edges, jetty edges and ramps are solid; this is the last safety net)
+      if (player.swimming && !player.dead) { state.swimT = (state.swimT || 0) + dt; if (state.swimT > 0.4) { const [sx, sz] = safeSpot(player.x, player.z); player.swimming = false; player.teleport(sx, sz, player.yaw); state.swimT = 0; } } else state.swimT = 0;
+    }
     if (!G.game_showChase) ferry.update(dt);
     if (ferry.driver !== player) { ferry.throttle *= 0.98; }
     // ferry vs piers/peds pushes are cheap: skip; traffic, people, police, mission

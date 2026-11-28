@@ -7,9 +7,9 @@
 // an event space for 800; amphitheatre-style tiered timber decking with shade. No roof. OSM node leisure=water_park at
 // (10.4, -206.0), opposite the Elizabeth Quay train station.
 import { Group, Mesh, MeshStandardMaterial, MeshBasicMaterial, CanvasTexture, SRGBColorSpace, RepeatWrapping, BufferGeometry, Float32BufferAttribute,
-  ShaderMaterial, AdditiveBlending, Color, DoubleSide, CylinderGeometry, InstancedMesh, InstancedBufferAttribute, Object3D, Vector3 } from 'three';
+  ShaderMaterial, AdditiveBlending, Color, DoubleSide, CylinderGeometry, InstancedMesh, InstancedBufferAttribute, Object3D, Vector3, PlaneGeometry } from 'three';
 import { Kit, lathe, tube } from '../../cookbook/geo/kit.js';
-import { PLACES, PROMENADE_Y } from '../../map.js';
+import { PLACES, PROMENADE_Y, heightAt } from '../../map.js';
 
 const TAU = Math.PI * 2;
 function canvas(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4; return t; }
@@ -179,6 +179,17 @@ export function createAttractions(G, { mats, colliders, lamps }) {
     jets.geometry.setAttribute('aId', new InstancedBufferAttribute(ids, 1)); jets.frustumCulled = false; group.add(jets); }
   for (const [ax, az] of [[-8, -4], [8, -4], [-8, 4], [8, 4]]) { const v = new Vector3(ax, 0, az).applyAxisAngle(new Vector3(0, 1, 0), ry); lamps.push([wx + v.x, y0, wz + v.z]); }
 
+  // Bell Tower lettering: the name on the bronze band over the foyer, and the opening-hours / closed sign by the bridge
+  { const [bx, bz] = PLACES.bellTower, by = heightAt(bx, bz);
+    const label = (w, h, draw, pw, ph, at, rx = 0) => { const t = canvas(w, h, draw); const m = new Mesh(new PlaneGeometry(pw, ph), new MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.2, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.15 }));
+      m.position.set(bx + at[0], by + at[1], bz + at[2]); m.rotation.set(rx, Math.PI, 0); group.add(m); return m; };
+    label(1024, 128, (c, w, h) => { c.fillStyle = '#5a2a16'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2d9a8'; c.font = '600 78px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('T H E   B E L L   T O W E R', w / 2, h / 2 + 4); },
+      3.5, 0.4, [0, 4.15, -5.6 - 0.14]);
+    label(512, 720, (c, w, h) => { c.fillStyle = '#0d3b2a'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.textAlign = 'center'; c.font = 'bold 54px sans-serif'; c.fillText('THE BELL TOWER', w / 2, 90);
+      c.font = '34px sans-serif'; c.fillStyle = '#cfe8dc'; ['Swan Bells · Barrack Square', '', 'Open daily', '10:00 – 16:00', '', 'Bell ringing', 'Sat & Sun 12:00'].forEach((l, i) => c.fillText(l, w / 2, 170 + i * 50));
+      c.fillStyle = '#c8202a'; c.fillRect(30, 560, w - 60, 110); c.fillStyle = '#fff'; c.font = 'bold 60px sans-serif'; c.fillText('CLOSED', w / 2, 635); },
+      0.66, 0.94, [2.6, 1.1, -14.94], -0.1);
+  }
   G.on('update', (dt, t) => {
     carousel.rotation.y -= dt * 0.42;   // ~6 rpm
     for (const b of bob) b.position.y = 1.5 + 0.2 * Math.sin(t * 2.6 + b.userData.ph * TAU);

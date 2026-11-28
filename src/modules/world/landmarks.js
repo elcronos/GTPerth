@@ -15,16 +15,41 @@ import { heightAt, isLand, PLACES, ISLAND, NARROWS, PROMENADE_Y, MENDS, mendsW }
 
 const V = (x, y, z) => new Vector3(x, y, z);
 
-function bellTower(k) {
+function bellTower(k, cols) {
   // Photo-matched (Commons refs, N / S / street views): an octagonal teal glass shaft ~10 m across that holds its
   // width to ~25 m then tapers to 65 m, banded by steel balcony rings low down and a lit bell-chamber band at
   // ~31 m; a silver needle carries it to 82.5 m. Two copper "sail" groups (east + west), each three fanned
   // ogive blades with sharp tips (36 / 31 / 27 m) that lean in onto the glass; open slots face N and S.
   const [x, z] = PLACES.bellTower, y = heightAt(x, z);
   k.push(x, y, z, 0.0);
-  k.cyl(17, 0.6, 'limestone', { at: [0, 0.3, 0], seg: 48 });
-  k.cyl(14.5, 0.2, 'water', { at: [0, 0.68, 0], seg: 48 });
-  const y0 = 0.6;
+  // low limestone plinth with a shallow reflecting pool ringing the tower; the public enters from the north across a
+  // bridge through a glazed foyer set into the slot between the two copper sail groups
+  k.cyl(17, 0.14, 'limestone', { at: [0, 0.07, 0], seg: 48 });
+  { const pool = lathe([[9.7, 0], [14.3, 0], [14.3, 0.03], [9.7, 0.03]], { seg: 48 }); k.add(pool, 'water', { at: [0, 0.1, 0], occ: false });
+    for (const rr of [9.6, 14.4]) k.add(lathe([[rr - 0.18, 0], [rr + 0.18, 0], [rr + 0.18, 0.32], [rr - 0.18, 0.32]], { seg: 48 }), 'limestone', { at: [0, 0.08, 0] }); }
+  k.box(4.2, 0.36, 5.6, 'limestone', { at: [0, 0.2, -12.0], r: 0.03 });                                   // entrance bridge over the pool
+  for (const s of [-1, 1]) { k.add(tube([[s * 2.0, 1.25, -14.6], [s * 2.0, 1.25, -9.4]], 0.035), 'steel', { occ: false }); for (let zz = -14.6; zz <= -9.4; zz += 1.3) k.box(0.05, 0.9, 0.05, 'steel', { at: [s * 2.0, 0.82, zz] }); }
+  // foyer: a curved glass front on a steel frame between the sails, two pairs of glass doors (closed), a stainless
+  // canopy, the name on a bronze band, a lit foyer behind the glass, a 'closed' rope line and a ticket sign
+  { const RF = 5.6, A0 = -Math.PI / 2 - 0.42, A1 = -Math.PI / 2 + 0.42, P = (a, r = RF) => [Math.cos(a) * r, Math.sin(a) * r];
+    for (let i = 0; i <= 6; i++) { const a = A0 + ((A1 - A0) * i) / 6, [px, pz] = P(a); k.box(0.12, 3.4, 0.14, 'steel', { at: [px, 1.84, pz], rot: [0, -a + Math.PI / 2, 0], color: 0x3a3e42 }); }
+    for (let i = 0; i < 6; i++) { const a = (A0 + ((A1 - A0) * (i + 0.5)) / 6), [px, pz] = P(a), w = 2 * RF * Math.sin((A1 - A0) / 12) - 0.12;
+      k.box(w, 3.3, 0.04, i === 2 || i === 3 ? 'glassDark' : 'glass', { at: [px, 1.82, pz], rot: [0, -a + Math.PI / 2, 0] });
+      if (i === 2 || i === 3) { k.box(0.05, 2.4, 0.06, 'alu', { at: [px, 1.37, pz], rot: [0, -a + Math.PI / 2, 0] }); for (const hx of [-0.12, 0.12]) k.box(0.03, 0.9, 0.05, 'alu', { at: [px + Math.sin(a) * hx * 0, 1.35, pz + 0], rot: [0, -a + Math.PI / 2, 0] }); } }
+    const [ix, iz] = P(-Math.PI / 2, RF - 1.4); k.box(3.2, 3.0, 0.1, 'winWarm', { at: [ix, 1.7, iz] });                     // lit foyer wall inside
+    k.box(4.4, 0.12, 2.2, 'alu', { at: [0, 3.65, -RF - 0.8], r: 0.03 });                                                 // canopy
+    for (const s of [-1, 1]) k.bar([s * 2.0, 3.6, -RF - 1.8], [s * 1.2, 4.6, -RF + 0.2], 0.05, 0.05, 'steel');              // canopy ties
+    k.box(3.6, 0.42, 0.06, 'copper', { at: [0, 4.15, -RF - 0.1] });                                                     // name band
+    for (const sx of [-1.4, 1.4]) { k.cyl(0.05, 1.0, 'alu', { at: [sx, 0.62, -RF - 1.6] }); k.cyl(0.14, 0.04, 'alu', { at: [sx, 0.14, -RF - 1.6] }); }
+    k.add(tube([[-1.4, 1.02, -RF - 1.6], [0, 0.85, -RF - 1.65], [1.4, 1.02, -RF - 1.6]], 0.03), 'copper', { occ: false });   // rope line: closed
+    k.box(0.7, 1.0, 0.06, 'sign', { at: [2.6, 1.1, -14.9], rot: [0.1, 0, 0] }); k.box(0.06, 0.6, 0.06, 'steel', { at: [2.6, 0.4, -14.9] });   // ticket / hours sign
+  }
+  // solid: the tower and its foyer front; the pool ring blocks except the bridge sector
+  cols.push({ circle: [x, z, 6.0] });
+  for (const [rr, cr] of [[10.75, 1.1], [13.25, 1.1]]) for (let i = 0; i < 44; i++) { const a = (i / 44) * Math.PI * 2; if (Math.abs(Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2))) < 2.6 / rr) continue; cols.push({ circle: [x + Math.cos(a) * rr, z + Math.sin(a) * rr, cr] }); }
+  for (const s of [-1, 1]) cols.push({ poly: [[x + s * 2.0 - 0.08, z - 14.6], [x + s * 2.0 + 0.08, z - 14.6], [x + s * 2.0 + 0.08, z - 9.4], [x + s * 2.0 - 0.08, z - 9.4]] });
+  for (const a of [0.42, Math.PI - 0.42, -0.6, Math.PI + 0.6]) cols.push({ circle: [x + Math.cos(a) * 7.6, z + Math.sin(a) * 7.6, 1.6] });   // the sails' feet
+  const y0 = 0.14;
   const SH = [[5.0, 0], [5.0, 4], [4.9, 12], [4.65, 22], [4.25, 30], [3.65, 38], [2.7, 47], [1.6, 56], [0.55, 65]];
   const R = (h) => { for (let i = 1; i < SH.length; i++) if (h <= SH[i][1]) { const a = SH[i - 1], b = SH[i], t = (h - a[1]) / (b[1] - a[1]); return a[0] + (b[0] - a[0]) * t; } return 0.5; };
   k.add(lathe([[0, 0], ...SH, [0, 65]], { seg: 8, phi0: Math.PI / 8, crease: 20 }), 'teal', { at: [0, y0, 0], occ: false });
@@ -189,7 +214,7 @@ function kiosk(k) {
   k.pop();
 }
 
-function eqJetty(k, lamps) {
+function eqJetty(k, lamps, cols) {
   // Elizabeth Quay ferry terminal (ARM Architecture + TCL; canopy design & construct Fabritecture / Maffeis, 2015):
   // a floating concrete jetty between piles, sheltered by a ~2,000 m² canopy "inspired by the ripples of water,
   // structured from blue fins and inflatable pillows made of ETFE" printed with Penny Bovell's artwork, on steel columns
@@ -239,15 +264,26 @@ function eqJetty(k, lamps) {
   for (let i = 2; i < n; i += 4) { const fz = -L / 2 + (L * i) / n; k.box(7.6, 0.05, 0.06, 'lantern', { at: [1.0, RY - 0.2, fz], occ: false }); }
   for (const zz of [-18, -6, 6, 18]) { const lp = new Vector3(0.5, 0, zz).applyAxisAngle(new Vector3(0, 1, 0), ry); lamps.push([x + lp.x, DY, z + lp.z]); }
   // passenger furniture on the jetty: glass wind screens, benches, Transperth stop sign, SmartRider validators
-  for (const zz of [-12, 4]) { k.box(0.05, 2.1, 6.0, 'glass', { at: [-2.2, DY + 1.05, zz], r: 0.01 }); k.box(0.06, 0.08, 6.0, 'steel', { at: [-2.2, DY + 2.12, zz] }); }
-  for (const zz of [-14, -10, 2, 6]) { k.box(0.5, 0.06, 1.8, 'timber', { at: [-1.75, DY + 0.46, zz] }); for (const d of [-0.7, 0.7]) k.box(0.4, 0.44, 0.06, 'steel', { at: [-1.75, DY + 0.22, zz + d], color: 0x585d62 }); }
-  k.box(0.08, 2.8, 0.08, 'steel', { at: [-1.9, DY + 1.4, -L / 2 + 2], color: 0x585d62 }); k.box(0.06, 0.9, 0.9, 'sign', { at: [-1.9, DY + 2.5, -L / 2 + 2] });
-  for (const zz of [-L / 2 + 3.5, -L / 2 + 4.5]) k.box(0.22, 1.15, 0.16, 'alu', { at: [-1.0, DY + 0.58, zz], r: 0.03 });
-  k.pop();
-  // gangway from the quay down to the floating jetty (covered by the same canopy at its head)
-  k.push(x, 0, z, ry);
-  k.bar([-9.0, PROMENADE_Y + 0.05, -L / 2 + 3], [-2.4, DY + 0.05, -L / 2 + 3], 2.2, 0.14, 'alu');
-  for (const s of [-1, 1]) k.add(tube([[-9.0, PROMENADE_Y + 1.05, -L / 2 + 3 + s * 1.05], [-2.4, DY + 1.05, -L / 2 + 3 + s * 1.05]], 0.035), 'steel', { occ: false });
+  for (const zz of [9, 17]) { k.box(0.05, 2.1, 6.0, 'glass', { at: [-2.2, DY + 1.05, zz], r: 0.01 }); k.box(0.06, 0.08, 6.0, 'steel', { at: [-2.2, DY + 2.12, zz] }); }
+  for (const zz of [7, 11, 15, 19]) { k.box(0.5, 0.06, 1.8, 'timber', { at: [-1.75, DY + 0.46, zz] }); for (const d of [-0.7, 0.7]) k.box(0.4, 0.44, 0.06, 'steel', { at: [-1.75, DY + 0.22, zz + d], color: 0x585d62 }); }
+  k.box(0.08, 2.8, 0.08, 'steel', { at: [-1.9, DY + 1.4, 5], color: 0x585d62 }); k.box(0.06, 0.9, 0.9, 'sign', { at: [-1.9, DY + 2.5, 5] });
+  // fixed landing at promenade level (north end, off the quay) and the accessible ramp down the jetty axis to the
+  // floating pontoon (2.2 m → 0.76 m over 16 m), aluminium with handrails both sides; SmartRider validators at its head
+  const PY_ = PROMENADE_Y;
+  k.box(4.7, 0.5, 11, 'concrete', { at: [0, PY_ - 0.25, -18.5], r: 0.04 });
+  for (const zz of [-23, -18.5, -14]) for (const s of [-1, 1]) k.cyl(0.25, PY_ + 1.5, 'concrete', { at: [s * 1.9, (PY_ - 1.5) / 2 - 0.5, zz], seg: 10 });
+  k.bar([0, PY_ - 0.08, -13], [0, DY - 0.03, 3], 2.5, 0.16, 'alu', { r: 0.02 });
+  for (const s of [-1, 1]) {
+    k.add(tube([[s * 1.28, PY_ + 1.0, -13], [s * 1.28, DY + 1.0, 3]], 0.035), 'steel', { occ: false }); k.add(tube([[s * 1.28, PY_ + 0.5, -13], [s * 1.28, DY + 0.5, 3]], 0.025), 'steel', { occ: false });
+    k.bar([s * 1.28, PY_ + 0.08, -13], [s * 1.28, DY + 0.08, 3], 0.04, 0.16, 'alu');
+    for (let i = 0; i <= 8; i++) { const t = i / 8, yy = PY_ + (DY - PY_) * t; k.box(0.05, 1.0, 0.05, 'steel', { at: [s * 1.28, yy + 0.5, -13 + 16 * t] }); }
+    k.add(tube([[s * 2.3, PY_ + 1.0, -24], [s * 2.3, PY_ + 1.0, -13]], 0.035), 'steel', { occ: false });   // landing rails (river sides)
+    for (let zz = -24; zz <= -13; zz += 1.8) k.box(0.05, 1.0, 0.05, 'steel', { at: [s * 2.3, PY_ + 0.5, zz] });
+    const [a0, a1] = [new Vector3(s * 1.3, 0, -13), new Vector3(s * 1.3, 0, 3)].map((v) => v.applyAxisAngle(new Vector3(0, 1, 0), ry));
+    const nx = Math.cos(ry) * 0.08, nz = -Math.sin(ry) * 0.08;
+    cols.push({ poly: [[x + a0.x - nx, z + a0.z - nz], [x + a1.x - nx, z + a1.z - nz], [x + a1.x + nx, z + a1.z + nz], [x + a0.x + nx, z + a0.z + nz]] });
+  }
+  for (const s of [-1, 1]) k.box(0.22, 1.15, 0.16, 'alu', { at: [s * 0.9, PY_ + 0.58, -14.2], r: 0.03 });
   k.pop();
 }
 
@@ -732,7 +768,7 @@ function bhpSign() {
 export function create(G, { mats }) {
   const k = new Kit();
   const lamps = [], colliders = [], footprints = [];
-  bellTower(k); spanda(k, lamps, colliders); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k, lamps); barrackJetty(k);
+  bellTower(k, colliders); spanda(k, lamps, colliders); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k, lamps, colliders); barrackJetty(k);
   // Mends St precinct in its own meshes: culled by frustum and by distance on phones (1.3 km from the Quay)
   const km = new Kit(); footprints.push(mendsJetty(km, lamps, colliders)); connectSouth(km, colliders, lamps);
   narrows(k); oldMill(k); warMemorial(k); brookfieldCrown(k);

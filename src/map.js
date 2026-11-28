@@ -196,7 +196,10 @@ export const mendsBerth = () => mendsW(106, -7.2);   // ferry alongside the floa
 // walkable decks over the water (jetties / pontoons): [ax, az, bx, bz, halfWidth, deckY]
 export const DECKS = (() => {
   const [cx, cz] = PLACES.eqJetty, [dx, dz] = PLACES.eqJettyDir;
-  const D = [[cx - dx * 23, cz - dz * 23, cx + dx * 23, cz + dz * 23, 2.6, 0.76]];
+  // EQ ferry jetty: a fixed landing at promenade level off the quay (north end), an accessible ramp (1:11) down the
+  // jetty axis onto the floating pontoon, then the pontoon itself. First match wins, so the landing and ramp come first.
+  const L = (lz) => [cx - dx * lz, cz - dz * lz];   // jetty-local z (+z south, toward the river)
+  const D = [[...L(-24), ...L(-13), 2.35, PROMENADE_Y], [...L(-13), ...L(3), 1.25, PROMENADE_Y, 0.76], [cx - dx * 23, cz - dz * 23, cx + dx * 23, cz + dz * 23, 2.6, 0.76]];
   // Mends Street Jetty (see landmarks.js mendsJetty): level timber jetty at foreshore height, the 2023 ramp down to the
   // floating boarding platform. Segments in jetty coordinates (s out from the shore end, o east of the jetty line).
   for (const [s0, s1, o, hw, y0, y1] of MENDS_DECKS) { const [ax, az] = mendsW(s0, o), [bx, bz] = mendsW(s1, o); D.push([ax, az, bx, bz, hw, y0, y1]); }

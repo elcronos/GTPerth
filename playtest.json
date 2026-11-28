@@ -69,6 +69,48 @@
    "msg": "walking at the river edge does not drop the player into the water"
   },
   {
+   "eval": "(()=>{const P=__G.game.player;P.teleport(214,-40,0);return 1})()"
+  },
+  {
+   "move": [
+    0,
+    1
+   ],
+   "ms": 6000
+  },
+  {
+   "assert": "Math.hypot(__G.game.player.x-214,__G.game.player.z+24) > 5.5",
+   "msg": "the bell tower foyer doors are closed (no walking inside)"
+  },
+  {
+   "eval": "(()=>{const P=__G.game.player;P.teleport(200,-36,0.8);return 1})()"
+  },
+  {
+   "move": [
+    0,
+    1
+   ],
+   "ms": 5000
+  },
+  {
+   "assert": "!__G.game.player.swimming && Math.hypot(__G.game.player.x-214,__G.game.player.z+24) > 13",
+   "msg": "the bell tower pool ring is fenced off by its kerb"
+  },
+  {
+   "eval": "(()=>{const P=__G.game.player;P.teleport(17.6,-140,Math.atan2(-3,16));return 1})()"
+  },
+  {
+   "move": [
+    0,
+    1
+   ],
+   "ms": 7000
+  },
+  {
+   "assert": "!__G.game.player.swimming && __G.game.player.y > 0.6",
+   "msg": "walking down the EQ ferry ramp keeps you on the deck"
+  },
+  {
    "eval": "__G.game.teleport(14, -126)"
   },
   {
@@ -123,6 +165,18 @@
    "shot": "mission-passed"
   },
   {
+   "press": "interact",
+   "after": 1500
+  },
+  {
+   "waitFor": "!__G.game.player.vehicle",
+   "timeout": 20000
+  },
+  {
+   "assert": "!__G.game.player.vehicle && !__G.game.player.swimming && __G.game.player.y > 0.5",
+   "msg": "leaving the ferry at Mends Street ties it up and puts you on the jetty deck"
+  },
+  {
    "eval": "__G.game.debugLose()"
   },
   {
@@ -130,7 +184,7 @@
    "timeout": 30000
   },
   {
-   "assert": "__G.game.state.mode === 'dead'",
+   "assert": "__G.game.state.kind === 'wasted' && __G.game.state.deadStart > 0",
    "msg": "health 0 \u2192 WASTED (LOSE)"
   },
   {
