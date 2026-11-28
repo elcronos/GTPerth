@@ -7,7 +7,8 @@
 //  Old Mill (1835 tower mill)                             State War Memorial obelisk (Kings Park)
 import { CatmullRomCurve3, Vector3, CanvasTexture, SRGBColorSpace, Mesh, PlaneGeometry, MeshBasicMaterial } from 'three';
 import { Kit, lathe, tube, roundedBox, sweep, extrudeBevel } from '../../cookbook/geo/kit.js';
-import { BufferGeometry, Float32BufferAttribute, MeshStandardMaterial, Color } from 'three';
+import { BufferGeometry, Float32BufferAttribute, MeshStandardMaterial, Color, DataTexture, RepeatWrapping, LinearFilter, DoubleSide } from 'three';
+import { patch } from '../../cookbook/engine/patch.js';
 import { boxSweep, sailBlade } from './shapes.js';
 import { heightAt, isLand, PLACES, ISLAND, NARROWS, PROMENADE_Y, MENDS, mendsW } from '../../map.js';
 
@@ -414,35 +415,208 @@ function mendsJetty(k, lamps, cols) {
   // the building as a solid footprint (collision, minimap, keeps props out)
   return { name: 'Mister Walker', h: 9, pts: [W(-3, -1.3), W(18.5, -1.3), W(18.5, 12.2), W(-3, 12.2)] };
 }
-// Connect South numbat canopy: a faceted plate-aluminium numbat standing over the piazza, open underneath for shade
-function numbatCanopy(k, cols) {
-  const [x, z] = PLACES.numbat, y = heightAt(x, z);
-  k.push(x, y, z, -0.306);                      // long axis along the shore, nose toward the jetty foot
-  const body = [{ x: 7.0, y: 3.1, a: 1.7, b: 1.9 }, { x: 5.4, y: 3.2, a: 2.3, b: 2.6 }, { x: 3.0, y: 3.3, a: 2.7, b: 3.05 }, { x: 0.0, y: 3.3, a: 2.8, b: 3.15 },
-    { x: -3.0, y: 3.25, a: 2.75, b: 3.05 }, { x: -5.4, y: 3.15, a: 2.35, b: 2.7 }, { x: -7.2, y: 3.1, a: 1.6, b: 2.0 }];
-  k.add(shellGeo(body, -0.14, Math.PI + 0.14, 9, 0.12), 'numbat', { occ: false });
-  const head = [{ x: 5.4, y: 3.9, a: 1.55, b: 1.6 }, { x: 6.9, y: 3.95, a: 1.5, b: 1.5 }, { x: 8.2, y: 3.6, a: 1.0, b: 0.95 }, { x: 9.3, y: 3.25, a: 0.45, b: 0.42 }, { x: 10.0, y: 3.05, a: 0.12, b: 0.12 }];
-  k.add(shellGeo(head, 0, Math.PI * 2, 10), 'numbat', { occ: false });
-  const tail = [{ x: -6.2, y: 4.3, a: 0.8, b: 0.9 }, { x: -7.8, y: 4.75, a: 1.35, b: 1.25 }, { x: -9.6, y: 5.05, a: 1.6, b: 1.35 }, { x: -11.2, y: 5.2, a: 1.4, b: 1.15 }, { x: -12.4, y: 5.25, a: 0.8, b: 0.7 }, { x: -13.0, y: 5.25, a: 0.15, b: 0.15 }];
-  k.add(shellGeo(tail, 0, Math.PI * 2, 10), 'numbat', { occ: false });
-  // white back stripes across the rump (the numbat's banding), ears, eyes, dark eye-stripe
-  const at = (xx) => { for (let i = 0; i < body.length - 1; i++) { const p = body[i], q = body[i + 1]; if (xx <= p.x && xx >= q.x) { const t = (p.x - xx) / (p.x - q.x); return { x: xx, y: p.y + (q.y - p.y) * t, a: p.a + (q.a - p.a) * t, b: p.b + (q.b - p.b) * t }; } } return body[body.length - 1]; };
-  for (const sx of [-1.2, -2.4, -3.6, -4.8, -6.0]) { const c0 = at(sx + 0.25), c1 = at(sx - 0.25); for (const c of [c0, c1]) { c.a += 0.04; c.b += 0.04; } k.add(shellGeo([c0, c1], 0.45, Math.PI - 0.45, 6), 'white', { occ: false }); }
-  for (const sz of [-1, 1]) {
-    k.add(extrudeBevel([[-0.55, 0], [0.5, 0], [0.1, 1.25]], { depth: 0.1, bevel: 0.03 }), 'numbat', { at: [6.0, 5.2, sz * 0.95], rot: [0, sz * 0.35, sz * -0.3] });
-    k.cyl(0.32, 0.06, 'white', { at: [7.7, 4.15, sz * 1.1], rot: [Math.PI / 2, 0, 0], seg: 12, color: 0xd8cfc0 });      // pale eye ring
-    k.cyl(0.18, 0.1, 'granite', { at: [7.7, 4.15, sz * 1.15], rot: [Math.PI / 2, 0, 0], seg: 10 });
-    k.add(shellGeo([{ x: 9.4, y: 3.5, a: 0.05, b: 0.05 }, { x: 6.6, y: 4.2, a: 0.1, b: 0.1 }], 0, Math.PI * 2, 5), 'granite', { at: [0, 0, sz * 0.95], occ: false });
+// ---------------------------------------------------------------- Connect South canopies, Mindeerup piazza (Mends St)
+// Rebuilt from references:
+// - OSM footprints: way 1431651034 "Frillneck Lizard" (centre -225.2, 1340.0, head to the NE at the jetty foot) and way 1431651035
+//   "Numbat" (centre -237.3, 1358.0), set end to end along the piazza spine from the jetty to Mends St.
+// - City of South Perth: lizard 21 m long, 9.2 m wide, 9.7 m high, 9 t, facing the river to greet ferry passengers, four
+//   legs, the head cut with "intricate and extensive hole patterns"; numbat 23.5 m long, 6.5 m tall, 5.6 m wide, 6 t, lights
+//   up at night and watches over Mends St; numbat has a ribbed underbelly (Swan River ripples).
+// - Denmac (fabricator): 8 mm plate aluminium bent like origami, some plates perforated for transparency, aluminium ribbing
+//   underneath, painted in geometric patterns of bronze, yellow, orange, gold, red and stone.
+// - Mikaela Castledine: crocheted black meerkats on the piazza (a mob of five).
+// - Photo supplied by the player: yellow/orange folded lizard, a star frill of perforated yellow panels with orange-red
+//   folds, angled faceted legs, stone-white faceted rear, timber boardwalk under it.
+const CS = { Y: 0xf2b526, G: 0xd99a2c, O: 0xe56d1f, R: 0xb83b1d, B: 0x7a4b2a, S: 0xe6dfd2, K: 0x1d1915 };
+const v3 = (p) => new Vector3(p[0], p[1], p[2]);
+class Facets { // flat triangles grouped by material + colour; oriented away from a reference point when given
+  constructor() { this.g = new Map(); }
+  tri(a, b, c, col, ref, mat = 'csPaint') {
+    if (ref) { const A = v3(a), n = v3(b).sub(A).cross(v3(c).sub(A)), m = A.add(v3(b)).add(v3(c)).multiplyScalar(1 / 3).sub(v3(ref)); if (n.dot(m) < 0) [b, c] = [c, b]; }
+    const key = mat + '|' + col; if (!this.g.has(key)) this.g.set(key, []); this.g.get(key).push([a, b, c]);
   }
-  // four plate legs, splayed, on granite pads (the canopy's supports)
-  for (const lx of [4.2, -4.6]) for (const sz of [-1, 1]) { const c = at(lx), ey = c.y - c.b * Math.sin(0.14), ez = c.a * Math.cos(0.14) - 0.15;
-    k.bar([lx, ey + 0.4, sz * ez], [lx + (lx > 0 ? 0.5 : -0.5), 0.08, sz * (ez + 0.55)], 0.85, 0.22, 'numbat');
-    k.box(1.3, 0.16, 1.0, 'granite', { at: [lx + (lx > 0 ? 0.5 : -0.5), 0.08, sz * (ez + 0.55)], r: 0.03 });
-    const lp = new Vector3(lx + (lx > 0 ? 0.5 : -0.5), 0, sz * (ez + 0.55)).applyAxisAngle(new Vector3(0, 1, 0), -0.306); cols.push({ circle: [x + lp.x, z + lp.z, 0.5] });
+  quad(a, b, c, d, col, ref, mat) { this.tri(a, b, c, col, ref, mat); this.tri(a, c, d, col, ref, mat); }
+  emit(k) { for (const [key, F] of this.g) { const [mat, col] = key.split('|'); k.add(faceGeo(F), mat, { color: +col, occ: false }); } }
+}
+const secAt = (S, z) => { // interpolate a section list (z descending or ascending) at z
+  for (let i = 0; i < S.length - 1; i++) { const p = S[i], q = S[i + 1]; if ((z - p.z) * (z - q.z) <= 0) { const t = (z - p.z) / (q.z - p.z || 1), o = {}; for (const key of Object.keys(p)) o[key] = p[key] + (q[key] - p[key]) * t; return o; } }
+  return S[S.length - 1];
+};
+// Yoshimura-style folded shell through sections {z, y, a, b, x?}: every other ring is rotated half a step and pushed out by
+// `pop`, so the surface breaks into flat triangular facets like folded plate. Open shells span th0..th1 (0 = +x side, π/2 =
+// top); closed shells go all the way round. col(i, th, z, q) picks each facet's paint; mat(i, th, z, q) its material.
+function foldShell(F, S, { th0 = 0, th1 = Math.PI * 2, n = 10, closed = false, pop = 0.05, col, mat }) {
+  const s = (th1 - th0) / n, P = (c, th, k) => [(c.x || 0) + c.a * k * Math.cos(th), c.y + c.b * k * Math.sin(th), c.z];
+  const ring = (i) => { const c = S[i], odd = i % 2 === 1, k = odd ? 1 + pop : 1, out = [];
+    if (closed) for (let j = 0; j < n; j++) { const t = th0 + (j + (odd ? 0.5 : 0)) * s; out.push({ p: P(c, t, k), t }); }
+    else { if (odd) { out.push({ p: P(c, th0, 1), t: th0 }); for (let j = 0; j < n; j++) { const t = th0 + (j + 0.5) * s; out.push({ p: P(c, t, k), t }); } out.push({ p: P(c, th1, 1), t: th1 }); }
+      else for (let j = 0; j <= n; j++) { const t = th0 + j * s; out.push({ p: P(c, t, k), t }); } }
+    return out; };
+  for (let i = 0; i < S.length - 1; i++) {
+    const A = ring(i), B = ring(i + 1), c0 = S[i], c1 = S[i + 1], zm = (c0.z + c1.z) / 2;
+    const ref = [((c0.x || 0) + (c1.x || 0)) / 2, (c0.y + c1.y) / 2, zm];
+    let q = 0; const put = (a, b, c, t) => { F.tri(a.p, b.p, c.p, col(i, t, zm, q), ref, mat ? mat(i, t, zm, q) : undefined); q++; };
+    if (closed) {
+      const shiftB = (i + 1) % 2 === 1;   // the odd ring sits half a step ahead
+      for (let j = 0; j < n; j++) { const j1 = (j + 1) % n, tm = th0 + (j + 0.5) * s;
+        if (shiftB) { put(A[j], A[j1], B[j], tm); put(B[j], A[j1], B[j1], tm + s / 2); }
+        else { put(B[j], B[j1], A[j], tm); put(A[j], B[j1], A[j1], tm + s / 2); } }
+    } else {
+      let a = 0, b = 0;
+      while (a < A.length - 1 || b < B.length - 1) {
+        const advA = b >= B.length - 1 || (a < A.length - 1 && A[a + 1].t <= B[b + 1].t);
+        if (advA) { put(A[a], A[a + 1], B[b], (A[a].t + A[a + 1].t) / 2); a++; } else { put(A[a], B[b + 1], B[b], (B[b].t + B[b + 1].t) / 2); b++; }
+      }
+    }
   }
-  // benches in its shade
-  for (const bz of [-1.2, 1.2]) { k.box(4.2, 0.1, 0.5, 'timber', { at: [-0.5, 0.46, bz] }); for (const d of [-1.6, 1.6]) k.box(0.08, 0.42, 0.42, 'granite', { at: [-0.5 + d, 0.21, bz] }); }
+}
+// aluminium ribs under an open shell: flat plates following the section arc, `d` deep, every `step` metres
+function bellyRibs(F, S, z0, z1, step, th0, th1, d, col) {
+  for (let z = z0; z <= z1 + 1e-6; z += step) { const c = secAt(S, z), n = 8;
+    for (let j = 0; j < n; j++) { const t0 = th0 + ((th1 - th0) * j) / n, t1 = th0 + ((th1 - th0) * (j + 1)) / n, P = (t, k) => [(c.x || 0) + c.a * k * Math.cos(t), c.y + c.b * k * Math.sin(t), z];
+      const ki = 1 - d / Math.min(c.a, c.b); F.quad(P(t0, 0.985), P(t1, 0.985), P(t1, ki), P(t0, ki), col, null); } }
+}
+// close the end of an open shell with a low faceted cone (apex dz beyond the end section)
+function capShell(F, c, th0, th1, n, dz, col) { const ap = [c.x || 0, c.y + c.b * 0.25, c.z + dz], P = (t) => [(c.x || 0) + c.a * Math.cos(t), c.y + c.b * Math.sin(t), c.z];
+  for (let j = 0; j < n; j++) F.tri(P(th0 + ((th1 - th0) * j) / n), P(th0 + ((th1 - th0) * (j + 1)) / n), ap, col(j), [c.x || 0, c.y, c.z - dz]); }
+// folded-plate limb: a triangular prism along a polyline (ridge up), splayed toes on the ground at the end
+function limb(F, P, w, cols, hint, toes = 3) {
+  const T = P.map((p, i) => v3(P[Math.min(i + 1, P.length - 1)]).sub(v3(P[Math.max(i - 1, 0)])).normalize());
+  const H = v3(hint), secs = P.map((p, i) => { const t = T[i], side = H.clone().addScaledVector(t, -H.dot(t)).normalize(), up = new Vector3().crossVectors(t, side); if (up.y < 0) up.negate();
+    const c = v3(p), wi = w * (1 - 0.25 * (i / (P.length - 1)));
+    return [c.clone().addScaledVector(up, wi * 0.6), c.clone().addScaledVector(side, wi * 0.5).addScaledVector(up, -wi * 0.3), c.clone().addScaledVector(side, -wi * 0.5).addScaledVector(up, -wi * 0.3)].map((v) => [v.x, v.y, v.z]); });
+  for (let i = 0; i < P.length - 1; i++) { const ref = [(P[i][0] + P[i + 1][0]) / 2, (P[i][1] + P[i + 1][1]) / 2, (P[i][2] + P[i + 1][2]) / 2];
+    for (let f = 0; f < 3; f++) F.quad(secs[i][f], secs[i][(f + 1) % 3], secs[i + 1][(f + 1) % 3], secs[i + 1][f], cols[(i + f) % cols.length], ref); }
+  F.tri(...secs[0], cols[0], P[1]); const e = P[P.length - 1]; F.tri(...secs[P.length - 1], cols[1 % cols.length], P[P.length - 2]);
+  // toes: flat folded plates fanned forward from the foot
+  const fw = v3(P[P.length - 1]).sub(v3(P[P.length - 2])); fw.y = 0; if (fw.lengthSq() < 1e-4) fw.copy(H); fw.normalize();
+  for (let i = 0; i < toes; i++) { const a = (i - (toes - 1) / 2) * 0.55, d = fw.clone().applyAxisAngle(new Vector3(0, 1, 0), a), sd = new Vector3(-d.z, 0, d.x);
+    const base = [e[0], 0.02, e[2]], tip = [e[0] + d.x * w * 1.6, 0.02, e[2] + d.z * w * 1.6], k0 = [e[0] + sd.x * w * 0.22, 0.02, e[2] + sd.z * w * 0.22], k1 = [e[0] - sd.x * w * 0.22, 0.02, e[2] - sd.z * w * 0.22];
+    const ridge = [e[0] + d.x * w * 0.5, 0.22, e[2] + d.z * w * 0.5];
+    const inn = [e[0] + d.x * w * 0.6, 0.06, e[2] + d.z * w * 0.6];
+    F.tri(k0, ridge, tip, cols[(i + 1) % cols.length], inn); F.tri(k1, tip, ridge, cols[i % cols.length], inn); F.tri(k0, k1, ridge, cols[(i + 2) % cols.length], inn); }
+}
+const toWorld = (x, z, yaw, lx, lz) => { const p = new Vector3(lx, 0, lz).applyAxisAngle(new Vector3(0, 1, 0), yaw); return [x + p.x, z + p.z]; };
+
+function frilledLizard(k, cols, lamps) {
+  const [x, z] = PLACES.lizard, y = heightAt(x, z), yaw = Math.atan2(0.676, -0.737);   // head to the NE, at the river
+  k.push(x, y, z, yaw);
+  const F = new Facets(), { Y, G, O, R, B, S } = CS;
+  // body: an open folded roof on four legs (you walk underneath); the stone-white rump, gold-yellow back, orange-red flanks
+  const body = [{ z: -5.0, y: 3.3, a: 1.9, b: 1.5 }, { z: -3.6, y: 3.5, a: 2.6, b: 1.9 }, { z: -2.0, y: 3.7, a: 3.0, b: 2.1 }, { z: -0.4, y: 3.85, a: 3.15, b: 2.2 },
+    { z: 1.2, y: 4.0, a: 3.0, b: 2.15 }, { z: 2.6, y: 4.3, a: 2.5, b: 1.95 }, { z: 3.8, y: 4.8, a: 1.75, b: 1.6 }];
+  const bodyCol = (i, th, zz, q) => { const up = Math.sin(th), rear = zz < -2.2;
+    if (rear) return up > 0.55 ? ((i + q) % 3 === 0 ? G : S) : (q % 4 === 1 ? Y : S);
+    if (up > 0.8) return (i + q) % 2 ? Y : G;
+    if (up > 0.3) return [O, Y, R, O][(i * 3 + q) % 4];
+    return (i + q) % 2 ? R : B; };
+  foldShell(F, body, { th0: -0.32, th1: Math.PI + 0.32, n: 10, pop: 0.07, col: bodyCol });
+  bellyRibs(F, body, -4.4, 3.2, 0.8, -0.2, Math.PI + 0.2, 0.32, B);
+  capShell(F, body[0], -0.32, Math.PI + 0.32, 8, -0.7, (j) => (j % 2 ? S : G)); capShell(F, body[body.length - 1], -0.32, Math.PI + 0.32, 8, 0.6, (j) => (j % 2 ? O : Y));
+  // neck + head, reared up toward the river: a flat wedge skull and a dropped lower jaw (the display gape), the crown plates
+  // cut with hole patterns
+  const head = [{ z: 3.4, y: 5.0, a: 1.3, b: 1.15 }, { z: 4.8, y: 5.45, a: 1.22, b: 0.95 }, { z: 6.1, y: 5.8, a: 1.15, b: 0.72 }, { z: 7.4, y: 5.78, a: 0.88, b: 0.5 },
+    { z: 8.5, y: 5.62, a: 0.5, b: 0.3 }, { z: 9.3, y: 5.5, a: 0.12, b: 0.08 }, { z: 9.6, y: 5.47, a: 0.02, b: 0.02 }];
+  foldShell(F, head, { n: 8, closed: true, pop: 0.07,
+    col: (i, th, zz, q) => { const up = Math.sin(th); return up > 0.5 ? ((i + q) % 2 ? Y : G) : up > -0.3 ? ((i + q) % 3 ? O : Y) : R; },
+    mat: (i, th, zz, q) => (Math.sin(th) > 0.35 && i >= 1 && i <= 3 && (i + q) % 2 === 0 ? 'csPerf' : 'csPaint') });
+  const jaw = [{ z: 5.5, y: 5.05, a: 1.0, b: 0.38 }, { z: 6.7, y: 4.62, a: 0.82, b: 0.3 }, { z: 7.8, y: 4.2, a: 0.5, b: 0.2 }, { z: 8.6, y: 3.92, a: 0.1, b: 0.07 }, { z: 8.8, y: 3.88, a: 0.02, b: 0.02 }];
+  foldShell(F, jaw, { n: 8, closed: true, pop: 0.06, col: (i, th, zz, q) => (Math.sin(th) > 0.2 ? (q % 2 ? R : O) : (q % 2 ? S : G)) });
+  { const M = 0xd8574a;   // the gape: pink-red mouth plates between the jaws
+    for (const sx of [-1, 1]) F.quad([sx * 0.95, 5.3, 5.6], [sx * 0.62, 5.38, 8.2], [sx * 0.42, 4.3, 7.6], [sx * 0.8, 4.95, 5.7], M, [0, 5, 6.5]);
+    F.quad([-0.62, 5.38, 8.2], [0.62, 5.38, 8.2], [0.95, 5.3, 5.6], [-0.95, 5.3, 5.6], M, [0, 6, 6.8]); F.quad([-0.42, 4.3, 7.6], [-0.8, 4.95, 5.7], [0.8, 4.95, 5.7], [0.42, 4.3, 7.6], M, [0, 3.5, 6.8]); }
+  for (const sx of [-1, 1]) { const ex = sx * 1.0, ey = 6.02, ez = 6.3;   // eyes: dark faceted studs
+    F.tri([ex, ey + 0.22, ez - 0.25], [ex + sx * 0.18, ey, ez], [ex, ey - 0.2, ez - 0.25], CS.K, [0, ey, ez - 0.2]);
+    F.tri([ex, ey + 0.22, ez - 0.25], [ex, ey - 0.2, ez - 0.25], [ex, ey, ez + 0.3], CS.K, [-sx, ey, ez]);
+    F.tri([ex + sx * 0.18, ey, ez], [ex, ey, ez + 0.3], [ex, ey - 0.2, ez - 0.25], CS.K, [0, ey, ez - 0.2]); }
+  // the frill: a pleated star of 18 panels around the neck, flaring forward; perforated yellow panels alternating with
+  // solid orange-red folds, on bronze spokes. Top at 9.7 m, 9.2 m across.
+  const FZ = 4.55, FY = 5.35, N = 18, I = [], T = [];
+  for (let j = 0; j <= N; j++) { const ph = (j / N) * Math.PI * 2 + Math.PI / 2, long = j % 2 === 0, sn = Math.sin(ph), cs = Math.cos(ph);
+    let Rr = (long ? 4.35 : 3.35) * (1 + 0.04 * Math.abs(cs)); if (sn < 0) Rr = Math.min(Rr, (FY - (long ? 1.7 : 2.3)) / -sn);
+    I.push([cs * 1.28, FY + sn * 1.05, FZ - 0.25]); T.push([cs * Rr, FY + sn * Rr, FZ + (long ? 0.95 : 0.35)]); }
+  for (let j = 0; j < N; j++) { const ref = [(I[j][0] + I[j + 1][0]) / 2, (I[j][1] + I[j + 1][1]) / 2, FZ - 3];   // orient toward the river
+    if (j % 2 === 0) F.quad(I[j], T[j], T[j + 1], I[j + 1], j % 4 === 0 ? Y : G, ref, 'csPerf');
+    else F.quad(I[j], T[j], T[j + 1], I[j + 1], j % 4 === 1 ? O : R, ref); }
+  for (let j = 0; j < N; j++) { k.bar(I[j], T[j], 0.12, 0.12, 'csPaint', { color: CS.B, occ: false }); k.bar(T[j], T[j + 1], 0.08, 0.08, 'csPaint', { color: CS.R, occ: false }); }
+  // legs: sprawled and bent like a lizard's (shoulder out and up to the elbow, then down to splayed toes)
+  const LEGS = [[[2.3, 3.9, 1.6], [4.3, 4.5, 2.4], [4.7, 0.7, 3.3], [4.9, 0.0, 3.9]], [[1.8, 3.4, -3.8], [4.1, 4.2, -4.9], [4.5, 0.7, -6.0], [4.7, 0.0, -6.7]]];
+  for (const sx of [-1, 1]) for (const [li, L] of LEGS.entries()) {
+    const P = L.map(([lx, ly, lz]) => [sx * lx, ly, lz]);
+    limb(F, P, li === 0 ? 0.95 : 1.05, li === 0 ? [O, Y, R] : [S, G, O], [0, 0, 1]);
+    const [wx, wz] = toWorld(x, z, yaw, P[3][0], P[3][2]); cols.push({ circle: [wx, wz, 0.55] });
+    const [mx, mz] = toWorld(x, z, yaw, P[2][0], P[2][2]); cols.push({ circle: [mx, mz, 0.45] });
+  }
+  // tail: tapering to the ground and curling toward the numbat
+  const tail = [{ z: -4.4, y: 3.2, a: 1.4, b: 1.15, x: 0 }, { z: -5.6, y: 2.1, a: 1.15, b: 0.9, x: -0.1 }, { z: -6.9, y: 1.05, a: 0.9, b: 0.62, x: -0.25 },
+    { z: -8.3, y: 0.55, a: 0.65, b: 0.4, x: -0.5 }, { z: -9.7, y: 0.32, a: 0.4, b: 0.26, x: -0.75 }, { z: -10.9, y: 0.18, a: 0.14, b: 0.1, x: -0.9 }, { z: -11.4, y: 0.15, a: 0.02, b: 0.02, x: -0.95 }];
+  foldShell(F, tail, { n: 8, closed: true, pop: 0.06, col: (i, th, zz, q) => (Math.sin(th) > 0.2 ? [S, G, S, O][(i + q) % 4] : B) });
+  for (const t of [-5.4, -6.4, -7.4, -8.4, -9.4, -10.4]) { const c = secAt(tail, t); if (c.y - c.b < 1.9) { const [wx, wz] = toWorld(x, z, yaw, c.x, c.z); cols.push({ circle: [wx, wz, c.a + 0.15] }); } }
+  F.emit(k);
+  // timber boardwalk along the spine under the canopy + uplights in its belly
+  for (let i = 0; i < 4; i++) k.box(5.6, 0.1, 4.6, 'timberDeck', { at: [0, -0.02, -6.6 + i * 4.75], color: [0xffffff, 0xe8dfd3, 0xf2eadf, 0xdcd1c3][i], r: 0.01, seg: 1, step: 20 });
+  for (const lz of [-3, 1.5]) { const [wx, wz] = toWorld(x, z, yaw, 0, lz); lamps.push([wx, y + 2.4, wz]); }
   k.pop();
+  return { x, z, yaw };
+}
+
+function numbatCanopy(k, cols, lamps) {
+  const [x, z] = PLACES.numbat, y = heightAt(x, z), yaw = Math.atan2(-0.354, 0.935);   // head toward Mends St, tail to the lizard
+  k.push(x, y, z, yaw);
+  const F = new Facets(), { Y, G, O, R, B, S, K } = CS;
+  const body = [{ z: -7.2, y: 3.25, a: 1.8, b: 1.8 }, { z: -5.6, y: 3.5, a: 2.5, b: 2.45 }, { z: -3.6, y: 3.62, a: 2.75, b: 2.65 }, { z: -1.6, y: 3.65, a: 2.8, b: 2.68 },
+    { z: 0.4, y: 3.6, a: 2.75, b: 2.6 }, { z: 2.4, y: 3.5, a: 2.55, b: 2.4 }, { z: 4.2, y: 3.35, a: 2.1, b: 2.05 }, { z: 5.6, y: 3.25, a: 1.55, b: 1.6 }];
+  // banded rump: stone stripes across the back toward the tail; rust-red, bronze and orange folds elsewhere
+  const stripe = (zz) => zz < -0.6 && Math.floor((-zz - 0.6) / 1.15) % 2 === 0;
+  foldShell(F, body, { th0: -0.36, th1: Math.PI + 0.36, n: 10, pop: 0.06,
+    col: (i, th, zz, q) => { const up = Math.sin(th); if (up > 0.2 && stripe(zz)) return q % 5 === 2 ? G : S;
+      return up > 0.75 ? ((i + q) % 2 ? R : O) : up > 0.25 ? [O, R, B, R][(i * 3 + q) % 4] : (q % 2 ? B : R); } });
+  bellyRibs(F, body, -6.6, 5.0, 0.55, -0.25, Math.PI + 0.25, 0.42, CS.G);   // the ribbed underbelly (river ripples)
+  capShell(F, body[0], -0.36, Math.PI + 0.36, 8, -0.7, (j) => (j % 2 ? B : S)); capShell(F, body[body.length - 1], -0.36, Math.PI + 0.36, 8, 0.6, (j) => (j % 2 ? R : O));
+  const head = [{ z: 5.1, y: 3.45, a: 1.45, b: 1.5 }, { z: 6.6, y: 3.35, a: 1.35, b: 1.32 }, { z: 8.0, y: 2.95, a: 0.92, b: 0.86 }, { z: 9.3, y: 2.55, a: 0.48, b: 0.42 },
+    { z: 10.3, y: 2.3, a: 0.14, b: 0.13 }, { z: 10.7, y: 2.25, a: 0.02, b: 0.02 }];
+  foldShell(F, head, { n: 8, closed: true, pop: 0.06,
+    col: (i, th, zz, q) => { const up = Math.sin(th); if (Math.abs(up) < 0.32 && i >= 1 && i <= 3) return K;   // the dark eye stripe
+      return up > 0.3 ? ((i + q) % 2 ? O : R) : up > -0.3 ? O : S; } });
+  for (const sx of [-1, 1]) { const b0 = [sx * 0.55, 4.45, 5.6], b1 = [sx * 1.15, 4.3, 6.3], tip = [sx * 1.05, 5.45, 5.75];   // ears
+    F.tri(b0, b1, tip, O, [0, 4, 6.5]); F.tri(b0, tip, b1, R, [0, 4, 5]); }
+  // the bushy tail held up behind
+  const tail = [{ z: -6.4, y: 4.0, a: 0.7, b: 0.8 }, { z: -7.6, y: 4.6, a: 0.92, b: 1.05 }, { z: -8.8, y: 5.2, a: 1.0, b: 1.1 }, { z: -9.9, y: 5.5, a: 0.9, b: 0.95 },
+    { z: -10.8, y: 5.6, a: 0.6, b: 0.62 }, { z: -11.5, y: 5.6, a: 0.05, b: 0.05 }];
+  foldShell(F, tail, { n: 10, closed: true, pop: 0.12, col: (i, th, zz, q) => [B, G, S, B, O][(i * 2 + q) % 5], mat: (i, th, zz, q) => ((i + q) % 4 === 0 && Math.sin(th) > 0 ? 'csPerf' : 'csPaint') });
+  // four legs, mostly upright, folded plate
+  const LEGS = [[[2.1, 2.7, 3.4], [2.75, 1.4, 3.9], [2.95, 0, 4.5]], [[2.2, 2.7, -4.6], [2.85, 1.35, -5.3], [3.05, 0, -5.95]]];
+  for (const sx of [-1, 1]) for (const L of LEGS) {
+    const P = L.map(([lx, ly, lz]) => [sx * lx, ly, lz]);
+    limb(F, P, 0.9, [R, B, O], [0, 0, 1], 4);
+    const [wx, wz] = toWorld(x, z, yaw, P[2][0], P[2][2]); cols.push({ circle: [wx, wz, 0.55] });
+  }
+  F.emit(k);
+  for (let i = 0; i < 4; i++) k.box(5.0, 0.1, 4.4, 'timberDeck', { at: [0, -0.02, -6.4 + i * 4.5], color: [0xf2eadf, 0xe0d6c8, 0xffffff, 0xe8dfd3][i], r: 0.01, seg: 1, step: 20 });
+  for (const lz of [-4, 0.5, 4.4]) { const [wx, wz] = toWorld(x, z, yaw, 0, lz); lamps.push([wx, y + 2.6, wz]); }   // lit at night
+  k.pop();
+}
+
+// Mikaela Castledine's meerkats: crocheted black yarn over a frame, standing up on watch
+function meerkat(k, x, z, yaw, s, look) {
+  k.push(x, heightAt(x, z), z, yaw, 0, 0, s);
+  k.add(lathe([[0, 0], [0.09, 0.0], [0.15, 0.07], [0.17, 0.26], [0.155, 0.48], [0.12, 0.64], [0.085, 0.74], [0.07, 0.8], [0, 0.82]], { seg: 11 }), 'meerkat');
+  k.push(0, 0.86, 0.01, look, 0.12);
+  k.add(lathe([[0, -0.085], [0.06, -0.07], [0.088, -0.01], [0.075, 0.05], [0.04, 0.085], [0, 0.09]], { seg: 10 }), 'meerkat');
+  k.add(lathe([[0.055, 0], [0.035, 0.06], [0.012, 0.13], [0, 0.135]], { seg: 8 }), 'meerkat', { at: [0, -0.02, 0.05], rot: [Math.PI / 2, 0, 0] });
+  for (const sx of [-1, 1]) k.box(0.05, 0.04, 0.025, 'meerkat', { at: [sx * 0.075, 0.04, -0.02], r: 0.008 });
+  for (const sx of [-1, 1]) k.cyl(0.016, 0.01, 'granite', { at: [sx * 0.045, 0.02, 0.07], rot: [Math.PI / 2, 0, 0], seg: 6, color: 0x707070 });   // glinting eyes
+  k.pop();
+  for (const sx of [-1, 1]) { k.bar([sx * 0.11, 0.6, 0.05], [sx * 0.08, 0.47, 0.13], 0.05, 0.045, 'meerkat', { r: 0.015 }); k.box(0.07, 0.04, 0.12, 'meerkat', { at: [sx * 0.07, 0.02, 0.05], r: 0.015 }); }
+  k.bar([0, 0.1, -0.12], [0, 0.03, -0.46], 0.06, 0.05, 'meerkat', { r: 0.02 });   // tail as the third leg of the stand
+  k.pop();
+}
+
+function connectSouth(k, cols, lamps) {
+  const L = frilledLizard(k, cols, lamps); numbatCanopy(k, cols, lamps);
+  // the mob of five on the boardwalk beside the lizard, all on watch toward the river
+  const MOB = [[-5.6, -1.6, 1.42, 0.2], [-6.3, -0.6, 1.2, -0.3], [-5.0, -0.4, 1.0, 0.5], [-6.6, -2.3, 0.85, 0.1], [-5.9, -3.1, 0.78, -0.6]];
+  for (const [lx, lz, s, look] of MOB) { const [wx, wz] = toWorld(L.x, L.z, L.yaw, lx, lz); meerkat(k, wx, wz, L.yaw + look * 0.4, s, look); cols.push({ circle: [wx, wz, 0.18 * s] }); }
 }
 
 function narrows(k) {
@@ -517,7 +691,7 @@ export function create(G, { mats }) {
   const lamps = [], colliders = [], footprints = [];
   bellTower(k); spanda(k); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k); barrackJetty(k);
   // Mends St precinct in its own meshes: culled by frustum and by distance on phones (1.3 km from the Quay)
-  const km = new Kit(); footprints.push(mendsJetty(km, lamps, colliders)); numbatCanopy(km, colliders);
+  const km = new Kit(); footprints.push(mendsJetty(km, lamps, colliders)); connectSouth(km, colliders, lamps);
   narrows(k); oldMill(k); warMemorial(k); brookfieldCrown(k);
   // short bridge: island → Barrack Square
   k.bar([100, PROMENADE_Y + 0.25, 3], [127, PROMENADE_Y + 0.25, 6], 4.5, 0.5, 'timberDeck');
@@ -529,7 +703,19 @@ export function create(G, { mats }) {
   (G.nightMats ||= []).push({ mat: lantern, day: 0.2, night: 9 }, { mat: winWarm, day: 0, night: 0.9 });
   const group = k.build({ ...mats, lantern, winWarm });
   km.bakeAO({ radius: 0.6, samples: 8, strength: 0.6, ground: 2.8 });
-  const mends = km.build({ ...mats, lantern, winWarm }); mends.name = 'mends-precinct'; group.add(mends);
+  // Connect South canopies: satin-painted folded plate (Dulux Weathermax), perforated plate (alpha-tested hole grid, the holes
+  // also cut the shadow), black crocheted yarn; the canopies are floodlit from below at night
+  // hole pattern: a 0.5 m tile of big 13 cm holes on a 25 cm grid with small 5 cm holes between (read from 30 m away);
+  // no mipmaps, so distant plates keep their holes instead of averaging to solid
+  const holes = (() => { const N = 128, d = new Uint8Array(N * N * 4);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const u = ((i + 0.5) / N) * 2, v = ((j + 0.5) / N) * 2, du = u - Math.floor(u) - 0.5, dv = v - Math.floor(v) - 0.5,
+      eu = u + 0.5 - Math.floor(u + 0.5) - 0.5, ev = v + 0.5 - Math.floor(v + 0.5) - 0.5, o = Math.hypot(du, dv) < 0.27 || Math.hypot(eu, ev) < 0.1 ? 0 : 255, q = (i + j * N) * 4; d[q] = d[q + 1] = d[q + 2] = o; d[q + 3] = 255; }
+    const t = new DataTexture(d, N, N); t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(2, 2); t.magFilter = LinearFilter; t.minFilter = LinearFilter; t.generateMipmaps = false; t.needsUpdate = true; return t; })();
+  const glow = (m) => patch(m, 'cs-floodlit', (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * vec3(1.0, 0.84, 0.66) * 0.32 * uNight;'); });
+  const csPaint = glow(new MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.42, metalness: 0.05, side: DoubleSide }));
+  const csPerf = glow(new MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.45, metalness: 0.05, side: DoubleSide, alphaMap: holes, alphaTest: 0.5 }));
+  const meerkat = new MeshStandardMaterial({ color: 0x2a2724, vertexColors: true, roughness: 0.98, metalness: 0 });
+  const mends = km.build({ ...mats, lantern, winWarm, csPaint, csPerf, meerkat }); mends.name = 'mends-precinct'; group.add(mends);
   for (const s of bhpSign()) group.add(s);
   return { group, bridge, lamps, colliders, footprints, mends };
 }

@@ -120,6 +120,14 @@ export function createHUD(G, { col, footprints }) {
   H.hideBig = () => { B.big.className = 'big'; bigT = 0; };
   let dmgT = 0; H.hit = () => { dmgT = 0.35; B.damage.classList.add('hit'); };
   H.letterbox = (on) => { B.letterbox.classList.toggle('on', on); $('#hud').classList.toggle('cine', on); };
+  // melee lock-on marker: a chevron over the target's head with a health pip bar
+  const lock = document.createElement('div'); lock.className = 'lockon'; lock.innerHTML = '<i></i><b><u></u></b>'; (B.prompt3d.parentElement || document.body).appendChild(lock);
+  H.lockOn = (pos, hp) => {
+    if (!pos) { lock.classList.remove('on'); return; }
+    pv.set(pos.x, pos.y, pos.z).project(G.camera); if (pv.z > 1) { lock.classList.remove('on'); return; }
+    lock.style.left = ((pv.x * 0.5 + 0.5) * innerWidth) + 'px'; lock.style.top = ((-pv.y * 0.5 + 0.5) * innerHeight) + 'px';
+    lock.lastChild.firstChild.style.width = Math.max(0, Math.min(100, hp)) + '%'; lock.classList.add('on');
+  };
   H.addCash = (n) => { H.cash += n; H.calmT = 0; B.money.classList.add('bump'); setTimeout(() => B.money.classList.remove('bump'), 400); };
   H.setHull = (v) => { if (v == null) { B.hullbar.hidden = true; return; } B.hullbar.hidden = false; B.hull.style.width = Math.max(0, v) + '%'; B.hullbar.classList.toggle('low', v < 30); };
   // ---------------------------------------------------------------- per-frame

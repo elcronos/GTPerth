@@ -1,6 +1,6 @@
 // Game orchestration: title flyover → playing ⇄ paused; WASTED / BUSTED / MISSION PASSED sequences; vehicle
 // entry/exit; crime → wanted; harness/debug hooks (__G.game) and ?show=chase for the action pose.
-import { CatmullRomCurve3, Vector3 } from 'three';
+import { CatmullRomCurve3, Vector3, BoxGeometry, MeshStandardMaterial, Mesh, Color } from 'three';
 import { PATH, PLAYER } from '../../contracts.js';
 import { PLACES, isLand, ROADS, mendsBerth } from '../../map.js';
 import { loadAvatars, MALE } from './avatars.js';
@@ -8,6 +8,7 @@ import { loadModels } from './models.js';
 import { createCollision } from './collide.js';
 import { createPlayer, groundAt } from './player.js';
 import { createParkedRows } from './parked.js';
+import { createJobs } from './jobs.js';
 import { Character } from './character.js';
 import { makeCarMaterials, CAR_COLORS } from './vehicles.js';
 import { boatMaterials, buildFerry, buildPoliceBoat, Boat } from './boats.js';
@@ -55,12 +56,13 @@ export async function create(G, { input, world, fx, quality }) {
   const events = {};
   const wanted = createPolice(G, { avatars, M, BM, col, sea: world.sea, traffic, peds, fx, getPlayer: () => player, events });
   const mission = createMission(G, { hud, getPlayer: () => player, ferry, wanted, events });
+  const jobs = createJobs(G, { hud, getPlayer: () => player, traffic, peds, wanted, events });
   G.warmExtras = [...avatars.warm];
 
   // ---------------------------------------------------------------- events
   events.onStars = (n) => { if (n > 0) audio.play('alarm', { gain: 0 }); };
   events.onShot = (pos, d) => audio.play('pistol', { pos: [pos.x, pos.y, pos.z], send: 0.4, gain: 0.8 });
-  events.onPlayerHit = (dmg) => { if (state.mode !== 'playing') return; player.health -= dmg; hud.hit(); audio.play('impact_flesh', { gain: 0.6 }); };
+  events.onPlayerHit = (dmg) => { if (state.mode !== 'playing') return; player.health -= dmg; state.sinceHit = 0; hud.hit(); audio.play('impact_flesh', { gain: 0.6 }); };
   events.onRam = (j) => { hud.hit(); audio.play('impact_metal', { pos: [ferry.x, 1, ferry.z], gain: Math.min(1, j / 6) }); G.emit('fx:shake', Math.min(1, j / 8)); };
   events.onBusted = () => fail('busted');
   events.onEvaded = () => hud.message('POLICE SCANNER', 'All units, suspect lost. Resume patrol.', '📻');
@@ -81,7 +83,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (G.post) { state.savedSat = G.post.params.sat; }
   }
   function respawn() {
-    hud.hideBig();
+    hud.hideBig(); jobs.cancel();
     if (player.vehicle) exitVehicle(true);
     wanted.reset();
     player.health = 100; player.stamina = 1; player.dead = false; player.swimming = false; player.control = true;
@@ -115,6 +117,7 @@ export async function create(G, { input, world, fx, quality }) {
       v.ai = null;
       if (wanted.stars === 0 && Math.random() < 0.35) wanted.add(1, 'jacked');
     }
+    if (v.police) { const i = wanted.cars.indexOf(v); if (i >= 0) wanted.cars.splice(i, 1); v.police = false; v.unit = null; v.siren = false; wanted.setMin(2); }
     v.driver = player; v.parked = false;
     audio.setVehicle(v);
     if (v === ferry) mission.onBoardFerry();
@@ -150,6 +153,13 @@ export async function create(G, { input, world, fx, quality }) {
   let crimes = 0;
   const copsNear = (x, z, r = 60) => wanted.cars.some((c) => Math.hypot(c.x - x, c.z - z) < r) || wanted.cops.some((c) => Math.hypot(c.ch.position.x - x, c.ch.position.z - z) < r);
   peds.onHit = (p, how, sp) => {
+    if (how === 'punch' || how === 'shove') {   // assault: one crime per victim; caps at one star unless police see it
+      const ko = p.ch.state !== 'ok';
+      if (p.assaulted && !ko) return; if (p.assaulted === 'ko') return; p.assaulted = ko ? 'ko' : true;
+      if (copsNear(p.ch.position.x, p.ch.position.z)) wanted.add(1, how);
+      else if (wanted.stars === 0 && (ko || Math.random() < 0.4)) wanted.setMin(1);
+      return;
+    }
     crimes++;
     audio.play(how === 'vehicle' ? 'impact_flesh' : 'impact_flesh', { pos: [p.ch.position.x, 1, p.ch.position.z], gain: how === 'vehicle' ? 1 : 0.6 });
     if (how === 'vehicle' && crimes === 1) hud.goLive(14);
@@ -157,9 +167,32 @@ export async function create(G, { input, world, fx, quality }) {
     else if (crimes % 2 === 0 || Math.random() < 0.35) wanted.add(1, how);
   };
   traffic.honk = (c) => audio.horn();
-  player.onPunch = () => { const h = peds.punchAt(player.x, player.z, player.yaw); audio.play('whoosh', { gain: 0.3 }); };
+  // melee feel: whoosh on the swing; on contact a hit-stop, a camera kick and a meaty impact
+  player.findTarget = (x, z, yaw, r, ang) => peds.findTarget(x, z, yaw, r, ang);
+  player.bodies = () => ({ peds: peds.list, cars: traffic.cars });
+  player.onShove = (q, fx_, fz_, sp) => { peds.shoved(q, fx_, fz_, sp); };
+  peds.onShoved = (q, down) => { audio.play('impact_flesh', { pos: [q.ch.position.x, 1.2, q.ch.position.z], gain: down ? 0.6 : 0.25, rate: 1.3 }); };
+  player.onPunch = (what, kind, t) => {
+    if (what === 'swing') { audio.play('whoosh', { gain: kind === 'hook' ? 0.42 : 0.3, rate: kind === 'jab' ? 1.25 : 1 }); return; }
+    const fx_ = Math.sin(player.yaw), fz_ = Math.cos(player.yaw);
+    peds.punched(t, fx_, fz_, kind);
+    const ko = t.ch.state !== 'ok';
+    state.hitstop = ko ? 0.13 : kind === 'hook' ? 0.1 : 0.07; G.emit('fx:shake', ko ? 0.6 : kind === 'hook' ? 0.45 : 0.25);
+    if (ko) { state.slowmo = 0.45; dropCash(t.ch.position.x + fx_ * 0.6, t.ch.position.z + fz_ * 0.6); }   // knockout: slow-mo beat, wallet drop
+    audio.play('impact_flesh', { pos: [t.ch.position.x, 1.5, t.ch.position.z], gain: kind === 'hook' ? 1 : 0.75, rate: kind === 'jab' ? 1.2 : 0.95 });
+  };
+  peds.onPlayerPunched = (p, dx, dz) => {
+    if (state.mode !== 'playing') return;
+    events.onPlayerHit(7); player.ch.flinch(dx, dz); G.emit('fx:shake', 0.3); state.hitstop = 0.05;
+    player.combat.guardT = 2.6;
+  };
   player.onSplash = () => audio.play('impact_concrete', { gain: 0.3, rate: 0.5 });
+  player.onStep = (v, deck) => audio.play(deck ? 'step_metal' : 'step_concrete', { gain: 0.07 + 0.05 * Math.min(1, v / 6), rate: (deck ? 0.62 : 0.95) + Math.random() * 0.12 });
+  player.onLand = (vy = 4) => audio.play('step_concrete', { gain: Math.min(0.5, 0.12 + vy * 0.04), rate: 0.75 });
 
+  const cash = [], _lk = new Vector3(), _up35 = new Vector3(0, 0.38, 0);
+  const cashGeo = new BoxGeometry(0.16, 0.02, 0.08), cashMat = new MeshStandardMaterial({ color: 0x3fae5a, emissive: new Color(0.1, 0.5, 0.15), emissiveIntensity: 0.6, roughness: 0.6 });
+  function dropCash(x, z) { const m = new Mesh(cashGeo, cashMat); const y = groundAt(x, z).y; m.position.set(x, y + 0.25, z); m.scale.setScalar(1.6); G.scene.add(m); cash.push({ m, y, t: 0, v: 20 + Math.round(Math.random() * 10) * 10 }); }
   // ---------------------------------------------------------------- UI state (title / pause)
   const ui = document.getElementById('ui'), title = document.getElementById('title'), pause = document.getElementById('pause'), hudEl = document.getElementById('hud');
   const setMode = (m) => {
@@ -212,7 +245,11 @@ export async function create(G, { input, world, fx, quality }) {
   const tmpFocus = new Vector3();
   G.on('update', (rawDt) => {
     if (state.mode === 'paused') { if (input.pressed('pause')) setMode('playing'); return; }
-    const dt = rawDt * state.timeScale;
+    let dt = rawDt * state.timeScale;
+    if (state.hitstop > 0) { state.hitstop -= rawDt; dt *= 0.06; }   // impact freeze-frame
+    else if (state.slowmo > 0) { state.slowmo -= rawDt; dt *= 0.35; }
+    // GTA V health: regenerates to half after 6 s without damage
+    if (state.mode === 'playing' && !player.dead) { state.sinceHit = (state.sinceHit || 0) + rawDt; if (state.sinceHit > 6 && player.health < 50) player.health = Math.min(50, player.health + 4 * rawDt); }
     state.t += dt;
     if (state.mode === 'title') {
       const u = (G.t * 0.012) % 1;
@@ -245,10 +282,17 @@ export async function create(G, { input, world, fx, quality }) {
     // ferry vs piers/peds pushes are cheap: skip; traffic, people, police, mission
     traffic.update(dt);
     parkedRows?.update?.(dt, G.camera.position);
+    // lock-on marker over whoever a punch would hit; cash pickups bob and pay out when walked over
+    { const C = player.combat; const t = !player.vehicle && (C.target || (C.guardT > 0 ? player.lockQuery(input.move.length() > 0.2 ? player.moveYaw : player.yaw) : null));
+      const hb = t && t.ch.state === 'ok' ? t.ch.bones.Bip01_Head : null; hud.lockOn(hb ? hb.getWorldPosition(_lk).add(_up35) : null, t?.hp ?? 100); }
+    for (let i = cash.length - 1; i >= 0; i--) { const c = cash[i]; c.t += dt; c.m.rotation.y += dt * 3; c.m.position.y = c.y + 0.25 + Math.sin(c.t * 4) * 0.05;
+      if (!player.vehicle && Math.hypot(player.x - c.m.position.x, player.z - c.m.position.z) < 1.0) { hud.addCash(c.v); audio.play('pickup', { bus: 'ui', gain: 0.5 }); G.scene.remove(c.m); cash.splice(i, 1); }
+      else if (c.t > 60) { G.scene.remove(c.m); cash.splice(i, 1); } }
     if (world.landmarks?.mends) { const [mx, mz] = PLACES.mendsJetty, c = G.camera.position; world.landmarks.mends.visible = Math.hypot(c.x - mx, c.z - mz) < (G.quality.tier === 'low' ? 650 : 2600); }
     peds.update(dt, player);
     if (!G.game_showChase) wanted.update(dt);
     mission.update(dt);
+    jobs.update(dt, mission.done);
     // health / death
     if (state.mode === 'playing' && player.health <= 0) fail('wasted');
     if (state.mode === 'playing' && ferry.health <= 0 && player.vehicle === ferry) mission.fail('ferry');
@@ -274,7 +318,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (!p3) hud.prompt3d(null);
     hud.vprompt(player.vehicle === ferry && Math.abs(ferry.speed) < 0.5 && mission.step === 'cross' ? '<kbd>W</kbd> Throttle &nbsp; <kbd>A</kbd><kbd>D</kbd> Rudder' : '');
     hud.setHull(player.vehicle === ferry ? ferry.health : null);
-    hud.setBlips([...(mission.blips || []), ...wanted.cars.map((c) => ({ x: c.x, z: c.z, kind: 'police' })), ...wanted.boats.map((b) => ({ x: b.x, z: b.z, kind: 'police' }))]);
+    hud.setBlips([...(mission.blips || []), ...(jobs.blips || []), ...wanted.cars.map((c) => ({ x: c.x, z: c.z, kind: 'police' })), ...wanted.boats.map((b) => ({ x: b.x, z: b.z, kind: 'police' }))]);
     hud.update(rawDt, { player, wanted, units: { cops: wanted.cops.length, cars: wanted.cars.length, boats: wanted.boats.length } });
     audio.update(rawDt, { wanted, player });
     const nearest = Math.min(...wanted.cars.map((c) => Math.hypot(c.x - player.x, c.z - player.z)), ...wanted.boats.map((b) => Math.hypot(b.x - player.x, b.z - player.z)), 999);
@@ -292,7 +336,7 @@ export async function create(G, { input, world, fx, quality }) {
   // tap anywhere on the title card to start (phones have no Enter key)
   title.addEventListener('click', (e) => { if (!e.target.closest('[data-act]')) startGame(); });
   G.game = {
-    player, ferry, traffic, peds, wanted, mission, hud, state, parked: parkedRows,
+    player, ferry, traffic, peds, wanted, mission, jobs, hud, state, parked: parkedRows,
     debugWin: () => { if (player.vehicle !== ferry) { if (player.vehicle) exitVehicle(); enterVehicle(ferry); } { const [bx, bz] = mendsBerth(); ferry.place(bx, bz, -1.265); } },
     debugLose: () => { player.health = 0; },
     debugBusted: () => fail('busted'),

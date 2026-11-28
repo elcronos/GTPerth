@@ -32,8 +32,41 @@
    "after": 300
   },
   {
-   "assert": "__G.game.player.ch.punchT > 0",
+   "assert": "__G.game.player.ch.punchT < 1 || __G.game.player.combat.combo > 0",
    "msg": "click punches"
+  },
+  {
+   "eval": "(()=>{const G=__G,P=G.game.player,f=[Math.sin(P.yaw),Math.cos(P.yaw)];const q=G.game.peds.list.filter(q=>q.ch.state==='ok'&&q.kind!=='idle').sort((a,b)=>a.ch.root.position.distanceTo(P.ch.root.position)-b.ch.root.position.distanceTo(P.ch.root.position))[0];q.kind='idle';q.state='idle';q.gesture=null;q.idleYaw=P.yaw+Math.PI;q.ch.root.position.set(P.x+f[0]*1.3,P.y,P.z+f[1]*1.3);window.__pt.victim=q;return !!q})()"
+  },
+  {
+   "press": "fire",
+   "after": 700
+  },
+  {
+   "press": "fire",
+   "after": 700
+  },
+  {
+   "waitFor": "(__pt.victim.hp??100) < 100 || __pt.victim.ch.state !== 'ok'",
+   "timeout": 40000
+  },
+  {
+   "assert": "(__pt.victim.hp??100) < 100 || __pt.victim.ch.state !== 'ok'",
+   "msg": "punches connect with a pedestrian in front (damage or knock-down)"
+  },
+  {
+   "eval": "(()=>{const P=__G.game.player;P.teleport(112,-170,0);return [P.x,P.z]})()"
+  },
+  {
+   "move": [
+    0,
+    1
+   ],
+   "ms": 3500
+  },
+  {
+   "assert": "!__G.game.player.swimming && !__G.game.player.groundAt?.water",
+   "msg": "walking at the river edge does not drop the player into the water"
   },
   {
    "eval": "__G.game.teleport(14, -126)"

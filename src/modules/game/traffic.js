@@ -56,12 +56,12 @@ export function createTraffic(G, { lanes, M, col, peds, getPlayer }) {
       const c = cars[i];
       if (c === pl.vehicle || c.police) { continue; }
       const far = Math.hypot(c.x - focus.x, c.z - focus.z);
-      if (far > 420 || c.sunk) { c.dispose(); cars.splice(i, 1); continue; }
+      if ((far > 420 && !c.keep) || c.sunk) { c.dispose(); cars.splice(i, 1); continue; }
       if (c.ai) {
         const ai = c.ai, l = usable[ai.li];
         // progress along the lane
         ai.d += Math.max(0, c.speed) * dt;
-        if (ai.d > lens[ai.li] - 6) { const n = nextLane(l); if (n >= 0) { ai.li = n; ai.d = 0; } else { c.dispose(); cars.splice(i, 1); continue; } }
+        if (ai.d > lens[ai.li] - 6) { const n = nextLane(l); if (n >= 0) { ai.li = n; ai.d = 0; } else if (c.keep) { c.ai = null; c.brake = 1; c.throttle = 0; } else { c.dispose(); cars.splice(i, 1); continue; } }
         const look = 7 + Math.max(0, c.speed) * 0.6;
         const [tx, tz] = pointOn(usable[ai.li], Math.min(lens[ai.li], ai.d + look));
         const want = Math.atan2(tz - c.z, tx - c.x);

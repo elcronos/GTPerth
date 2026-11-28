@@ -25,6 +25,7 @@ export const FEMALE = ['Female_Adult_12', 'Female_Adult_17', 'Female_Party_01', 
 export const MALE = ['Male_Adult_01', 'Male_Adult_16', 'Male_Adult_09', 'Sports_Male_04', 'Business_Male_06', 'Male_Adult_17'];
 export const POLICE = ['Police_Male_07', 'Police_Male_06'];
 export const PLAYER_AVATAR = 'Female_Adult_12';
+const LOCO_CLIPS = new Set(['walk', 'stroll', 'run', 'sprint']), TRANS_CLIPS = new Set(['walk_start', 'walk_stop', 'run_start', 'run_stop']);
 
 const b64 = (s) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
 // split builds ship the GLBs as files (assets/…/*.glb); single-file builds embed them as base64
@@ -32,7 +33,12 @@ const bufFor = async (s) => (/^assets\//.test(s) ? (await fetch(s)).arrayBuffer(
 
 export async function loadAvatars(G, onProgress) {
   const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-  const lib = {}; const names = Object.keys(AVATARS);
+  const lib = {}; const names = Object.keys(AVATARS).filter((n) => !n.startsWith('_'));
+  // extra clip sets (skeleton-only GLBs): start/stop transitions, in-place turns, fighting idle, cower, argue
+  const extra = { f: [], m: [] };
+  for (const [k, sx] of [['_clips_f', 'f'], ['_clips_m', 'm']]) if (AVATARS[k]) {
+    try { const g = await loader.parseAsync(await bufFor(AVATARS[k]), ''); extra[sx] = g.animations; } catch (e) { console.warn('clips', k, e); }
+  }
   let i = 0;
   for (const n of names) {
     const gltf = await loader.parseAsync(await bufFor(AVATARS[n]), '');
@@ -51,7 +57,7 @@ export async function loadAvatars(G, onProgress) {
     await new Promise((r) => setTimeout(r, 0));
   }
   // clip sets: rescale the Bip01 root position track to each avatar's hip height (bob stays, feet stay planted)
-  const setF = lib.Female_Adult_12.clips, setM = lib.Male_Adult_01.clips;
+  const setF = [...lib.Female_Adult_12.clips, ...extra.f], setM = [...lib.Male_Adult_01.clips, ...extra.m];
   const ownerF = lib.Female_Adult_12.restHips, ownerM = lib.Male_Adult_01.restHips;
   const clipCache = new Map();
   function clipsFor(name) {
@@ -61,10 +67,25 @@ export async function loadAvatars(G, onProgress) {
     const out = {};
     for (const c of src) {
       const cc = c.clone();
+      const sn = shortName(c.name);
       for (const t of cc.tracks) {
-        if (t.name === 'Bip01.position') { const v = t.values; for (let j = 0; j < v.length; j++) v[j] *= k; }
+        if (t.name !== 'Bip01.position') continue;
+        const v = t.values; for (let j = 0; j < v.length; j++) v[j] *= k;
+        // locomotion loops still carry their forward root motion: the hips advance over a planted foot and snap back
+        // at the loop. The game moves the character itself, so remove the linear drift (keep the bob and sway) — the
+        // stance foot then sweeps back under the body and stays put on the ground.
+        if (TRANS_CLIPS.has(sn) && t.times.length > 2) {   // start/stop: keep the root path as data, play in place
+          const n = t.times.length, rz = [];
+          for (let j = 0; j < n; j++) { rz.push(t.times[j], (v[j * 3 + 2] - v[2]) * 0.01); v[j * 3] = v[0]; v[j * 3 + 2] = v[2]; }
+          cc.userData = { ...(cc.userData || {}), rootZ: rz };
+        }
+        if (LOCO_CLIPS.has(sn) && t.times.length > 2) {
+          const n = t.times.length, T0 = t.times[0], T1 = t.times[n - 1], D = [v[(n - 1) * 3] - v[0], v[(n - 1) * 3 + 1] - v[1], v[(n - 1) * 3 + 2] - v[2]];
+          for (let j = 0; j < n; j++) { const u = (t.times[j] - T0) / (T1 - T0 || 1); for (let a = 0; a < 3; a++) v[j * 3 + a] -= D[a] * u; }
+          cc.userData = { ...(cc.userData || {}), speed: Math.hypot(D[0], D[2]) * 0.01 / (T1 - T0 || 1) };   // native ground speed, m/s (root in cm)
+        }
       }
-      out[shortName(c.name)] = cc;
+      out[sn] = cc;
     }
     clipCache.set(name, out);
     return out;

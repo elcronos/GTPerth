@@ -49,7 +49,7 @@ export function createMission(G, { hud, getPlayer, ferry, wanted, events }) {
     }
     // blips
     const bl = [];
-    if (M.step === 'goto') bl.push({ x: -54, z: -82, kind: 'mission' });
+    if (M.step === 'goto') bl.push({ x: PLACES.ferryDock[0], z: PLACES.ferryDock[1], kind: 'mission' });
     if (M.step === 'cross') bl.push({ x: PLACES.mendsHead[0], z: PLACES.mendsHead[1], kind: 'mission' });
     if (M.step === 'reboard' || M.step === 'goto') bl.push({ x: ferry.x, z: ferry.z, kind: 'ferry' });
     M.blips = bl;

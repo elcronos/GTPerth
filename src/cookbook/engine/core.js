@@ -89,6 +89,8 @@ export function createCore({ canvas, ART, fov = 60, near = 0.05, far = 1500 } = 
   const fixedDt = params.get('dt') ? parseFloat(params.get('dt')) : 0;
   let last = performance.now();
   const loop = () => {
+    // deterministic captures: while window.__gate is a number, run only that many more frames, then idle
+    if (typeof window.__gate === 'number') { if (window.__gate <= 0) { last = performance.now(); requestAnimationFrame(loop); return; } window.__gate--; }
     const now = performance.now();
     const dt = fixedDt || Math.min((now - last) / 1000, 1 / 20);
     last = now;

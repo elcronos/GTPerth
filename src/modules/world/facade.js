@@ -123,7 +123,7 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
     float hu = fcH(vec2(unit, seed * 1.3)), hu2 = fcH(vec2(unit * 1.7, seed + 4.0));
     float mull = fcBand(dE.x, 0.07, aa.x);
     float inGlz = smoothstep(0.30, 0.30 + aa.y, gy) * (1.0 - smoothstep(3.3, 3.3 + aa.y, gy));
-    float shutter = step(0.9, hu2);                             // a closed roller shutter here and there
+    float shutter = step(0.95, hu2);                            // a closed roller shutter here and there
     glass = inGlz * (1.0 - mull) * (1.0 - shutter);
     slab = 0.0;
     vec3 plinth = vec3(0.045, 0.043, 0.042);
@@ -194,10 +194,10 @@ float fcBand(float x, float w, float aa) { return (1.0 - smoothstep(w - 0.5 * aa
   float NdV = clamp(dot(-V, Nw), 0.0, 1.0);
   float F0 = dot(gl, vec3(0.333));
   float Fr = F0 + (1.0 - F0) * pow(1.0 - NdV, 5.0);
-  float transK = (1.0 - Fr) * (1.0 - slab) * (shop > 0.5 ? 0.65 : 0.55);
+  float transK = (1.0 - Fr) * (1.0 - slab) * (shop > 0.5 ? 0.85 : 0.55);
   fcEmit = room * transK * glass + shopSign * signC * (0.6 + 6.0 * uNight) * (1.0 - far * 0.5) + shopSign * vec3(1.0, 0.95, 0.85) * 2.2 * uNight;
   // final albedo / metal
-  if (shop > 0.5) gl *= 0.8;   // shop glass: darker, less mirror, interiors read
+  if (shop > 0.5) gl *= 0.5;   // shop glass: darker, less mirror, interiors read
   vec3 spandrel = gl * 0.6;
   frame *= mix(1.0, 0.45, uNight * (1.0 - shop));   // unlit cladding drops away at night
   vec3 glassAlb = mix(gl, spandrel, slab);

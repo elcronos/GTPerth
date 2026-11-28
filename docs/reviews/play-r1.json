@@ -1,0 +1,359 @@
+{
+ "round": "play-r1",
+ "critics": [
+  "play-A",
+  "play-B"
+ ],
+ "reduce": "per-dimension minimum",
+ "scores": {
+  "locomotion": 6.0,
+  "responsiveness": 5.5,
+  "camera": 6.0,
+  "combat": 4.5,
+  "world_boundaries": 5.8,
+  "npc_behaviour": 4.5,
+  "hud_ux": 6.0,
+  "feedback": 4.5,
+  "fun_loop": 4.0,
+  "stability": 6.5
+ },
+ "overall": 5.33,
+ "pass": false,
+ "fixes": [
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/peds.js",
+   "fix": "S.update sightline-clearing block (lines ~212-218): stop pushing peds that stand IN FRONT of the player. Drop the +2 m extension (use bx=bx0, bz=bz0), clamp t to [0, 0.85] so only peds between camera and player are moved, and skip peds within 4 m of the player inside a +-60 deg cone of player.yaw. Also exempt any ped whose state is 'idle'/'fight'/'stagger'. Today a standing target glides away at up to 3.7 m/s as you walk up (punch_approach: retreats 1.65 m, 0 hits)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "updateOnFoot melee: findTarget range 2.9 -> 4.0 (5.0 while speed > 2), cone stays 1.15 rad. Lunge: C.lungeT 0.16 -> 0.26, distance up to min(d - 0.95, 2.2) m, speed cap 3.2 -> 7.0 m/s, and while C.lungeT > 0 set ch.speed = lunge speed (so the run cycle steps instead of both feet sliding 0.53 m at h = 0.10). If d > 2.2, insert an auto-advance: hold the punch until in range (C.next stays buffered for 0.5 s) while moving at PLAYER.run toward the target."
+  },
+  {
+   "priority": "P1",
+   "dimension": "world_boundaries",
+   "file": "src/modules/world/props.js",
+   "fix": "After line 234 add colliders for benchM: for each matrix push two circles r = 0.38 at +-0.55 m along the bench's long axis (or one poly 1.9 x 0.65 m OBB). Do the same for palms (r 0.3) and bollards. Player currently runs straight through benches (run_turns f015-f018) and knocked-down peds land inside them (punch f044); also run knocked-down peds through col.circleVsWorld(\u2026, 0.35) in Character.update fall branch / peds.js state!=='ok' path."
+  },
+  {
+   "priority": "P1",
+   "dimension": "feedback",
+   "file": "src/modules/game/player.js",
+   "fix": "Footstep trigger never fires (foot bone min height 0.078-0.097 m > 0.075 threshold; 0 triggers in all 10 scenarios). Track a rest height per foot (P.footRest = min over last 1 s, init from idle ~0.095) and fire when fy crosses down through footRest + 0.025, with a 0.18 s per-foot refractory. Jump landing: replace `else P.onGround = P.y - g.y < 0.05` with `else P.onGround = P.vy <= 0 && P.y - g.y < 0.05 && !wasAir` (or keep a separate P.air flag set at takeoff, cleared only on contact) so ch.landT = 0, the 0.7 speed scrub and onLand() actually fire (jump f37: onGround set one frame early, landing never detected)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "responsiveness",
+   "file": "src/modules/game/player.js",
+   "fix": "Acceleration in updateOnFoot: acc = tgt > speed ? (speed < PLAYER.walk ? 2.6 : 4.2) -> (speed < PLAYER.walk ? 6.0 : 7.5), sprint ramp 5.0; decel to stop 6.5 -> 9.0 (run) with a 0.15 s ease-out tail. Targets: idle->jog 90% in ~0.4 s (now 0.93 s), sprint 90% in ~0.8 s (now 1.53 s). In the air (!P.onGround) clamp speed change to 1.5 m/s^2 and turnMax to 1.5 rad/s."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/player.js",
+   "fix": "Yaw: replace the clamp step with a critically damped angular spring: P.yawRate += clamp((dy*14 - P.yawRate*2*sqrt(14))*dt, -28*dt, 28*dt); P.yaw += P.yawRate*dt with |yawRate| <= turnMax. Removes the 0 -> 5.3 rad/s one-frame onset seen in run_turns f39. Add a speed dip proportional to turn: tgt *= 1 - 0.22*clamp(|dy|/1.57,0,1) above 2 m/s, and raise lean roll clamp 0.14 -> 0.22 rad with gain 0.03."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Edge anticipation: before integrating, probe walkable() at 0.6/1.2 m ahead along P.yaw; if blocked, scale tgt by clamp(distToEdge/1.4, 0.15, 1) so the player decelerates into the quay edge instead of the 52 m/s^2 two-frame dead stop, and when pushing into the edge with speed < 0.3 set a 'teeter' flag that Character.upperBody turns into arms-out balance (reuse the airW arm pose at 0.5) and lean.pitch -0.08. Clamp ch.speed to 0 when blocked so idle plays instead of a 0.09 m/s shuffle. Optional: allow a deliberate dive when jump is pressed facing water within 0.8 m of the edge."
+  },
+  {
+   "priority": "P2",
+   "dimension": "combat",
+   "file": "src/modules/game/character.js",
+   "fix": "upperBody guard/punch: (a) guard target S + fwd*0.30 + UP*0.06 + right*(-sg*0.14) (fists at chin, not ears) with pole UP*-1 + right*sg*0.15 + fwd*0.1 so elbows tuck down instead of flaring; (b) add a lower-body combat stance when guardW > 0.3: rotate Bip01 (pelvis) 0.35 rad about UP toward the rear foot side, Thigh/Calf bend 0.18/-0.3 rad (knees soft), lead foot forward 0.15 m via a simple leg IK; (c) weight transfer on strike: translate this.body forward 0.06 m * atkE and drop 0.03 m; hook adds 0.12 rad hip yaw before the shoulder (hips lead by 2 frames). Right now punches are arms + spine only on an idle stance with parallel feet."
+  },
+  {
+   "priority": "P2",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/peds.js",
+   "fix": "Stagger (state 'stagger', lines ~168-172): drive ch.speed = |knock|*k and set heading so the walk clip plays backwards-stepping (or set ch.act.walk.timeScale negative), or shorten the slide to 0.15 m and add a procedural 1-step pelvis drop; the victim currently skates 0.45 m at 2.2 m/s with ch.speed = 0. Raise flinch amplitude in character.js flinch block: Spine1 0.22 -> 0.4, Spine2 0.18 -> 0.3, Head 0.45 -> 0.7, plus arms flung 0.5 rad and a 0.04 m body drop; jab/cross/hook should scale it 0.6/0.8/1.0."
+  },
+  {
+   "priority": "P2",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/character.js",
+   "fix": "Knockdown (knockDown/update fall branch): pivot the tip at the pelvis, not the feet, and lower vy (min(3, 0.8 + sp*0.2)) so punch knockdowns crumple (knees buckle first: Thigh +0.6, Calf -1.0 over 0.15 s, then tip backward) instead of a waist-high plank fling. Clamp sprawl so no thigh exceeds 0.3 rad above horizontal (punch f044 leg sticks up). Get-up (getUp): replace the 1.1 s slerp with a staged procedural sequence: roll to side (0.3 s) -> hands-and-knees (crouch pose, body.position.y 0.35) -> stand (0.5 s), or play an existing clip if the Rocketbox set has one."
+  },
+  {
+   "priority": "P3",
+   "dimension": "camera",
+   "file": "src/modules/game/player.js",
+   "fix": "updateCamera on foot: add vehicles and peds (circles) to the camera pull-in test, gentle auto-recentre behind the player after 1.5 s without mouse input while speed > 2.5 (rate 1.2/s, like the vehicle branch), and a small look-ahead (camTarget += velocity*0.12). Lower position lerp 14 -> 9 for a less rigid follow, keep target lerp 16."
+  },
+  {
+   "priority": "P3",
+   "dimension": "hud_ux",
+   "file": "src/ui/ui.css",
+   "fix": "Phone: show a persistent ghost move-stick ring bottom-left (opacity .25, 120 px) so the control is discoverable; move .tc-btn.b4 so PUNCH (most used) is the 80 px primary under the right thumb and ENTER (context) is smaller; keep the area banner below 18% screen height."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/peds.js",
+   "fix": "Stop the sightline and camera-bubble code from sliding peds: end the cleared segment 0.9 m before the player, disable it within 3 m of the player and while player.combat.guardT > 0, and steer peds rather than moving their position (bug 1). This is the main reason punches whiff."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Scale lunge duration and speed to the target distance (lungeT = clamp((d-1)/4.5, .06, .32), cap 5 m/s), hit test d < 1.6, findTarget range 2.6, aim with moveYaw when the stick is pushed, and drive ch.speed with the lunge so the legs step (bugs 2, 3, 15)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/index.js",
+   "fix": "One crime per victim; punching caps at 1 star (witnessed by a cop, or reported by a witness after a delay); 2+ stars only for vehicle kills, assaulting cops or stealing police cars. Remove the duplicate impact sound (bug 7)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "responsiveness",
+   "file": "src/modules/game/player.js",
+   "fix": "Stamina hysteresis (winded until stamina > 0.35) to end the unlimited-sprint flicker (bug 6). Raise acceleration: 0 -> walk at 5.5 m/s^2 and walk -> run at 6.5 (currently 2.6/4.2, so reaching run speed takes 1.05 s); decelerate at 9 m/s^2 from walk/run and keep about 6 from a sprint so the sprint stop still has weight."
+  },
+  {
+   "priority": "P1",
+   "dimension": "camera",
+   "file": "src/modules/game/player.js",
+   "fix": "On-foot camera auto-follow behind the heading after 0.6 s without look input, faster in touch mode, suppressed during combat and back-pedalling (bug 9). This is the biggest single phone-control fix."
+  },
+  {
+   "priority": "P1",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Player collides with peds (circle) and cars (OBB). Shoulder-barge reaction when moving fast, knockdown and damage when hit by a moving car (bug 8)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "feedback",
+   "file": "src/modules/game/player.js",
+   "fix": "Repair footsteps (adaptive foot floor or clip-phase crossing) and the landing cue (call onLand where the landing is detected). Both are currently silent (bugs 4, 5)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/player.js",
+   "fix": "Look-ahead braking at water edges, clamp P.speed to the real displacement after collision (no running in place against walls or the quay), turn toward the slide direction, and test the edge at the body rim, not the centre (bug 10)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Step-up limit of 0.45 m; higher ledges are walls unless jump starts a vault using the existing P.climb (bug 11)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/peds.js",
+   "fix": "Stagger and knock-down drift go through circleVsWorld plus a water check. Turn toward land at the water's edge instead of snapping 90 degrees. Flee after getting up and reset hp (bugs 12, 18). Personal space: when d2p < 2.5, steer around the player (offset the waypoint heading by \u00b10.6 rad away from the player) instead of just slowing to 30 %."
+  },
+  {
+   "priority": "P2",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/police.js",
+   "fix": "Water look-ahead for pursuit cars; officers use groundAt walkability (decks, bridge); remove a stolen police car from wanted.cars (bugs 13, 14, 19)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Combat framing: while C.target is set, ease camYaw about 0.35 rad off the player-to-target line and widen the shoulder offset to 0.7 so the punch reads in three-quarter profile. Straight from behind, the body hides the arm (shots/play1/punch f010-f028 read as 'hands up', not a punch)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "hud_ux",
+   "file": "src/ui/ui.css",
+   "fix": "Phone layout: move texts to the top right, move the livestream chat off the buttons, and keep the location toast clear of the objective (bug 21). Swap the PUNCH and ENTER slots in touch.js/ui.css: PUNCH becomes the 80 px corner button (.act position) and ENTER moves above it, hidden (not just dimmed) when nothing is in range."
+  },
+  {
+   "priority": "P2",
+   "dimension": "hud_ux",
+   "file": "src/modules/game/hud.js",
+   "fix": "Lock-on marker: a small chevron and health pip projected over the head of player.combat.target, or of the best findTarget candidate while guarding (copy the prompt3d projection code). Fix the stray mission blip in mission.js (bug 20)."
+  },
+  {
+   "priority": "P3",
+   "dimension": "camera",
+   "file": "src/modules/game/player.js",
+   "fix": "Keep the swim camera above the water surface (bug 17). Pull the camera slightly closer (4.4 -> 3.8 m) and lower the target (1.55 -> 1.45) on phones, where the character is small on a 390 px tall screen."
+  },
+  {
+   "priority": "P3",
+   "dimension": "locomotion",
+   "file": "src/modules/game/character.js",
+   "fix": "Knockdowns are a rigid plank tip from the feet: add a hip/knee buckle (rotate the thigh and calf bones in sprawl during the first 0.2 s) and a two-phase get-up. Remove the jump-landing 30 % speed cut for small hops."
+  },
+  {
+   "priority": "P3",
+   "dimension": "responsiveness",
+   "file": "src/modules/game/player.js",
+   "fix": "Remove the dead-band jump (bug 16). Add a walk modifier on desktop (Alt or CapsLock toggle) so keyboard players are not stuck at jog speed."
+  },
+  {
+   "priority": "P3",
+   "dimension": "feedback",
+   "file": "src/modules/game/index.js",
+   "fix": "On hit: navigator.vibrate?.(kind === 'hook' ? 35 : 18) for phones, a small dust/sweat particle burst at the target's head via fx, and a short pain vocal on the victim (pitch-shifted impact_flesh at rate 1.6)."
+  }
+ ],
+ "bugs": [
+  {
+   "severity": "critical",
+   "file": "src/modules/game/peds.js",
+   "repro": "punch_approach scenario (shots/play1, telemetry): an idle ped stands 4 m in front of the player; walk at it (stick 0.6) and press fire 3 times. Result: hits = 0. The ped slides ~1.75 m sideways/away on its idle pose (109.42,-164.99 -> 107.87,-164.14) while the player approaches, so at the first press it is 3.2 m away, outside findTarget range 2.9. The same push slides the ped 0.75 m in 0.27 s in the 'punch' scenario before the first swing. Cause: S.update's 'keep the camera-to-player sightline clear' block extends the sightline 2 m PAST the player (bx = bx0 + vx/vl*2), so it clears exactly the spot where a melee target stands, and it moves pedestrians by changing their position directly (skating). It only exempts the ped that is already player.combat.target, which is null until a swing starts.",
+   "fix": "In peds.js S.update, end the cleared segment before the player and turn it off near the player or during combat: replace bx/bz with the player position pulled back 0.9 m toward the camera (const k = Math.max(0, (vl - 0.9) / vl); const bx = ax + vx * k, bz = az + vz * k;), and guard the block with `&& d2p > 3.0 && !(player.combat && player.combat.guardT > 0)`. Steer instead of moving position: p.yaw = lerpAngle(p.yaw, Math.atan2(qx, qz), Math.min(1, 4 * dt)) and leave nx/nz to the normal walk integration. Do the same for the camera-bubble block: steer away from the camera, and remove the `nx += (cx/cd)*k*3` position push."
+  },
+  {
+   "severity": "critical",
+   "file": "src/modules/game/player.js",
+   "repro": "Stand 2.2-2.9 m from a pedestrian, facing it, and press fire. findTarget(range 2.9) locks on, but the lunge only runs for C.lungeT = 0.16 s at up to 3.2 m/s (about 0.5 m), and the player's own speed is cut to 25 % during the attack. At the hit frame d is about 1.7-2.4 m, more than the 1.45 m the hit check allows, so the punch whiffs while the body turns to face the target. This is the second half of 'punches don't work'.",
+   "fix": "In updateOnFoot's melee block, scale the lunge to the gap: const dT = tp ? Math.hypot(tp.ch.position.x - P.x, tp.ch.position.z - P.z) : 0; C.lungeT = tp ? MathUtils.clamp((dT - 1.0) / 4.5, 0.06, 0.32) : 0; raise the lunge speed cap from 3.2 to 5.0 m/s; and loosen the hit test to d < 1.6 && ang < 1.0. Lower findTarget's range to 2.6 so every lock-on can actually close the distance."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "During any lunge (the punch scenario: x 112.00 -> 111.69 -> 111.48 in about 0.15 s), the body is moved by adding lunge velocity to vx/vz, but ch.speed = P.speed stays 0 (P.speed is cut by atk), so the idle pose slides about 0.3-0.5 m across the ground with planted feet.",
+   "fix": "Keep the lunge speed in a variable (let lungeV = s2 when lunging, else 0) and after the movement block set ch.speed = Math.max(ch.speed, lungeV * 0.8). The walk/run cycle then steps into the punch. Optionally clamp the extra translation to the attack's wind-up (atk.t < 0.4)."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "Walk, run or sprint anywhere: no footstep sound ever plays. The heel-strike detector fires when the foot bone drops through 0.075 m above P.y, but the measured lowest foot-bone height (telemetry lf/rf minus y on grounded frames) is 0.092 walking, 0.096 side walk, 0.084 running and 0.078 sprinting. The bone never goes below the threshold, so P.onStep is never called.",
+   "fix": "Detect steps relative to the foot's own floor: keep P.footFloor = Math.min(P.footFloor ?? 1, fy) and let it rise slowly (P.footFloor += 0.02 * dt), then trigger when was > P.footFloor + 0.035 && fy <= P.footFloor + 0.015. A more robust option: in Character.update, expose the lead clip's normalised phase (already computed as `phase`), and in player.js fire onStep whenever it crosses ph and ph + 0.5."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "Jump on flat ground: no landing sound. On landing, line 113 sets ch.landT = 0, then ch.update() -> upperBody() raises landT by dt/0.28 before line 132 checks `if (ch.landT === 0) P.onLand?.()`. The check is never true.",
+   "fix": "Call the cue where the landing is detected: in the `P.y <= g.y` branch, `if (wasAir && P.vy < -3) { ch.landT = 0; P.onLand?.(-P.vy); ... }`, and delete line 132. Also drop `P.speed *= 0.7` on ordinary hops (keep it only for falls with vy < -7) so every jump doesn't stutter the run."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "Hold sprint until stamina runs out. At stamina 0.05, `sprint = input.down('sprint') && P.stamina > 0.05` turns off, stamina regains 0.18/s, sprint turns back on the next frame, and so on. The duty cycle settles at 60 % sprint (0.6*0.12 = 0.4*0.18). Because acceleration (4.2) times 0.6 is more than deceleration (4.5) times 0.4, P.speed creeps back to about 6 m/s: unlimited sprint with a flickering lean. It also defeats the cops' arrest rule (pl.speed < 4.5).",
+   "fix": "Add hysteresis: `if (P.stamina <= 0.02) P.winded = true; else if (P.winded && P.stamina > 0.35) P.winded = false; const sprint = input.down('sprint') && !P.winded;`. Show the winded state on the stamina bar (hud.js: toggle a 'low' class on B.stamina's bar when player.winded)."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/index.js",
+   "repro": "Punch one pedestrian 3 times (the punch scenario): the wanted level reaches 2 stars (visible in shots/play1/punch.jpg from f028), and cops at 2 stars shoot to kill. peds.onHit runs for EVERY punch that lands; once stars > 0, each further hit calls wanted.add(1). One 3-hit combo on one person can give 3 stars, and two fist-fights give 5.",
+   "fix": "In peds.onHit, count a crime once per victim and cap assault: `if (how === 'punch') { if (p.assaulted) return; p.assaulted = true; if (copsNear(...)) wanted.setMin(1); else queueWitness(p); return; }`. Escalate past 1 star only for knocking down or killing with a vehicle, assaulting a cop, or stealing a police car. Also remove the duplicate impact_flesh play here for punches: player.onPunch already plays it, so each hit currently sounds twice."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "Walk or run into any pedestrian, parked car or stopped car: the player passes straight through. updateOnFoot only collides against col.circleVsWorld (static footprints and props). Peds push themselves away only weakly (pd < 0.9, about 1.2 m/s), and nothing handles cars.",
+   "fix": "Pass a body list into createPlayer (e.g. P.bodies = () => ({ peds: peds.list, cars: traffic.cars }) set in index.js). After the world collision, resolve circle-vs-circle for visible standing peds (r = 0.32 + 0.3: push the player 30 % and the ped 70 %), and circle-vs-OBB for cars using c.K.L/c.K.W and heading c.h. If P.speed > 4.5 when touching a ped, call peds.bump(p, dirX, dirZ): flinch plus a 0.4 s stagger, and knockDown(\u2026, 0.3) when sprinting. If a car hits the player with |c.speed| > 5, knock the player down and apply damage."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "Phone, left thumb only: push the stick to the right and keep it there. The character runs straight off to the right of the frame and the camera never swings behind them, so phone players must steer the camera constantly with the right thumb. That thumb is also needed for PUNCH, JUMP and SPRINT. updateCamera only auto-recentres in vehicles.",
+   "fix": "In updateCamera for mode 'foot': track P.idleLookFoot (reset when |lookX|+|lookY| > 0.0005). When it is above 0.6 s, P.speed > 1.0, there is no combat target and the player is not swimming, ease the camera behind the player: const d = MathUtils.euclideanModulo(P.yaw + Math.PI - P.camYaw + Math.PI, Math.PI * 2) - Math.PI; P.camYaw += d * Math.min(1, dt * (input.mode === 'touch' ? 1.2 : 0.5) * Math.min(1, P.speed / PLAYER.run)). Leave out back-pedalling (|d| > 2.6) so running toward the camera does not spin it."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "shore scenario: run straight at the inlet edge at 3.5 m/s. The position stops dead in one frame (z -160.56 -> -160.50, real speed 3.5 -> 0) while P.speed only halves each frame, so the run animation keeps going on the spot for about 0.3 s (maxAccel 52.5). Running into a building wall is worse: circleVsWorld pushes the player out but P.speed is never reduced, so the character runs in place against the wall indefinitely (moonwalking). Sliding along a diagonal quay also keeps facing into the water while moving sideways.",
+   "fix": "(1) Brake before the edge: probe walkable() at P.x + sin(yaw)*(0.35 + P.speed*0.3) and, if it fails, clamp tgt = Math.min(tgt, distToEdge * 3). (2) After all collision, measure the real displacement: const real = Math.hypot(P.x - ox, P.z - oz) / dt; if (real < P.speed - 0.2) P.speed += (real - P.speed) * Math.min(1, 12 * dt). (3) When sliding on one axis, ease P.yaw toward the slide direction atan2(nx - ox, nz - oz). (4) Check walkability at the body rim, not the centre: walkable(nx + sin(dir)*PLAYER.radius, nz + cos(dir)*PLAYER.radius) so feet do not hang over the water."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/player.js",
+   "repro": "From the EQ jetty pontoon (deckAt y 0.76), walk back toward the promenade (y 2.2): `else if (P.y <= g.y) P.y = g.y` pops the player up 1.44 m in one frame. Any ground step of any height is climbed by teleporting, with no step limit and no vault.",
+   "fix": "In the ground branch, if (P.onGround && g.y - P.y > 0.45), treat it like the water edge: restore P.x/P.z to their pre-move values and slide. If jump is pressed (or the player keeps pushing for 0.25 s) and g.y - P.y < 1.8, start the existing climb (P.climb = {t:0, x0, z0, y0: P.y, x1, z1, y1: g.y}) so the move reads as a vault, the same way swimmers climb out."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/peds.js",
+   "repro": "Punch a ped standing near the quay edge, or hook one beside a bench (shots/play1/punch_approach.jpg: the knocked-down ped lies through the bench, and later gets up inside it). Stagger moves the ped by `pos.x += p.knock[0]*k*dt` with no land or collision test. Knock-down drift (Character.update fall branch: root.position += f.vx*dt) is also unchecked, so peds can end up inside props or walls or off the quay into the water. Once in the water, the walk code (`if (!isLand(nx,nz)) { nx = pos.x; p.yaw += PI/2 }`) leaves them standing chest-deep at y -1.15, spinning in 90-degree snaps forever.",
+   "fix": "In S.update, save const ox = pos.x, oz = pos.z before the stagger or fallen update. Afterwards: `const c = col.circleVsWorld(pos.x, pos.z, 0.3); if (c.hit) { pos.x = c.x; pos.z = c.z; if (ch.fall) { ch.fall.vx *= -0.3; ch.fall.vz *= -0.3; } } if (groundAt(pos.x, pos.z, pos.y).water) { pos.x = ox; pos.z = oz; if (ch.fall) ch.fall.vx = ch.fall.vz = 0; }`. Replace the water-edge yaw += PI/2 snap with a turn toward land: probe isLand at yaw \u00b1 1.2 rad and lerp toward whichever side is land."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/police.js",
+   "repro": "Get 2 stars on the EQ promenade (shots/play1/jump.jpg f000-f009): a WA Police car pursues in a straight line across the inlet and sinks. The car probe only checks building colliders (col.segment), never water, so pursuits near the river regularly drown their own cars and the response never arrives.",
+   "fix": "In the car loop, add a water probe: const la = 8 + Math.max(0, v) * 0.8, wx = c.x + Math.cos(c.h) * la, wz = c.z + Math.sin(c.h) * la; if (!isLand(wx, wz) && !deckAt(wx, wz)) { c.brake = 1; c.throttle = v > 3 ? 0 : -0.6; want += (isLand(c.x + Math.cos(c.h + 0.8) * la, c.z + Math.sin(c.h + 0.8) * la) ? 0.8 : -0.8); }. Also, when the target is on foot on the promenade, aim at the nearest road point within 25 m of the player instead of the player."
+  },
+  {
+   "severity": "major",
+   "file": "src/modules/game/index.js",
+   "repro": "Steal a police car (nearestCar() includes wanted.cars), drive, then press F to exit. The car is still in wanted.cars, so police.js W.update drives it again with stars > 0. The stolen cruiser chases (and can ram) the player who just left it.",
+   "fix": "In enterVehicle: if (v.police) { const i = wanted.cars.indexOf(v); if (i >= 0) wanted.cars.splice(i, 1); v.police = false; v.unit = null; wanted.setMin(2); }. The traffic loop then treats it as an ordinary driverless car (brakes) after exit. Keep the siren and lights cosmetic if wanted."
+  },
+  {
+   "severity": "minor",
+   "file": "src/modules/game/player.js",
+   "repro": "Standing still, push the stick toward a pedestrian behind or beside you and tap punch on the same frame. findTarget uses P.yaw (the old facing, \u00b166 degrees), so it either misses the ped you pointed at or locks onto someone else.",
+   "fix": "Use the intent direction: const aimYaw = want > 0.2 ? P.moveYaw : P.yaw; tp = P.findTarget(P.x, P.z, aimYaw, 2.6) || P.findTarget(P.x, P.z, aimYaw, 1.6, Math.PI) (360-degree fallback at close range, which needs an angle parameter in peds.findTarget)."
+  },
+  {
+   "severity": "minor",
+   "file": "src/modules/game/player.js",
+   "repro": "Analog stick at 6-11 % deflection (want 0.05-0.12): w = 0, but the walk branch gives a target of PLAYER.walk*0.55 = 0.8 m/s. A tiny nudge jumps from standing to 0.8 m/s (the code comment claims there is no dead-band jump).",
+   "fix": "target = w < 0.55 ? PLAYER.walk * (0.2 + 0.8 * w / 0.55) : \u2026 and raise the start threshold to want > 0.08."
+  },
+  {
+   "severity": "minor",
+   "file": "src/modules/game/player.js",
+   "repro": "Swim (exit a sinking car or the ferry into the river) and look down: ty = P.y + 0.6 \u2248 0.05, and the ground clamp uses groundAt(...).y = -1.15 over water, so the camera can drop to y -0.65, below the water plane (y 0).",
+   "fix": "In updateCamera: const gg = groundAt(cx, cz, cy); const gy = gg.water ? 0.25 : gg.y; if (cy < gy + 0.5) cy = gy + 0.5;"
+  },
+  {
+   "severity": "minor",
+   "file": "src/modules/game/peds.js",
+   "repro": "Knock a ped down with a hook. 4.5 s later they rigidly rotate back upright (a plank slerp) and simply resume strolling their loop with hp <= 0, so the next jab knocks them down again. There is no reaction to having just been assaulted.",
+   "fix": "In S.update, catch the recovery: `if (ch.recoverT === 0) { ch.recoverT = 1; p.hp = 60; p.state = 'flee'; p.fleeT = 6; p.from = [px, pz]; }`. In Character.getUp, add a two-phase get-up (rotate about the hips to sitting for the first 50 %, then stand) so it no longer pivots at the feet."
+  },
+  {
+   "severity": "minor",
+   "file": "src/modules/game/police.js",
+   "repro": "With stars, stand on the EQ jetty pontoon or the bridge deck. Officers on foot test `!isLand(nx, nz)` and stop at the edge, so they can never reach or arrest you there. Cops are also not in peds.list, so the player cannot punch them at all.",
+   "fix": "Use the same walkability as the player: `if (groundAt(nx, nz, pos.y).water) { nx = pos.x; nz = pos.z; }`. Let player.findTarget also search W.cops (give cops hp; a punch sets wanted.setMin(2) and they react through the same punched() path)."
+  },
+  {
+   "severity": "minor",
+   "file": "src/modules/game/mission.js",
+   "repro": "Mission step 'goto': the minimap shows a yellow mission blip at (-54, -82), about 77 m from the objective, the GPS target (8, -127) and the ferry blip. The player gets two different destinations.",
+   "fix": "In M.update, change `bl.push({ x: -54, z: -82, kind: 'mission' })` to use hud.target ([8, -127]) or remove it (the ferry blip already marks the goal)."
+  },
+  {
+   "severity": "minor",
+   "file": "src/ui/ui.css",
+   "repro": "Phone (844x390): mission texts from SHAZ appear in .phone-stack at bottom:150px, centred (body.touch rule), which puts the cards on the player's torso and head in the middle of the frame during the mission intro. .live on touch has both top:200px and the default bottom:150px with right:36px, so the chat sits over the JUMP/SPRINT buttons. .objective (top 14 px, centred) and .loc (top 40 px, centred) overlap when both are shown at mission start.",
+   "fix": "body.touch .phone-stack { left: auto; bottom: auto; top: calc(62px + env(safe-area-inset-top)); right: calc(70px + env(safe-area-inset-right)); width: 300px; transform: scale(.72); transform-origin: top right; } body.touch .live { bottom: auto; right: auto; left: calc(16px + env(safe-area-inset-left)); top: calc(190px + env(safe-area-inset-top)); } body.touch .loc { top: calc(64px + env(safe-area-inset-top)); }"
+  }
+ ],
+ "additions": [
+  {
+   "name": "Lock-on reticle with target health",
+   "why": "On a phone the player cannot tell who a punch will go to, or whether it can reach. GTA shows a target marker and health. This makes the improved melee readable and is the cheapest fix for the impression that punches don't work.",
+   "how": "hud.js: add a DOM chevron positioned like prompt3d. index.js each frame: const t = player.combat.target || (player.combat.guardT > 0 ? peds.findTarget(player.x, player.z, player.yaw, 2.6) : null); project the Bip01_Head world position plus 0.35 m, with a colour fill based on t.hp. Hide it when null."
+  },
+  {
+   "name": "Witness phone-call and cash drops",
+   "why": "Turns assault into a risk/reward choice instead of an instant 2-star death sentence: chase down the witness before they call it in, and grab the victim's cash. It creates emergent minute-to-minute play with systems that already exist.",
+   "how": "When an assault lands, pick the nearest ped within 25 m that is not fleeing or fighting. Set p.state = 'call', play the existing 'phone' gesture and start a 4 s timer. If the timer finishes, wanted.setMin(1) and hud.message('POLICE SCANNER', 'Assault reported at Elizabeth Quay'). Punching or knocking down the caller cancels it. A knocked-down victim spawns a cash pickup (small glowing mesh) worth $15-120; walking within 0.8 m adds it with hud.addCash and audio 'pickup'."
+  },
+  {
+   "name": "Shoulder-barge and street fights",
+   "why": "Pedestrians that are solid and react to being shoved make the crowd feel alive (GTA V's 'Oi, watch it!'), and fights then start on their own through the existing fight-back state.",
+   "how": "Build on the player-ped collision fix: contact while P.speed > 2 calls p.ch.flinch(dir) and sets a 0.3 s 'stagger' with a small knock. Above 4.5 m/s use knockDown(dir*2.5, 0.3). A shoved walker turns to face the player for 1 s (lerp yaw), and 20 % of them enter p.fight. No wanted level for a barge."
+  },
+  {
+   "name": "Repeatable street jobs from Shaz",
+   "why": "After THE ZOO RUN there is nothing to do. Short repeatable jobs give a reason to steal cars, drive, and shake off police, using systems already built.",
+   "how": "mission.js: after 'passed' (and between deaths), every 60-90 s offer one job by hud.message. (a) 'Boost': mark a random parked or traffic car with a 'mission' blip; delivering it to a fixed garage (e.g. near [60,-200]) at under 3 km/h pays $800-2,000. (b) 'Heat run': wanted.setMin(2); losing the cops pays $1,500. (c) 'Ferry time trial': EQ Jetty to Mends St under 90 s pays $5k. Reuse hud.objective, hud.target/route, REWARD logic and hud.big('passed', ...)."
+  },
+  {
+   "name": "KO finisher slow-motion and health regen",
+   "why": "Cheap AAA polish: the knockout hit deserves a beat, and regenerating to 50 % health (as in GTA V) keeps fist fights and police brushes from slowly draining the player to WASTED.",
+   "how": "In player.onPunch, when peds.punched knocks the target down, set state.timeScale = 0.35 for 0.25 s real time (restore in the loop) and G.emit('fx:shake', 0.6). In index.js, regenerate player.health toward 50 at 4 hp/s once 5 s have passed since the last damage (track lastHitT in events.onPlayerHit)."
+  }
+ ]
+}

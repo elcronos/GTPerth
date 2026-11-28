@@ -1,0 +1,18 @@
+{
+  "name": "Grand Theft Perth gameplay rubric",
+  "anchor": "GTA V / GTA VI third-person on-foot play (Rockstar RAGE locomotion, melee and camera), on desktop and phone",
+  "pass": { "overall": 7.5, "minDimension": 6.0 },
+  "scale": "0-10 per dimension; 5 = playable but clearly amateur, 7 = solid commercial indie, 8.5 = AAA-like, 10 = indistinguishable from GTA",
+  "dimensions": {
+    "locomotion": "Feet stay planted (no skating), gait matches ground speed, smooth idle/walk/run/sprint transitions, natural acceleration and stopping, turns pivot and lean like a person, no robotic snapping or sliding.",
+    "responsiveness": "Input to motion latency, analog stick response curve (gentle push walks, full push runs), sprint, jump, consistent camera-relative control on desktop and phone.",
+    "camera": "Third-person framing keeps the player readable and slightly left of centre, smooth follow, collision handling, no clipping, sensible FOV changes, shake used sparingly.",
+    "combat": "Punches read as punches (wind-up, extension, recovery), soft lock-on and lunge so they connect, combos, hit reactions (flinch, stagger, knock-down), enemies fighting back, damage and timing that feel fair.",
+    "world_boundaries": "Water edges, quay walls, buildings and props are solid on foot; no walking on or into water by accident; swimming and climbing out behave plausibly; no falling through the world.",
+    "npc_behaviour": "Pedestrians react believably to the player and violence (flee, cower, fight back, call police), keep personal space without teleporting or sliding, crowds look natural.",
+    "hud_ux": "HUD never hides the player or key action, scales with the viewport, legible, mobile controls sized and placed for thumbs, clear objectives.",
+    "feedback": "Audio-visual juice: hit-stop, camera kick, impact and whoosh sounds, footstep/landing cues, visible consequences.",
+    "fun_loop": "Clear things to do minute to minute, mission pacing, emergent play (police, chases, stealing vehicles), reasons to keep playing.",
+    "stability": "No errors, no stuck states, no glitches in the captured play."
+  }
+}

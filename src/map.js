@@ -122,7 +122,8 @@ export const PLACES = {
   oldMill: [-840, 770],
   warMemorial: [-1060, 178],
   zoo: [-203, 1944],
-  numbat: [-236, 1347],                     // Connect South numbat canopy on the Mends St foreshore piazza
+  numbat: [-237.7, 1358.9],                 // Connect South canopies on the Mends St foreshore piazza (OSM ways 1431651035,
+  lizard: [-225.9, 1340.7],                 //   1431651034): the numbat toward Mends St, the frilled-neck lizard at the jetty foot
 };
 
 

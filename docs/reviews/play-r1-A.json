@@ -1,0 +1,81 @@
+{
+  "round": "play-r1",
+  "critic": "play-A",
+  "focus": "feel and animation",
+  "scores": {
+    "locomotion": 6.3,
+    "responsiveness": 6.0,
+    "camera": 7.0,
+    "combat": 4.8,
+    "world_boundaries": 5.8,
+    "npc_behaviour": 5.2,
+    "hud_ux": 7.0,
+    "feedback": 5.3,
+    "fun_loop": 6.0,
+    "stability": 6.5
+  },
+  "confidence": { "fun_loop": "low (scripted strips only, no mission flow captured)", "stability": "low-medium (no page errors in play1.log, all 10 scenarios completed; glitches judged from frames)", "hud_ux": "medium (phone covered by 4 frames only)" },
+  "overall": 5.99,
+  "pass": false,
+  "evidence": {
+    "locomotion": ["side_walk/f012-f023 (clean mocap walk, feet planted)", "side_run/f014-f025 (jog + decel to idle)", "sprint_stop/telemetry f52-62 (stance foot 0.16-0.6 m/s at 6.2 m/s)", "run_turns/telemetry f39-f50 (yaw rate jumps 0 -> 5.3 rad/s in one frame)", "punch/telemetry f28-f32 (both feet at h=0.10 m sliding 3.2 m/s during lunge)", "shore/telemetry f98-f101 (3.5 -> 0.3 m/s in 2 frames against the quay edge)"],
+    "responsiveness": ["run_turns/telemetry f0-f33 (0 -> 3.5 m/s takes 1.1 s)", "sprint_stop/telemetry f0-f51 (0 -> 6.2 m/s takes 1.7 s)", "jump/telemetry f24-f36 (speed keeps accelerating 2.59 -> 3.50 m/s in the air; full air steering)", "phone/telemetry (stick 0.8 -> 2.97 m/s, analog curve works)"],
+    "camera": ["punch/f000-f052 (player ~43% from left, readable)", "run_turns/f000-f042 (stable follow, no clipping)", "shore/f030 (police car bonnet fills lower-right corner, vehicles not in camera collision)", "play0/punch.jpg (BEFORE: minimap covered the player)"],
+    "combat": ["punch/f007 (jab extension reaches the head)", "punch/telemetry hits at f14, f33, f52 -> ped 'down'", "punch/f010, f016 (guard reads as hands-over-ears from behind; elbows flared, idle legs)", "punch/f016-f018 (victim squares up and swings back)", "punch/telemetry f28-f32 (lunge = 0.53 m skate, no step)", "punch_approach/telemetry (0 hits: target at 3.2-3.6 m, findTarget range 2.9, target drifts 1.65 m away along the player's heading)", "punch/f028-f031 (rigid plank fling at waist height)", "punch/f044 (sprawled victim clips through bench leg, one leg pointing 45 deg up)", "punch_approach/f033 (rigid slerp get-up, levitates upright)"],
+    "world_boundaries": ["shore/f024-f030 (stops at quay edge, no water entry; BEFORE shore + sprint_stop ended swimming)", "run_turns/f015-f018 (player runs straight through a promenade bench)", "punch/f044 (downed ped inside bench)", "shore/telemetry f99-f121 (dead stop, stick held, speed oscillates 0.09-0.12 with no teeter/brace)"],
+    "npc_behaviour": ["punch/telemetry f1-f8 (target slides sideways 3.7 -> 2.1 m/s while in idle pose, before any input)", "punch/telemetry f18-f26 (stagger: slides back 2 m/s with ch.speed=0)", "punch/f016-f022 (fights back with guard and punches)", "punch.jpg f020+ (wanted stars appear)", "punch_approach/f033 (get-up)"],
+    "hud_ux": ["punch.jpg (compact HUD, minimap no longer covers player)", "phone/f003 (thumb cluster PUNCH/SPRINT/JUMP/ENTER right side, area banner, no visible move-stick affordance)", "run_turns.jpg vs sprint_stop.jpg (health bars hidden until stamina/damage changes)"],
+    "feedback": ["src/modules/game/index.js onPunch (hit-stop 0.07/0.11 s, shake, whoosh, impact) visible as pT plateau 0.42 at punch/telemetry f14-f17", "all telemetry: foot bone never drops below 0.078 m so the 0.075 m footstep trigger fires 0 times in 10 scenarios", "jump/telemetry f37 (onGround set at y-g=0.047 while still falling -> landT/onLand never fire, speed not reduced)", "punch/f007 (victim flinch barely visible: 0.22 rad spine)"],
+    "fun_loop": ["punch.jpg / shore f030 (crime -> wanted stars -> police car arrives)", "phone/f003 (area title card)"],
+    "stability": ["shots/play1.log (no page errors; play0 harness crashed with browser closed)", "punch/f044, run_turns/f016 (prop clipping)", "punch/telemetry f1-f8 (ped teleport-slide)"]
+  },
+  "measurements": {
+    "clip_native_speeds_mps": { "walk": 1.21, "run": 2.77, "sprint": 5.38 },
+    "player_speeds_mps": { "walk_stick045": 1.24, "approach_stick06": 1.44, "phone_stick08": 2.97, "run": 3.5, "sprint": 6.2 },
+    "stance_foot_slip_mps_median_p90": {
+      "method": "per-foot horizontal world speed (central diff) while that foot is within 2.5 cm of its lowest height, body speed > 0.5, on ground",
+      "walk": [0.09, 0.28], "side_walk": [0.10, 0.50], "side_run": [0.26, 0.71], "run_turns": [0.36, 0.89], "sprint_frames_52_62": [0.2, 0.6],
+      "as_pct_of_body_speed": "8-11% (AAA target < 4%)",
+      "BEFORE_play0": { "walk": 2.91, "side_walk": 2.58, "run_turns": 3.67, "sprint_stop": 8.86, "note": "~100% of body speed: feet were dragged with the root" }
+    },
+    "time_to_90pct_speed_s": { "run_after": 0.93, "run_before": 0.87, "sprint_after": 1.53, "sprint_before": 1.30, "AAA_reference": "jog 0.3-0.45, sprint 0.7-0.9" },
+    "accel_profile_mps2": { "below_walk": 2.6, "walk_to_run": 4.2, "decel_to_stop": 6.5, "edge_collision_stop": 52.5, "sprint_stop_into_edge": 41 },
+    "turn_90deg_at_run": { "duration_s": 0.40, "yaw_rate_onset": "0 -> 5.3 rad/s in 1 frame (no angular accel ramp)", "radius_m": 0.66, "speed_dip": "3.50 -> 3.35 for one frame only" },
+    "jump": { "apex_m": 0.51, "air_time_s": 0.43, "takeoff_anticipation_frames": 0, "landing_crouch_triggered": false, "air_speed_change_mps": "+0.91 (2.59 -> 3.50) while airborne", "bug": "onGround=true at y-g=0.047 one frame before touchdown, so wasAir is false at contact" },
+    "footsteps": { "trigger_height_m": 0.075, "min_foot_bone_height_m": { "walk": 0.092, "run": 0.084, "sprint": 0.078 }, "triggers_in_all_scenarios": 0 },
+    "punch_standing": { "press_to_impact_s": 0.167, "hitstop_frames": 3, "hits": 3, "combo": "jab 26 / cross 38 / hook 55 -> knockdown on 3rd hit", "victim_distance_at_hits_m": [1.05, 0.98, 1.02], "lunge_skate_m": 0.53, "lunge_speed_mps": 3.2, "feet_during_lunge": "both at 0.10 m (planted), sliding 3.0-3.5 m/s" },
+    "punch_approach": { "hits": 0, "dist_at_presses_m": [3.25, 3.45, 3.6], "findTarget_range_m": 2.9, "max_lunge_m": 0.51, "target_retreat_m": 1.65, "target_retreat_cause": "peds.js sightline push uses a segment extended 2 m beyond the player, so a ped standing in front of the player is shoved away (only player.combat.target is exempt)" },
+    "npc_skate": { "pre_hit_sightline_push_mps": 3.7, "stagger_slide_mps": 2.2, "stagger_slide_m": 0.45, "ped_anim_speed_during_both": 0 },
+    "knockdown": { "fling_vy_mps": 2.35, "tip_rate_rad_s": 5.5, "rest": "clips through bench, leg raised ~45 deg", "get_up": "1.1 s quaternion slerp from sprawl to upright, no animation" },
+    "camera": { "player_screen_x": "~0.43-0.45 of width", "player_height_frac": "~0.33 of frame height", "pos_lerp": "14/s", "fov_kick": "+2.2 deg per m/s above 4 m/s, max +8" }
+  },
+  "fixes": [
+    { "priority": "P1", "dimension": "combat", "file": "src/modules/game/peds.js", "fix": "S.update sightline-clearing block (lines ~212-218): stop pushing peds that stand IN FRONT of the player. Drop the +2 m extension (use bx=bx0, bz=bz0), clamp t to [0, 0.85] so only peds between camera and player are moved, and skip peds within 4 m of the player inside a +-60 deg cone of player.yaw. Also exempt any ped whose state is 'idle'/'fight'/'stagger'. Today a standing target glides away at up to 3.7 m/s as you walk up (punch_approach: retreats 1.65 m, 0 hits)." },
+    { "priority": "P1", "dimension": "combat", "file": "src/modules/game/player.js", "fix": "updateOnFoot melee: findTarget range 2.9 -> 4.0 (5.0 while speed > 2), cone stays 1.15 rad. Lunge: C.lungeT 0.16 -> 0.26, distance up to min(d - 0.95, 2.2) m, speed cap 3.2 -> 7.0 m/s, and while C.lungeT > 0 set ch.speed = lunge speed (so the run cycle steps instead of both feet sliding 0.53 m at h = 0.10). If d > 2.2, insert an auto-advance: hold the punch until in range (C.next stays buffered for 0.5 s) while moving at PLAYER.run toward the target." },
+    { "priority": "P1", "dimension": "world_boundaries", "file": "src/modules/world/props.js", "fix": "After line 234 add colliders for benchM: for each matrix push two circles r = 0.38 at +-0.55 m along the bench's long axis (or one poly 1.9 x 0.65 m OBB). Do the same for palms (r 0.3) and bollards. Player currently runs straight through benches (run_turns f015-f018) and knocked-down peds land inside them (punch f044); also run knocked-down peds through col.circleVsWorld(…, 0.35) in Character.update fall branch / peds.js state!=='ok' path." },
+    { "priority": "P1", "dimension": "feedback", "file": "src/modules/game/player.js", "fix": "Footstep trigger never fires (foot bone min height 0.078-0.097 m > 0.075 threshold; 0 triggers in all 10 scenarios). Track a rest height per foot (P.footRest = min over last 1 s, init from idle ~0.095) and fire when fy crosses down through footRest + 0.025, with a 0.18 s per-foot refractory. Jump landing: replace `else P.onGround = P.y - g.y < 0.05` with `else P.onGround = P.vy <= 0 && P.y - g.y < 0.05 && !wasAir` (or keep a separate P.air flag set at takeoff, cleared only on contact) so ch.landT = 0, the 0.7 speed scrub and onLand() actually fire (jump f37: onGround set one frame early, landing never detected)." },
+    { "priority": "P1", "dimension": "responsiveness", "file": "src/modules/game/player.js", "fix": "Acceleration in updateOnFoot: acc = tgt > speed ? (speed < PLAYER.walk ? 2.6 : 4.2) -> (speed < PLAYER.walk ? 6.0 : 7.5), sprint ramp 5.0; decel to stop 6.5 -> 9.0 (run) with a 0.15 s ease-out tail. Targets: idle->jog 90% in ~0.4 s (now 0.93 s), sprint 90% in ~0.8 s (now 1.53 s). In the air (!P.onGround) clamp speed change to 1.5 m/s^2 and turnMax to 1.5 rad/s." },
+    { "priority": "P2", "dimension": "locomotion", "file": "src/modules/game/player.js", "fix": "Yaw: replace the clamp step with a critically damped angular spring: P.yawRate += clamp((dy*14 - P.yawRate*2*sqrt(14))*dt, -28*dt, 28*dt); P.yaw += P.yawRate*dt with |yawRate| <= turnMax. Removes the 0 -> 5.3 rad/s one-frame onset seen in run_turns f39. Add a speed dip proportional to turn: tgt *= 1 - 0.22*clamp(|dy|/1.57,0,1) above 2 m/s, and raise lean roll clamp 0.14 -> 0.22 rad with gain 0.03." },
+    { "priority": "P2", "dimension": "world_boundaries", "file": "src/modules/game/player.js", "fix": "Edge anticipation: before integrating, probe walkable() at 0.6/1.2 m ahead along P.yaw; if blocked, scale tgt by clamp(distToEdge/1.4, 0.15, 1) so the player decelerates into the quay edge instead of the 52 m/s^2 two-frame dead stop, and when pushing into the edge with speed < 0.3 set a 'teeter' flag that Character.upperBody turns into arms-out balance (reuse the airW arm pose at 0.5) and lean.pitch -0.08. Clamp ch.speed to 0 when blocked so idle plays instead of a 0.09 m/s shuffle. Optional: allow a deliberate dive when jump is pressed facing water within 0.8 m of the edge." },
+    { "priority": "P2", "dimension": "combat", "file": "src/modules/game/character.js", "fix": "upperBody guard/punch: (a) guard target S + fwd*0.30 + UP*0.06 + right*(-sg*0.14) (fists at chin, not ears) with pole UP*-1 + right*sg*0.15 + fwd*0.1 so elbows tuck down instead of flaring; (b) add a lower-body combat stance when guardW > 0.3: rotate Bip01 (pelvis) 0.35 rad about UP toward the rear foot side, Thigh/Calf bend 0.18/-0.3 rad (knees soft), lead foot forward 0.15 m via a simple leg IK; (c) weight transfer on strike: translate this.body forward 0.06 m * atkE and drop 0.03 m; hook adds 0.12 rad hip yaw before the shoulder (hips lead by 2 frames). Right now punches are arms + spine only on an idle stance with parallel feet." },
+    { "priority": "P2", "dimension": "npc_behaviour", "file": "src/modules/game/peds.js", "fix": "Stagger (state 'stagger', lines ~168-172): drive ch.speed = |knock|*k and set heading so the walk clip plays backwards-stepping (or set ch.act.walk.timeScale negative), or shorten the slide to 0.15 m and add a procedural 1-step pelvis drop; the victim currently skates 0.45 m at 2.2 m/s with ch.speed = 0. Raise flinch amplitude in character.js flinch block: Spine1 0.22 -> 0.4, Spine2 0.18 -> 0.3, Head 0.45 -> 0.7, plus arms flung 0.5 rad and a 0.04 m body drop; jab/cross/hook should scale it 0.6/0.8/1.0." },
+    { "priority": "P2", "dimension": "npc_behaviour", "file": "src/modules/game/character.js", "fix": "Knockdown (knockDown/update fall branch): pivot the tip at the pelvis, not the feet, and lower vy (min(3, 0.8 + sp*0.2)) so punch knockdowns crumple (knees buckle first: Thigh +0.6, Calf -1.0 over 0.15 s, then tip backward) instead of a waist-high plank fling. Clamp sprawl so no thigh exceeds 0.3 rad above horizontal (punch f044 leg sticks up). Get-up (getUp): replace the 1.1 s slerp with a staged procedural sequence: roll to side (0.3 s) -> hands-and-knees (crouch pose, body.position.y 0.35) -> stand (0.5 s), or play an existing clip if the Rocketbox set has one." },
+    { "priority": "P3", "dimension": "camera", "file": "src/modules/game/player.js", "fix": "updateCamera on foot: add vehicles and peds (circles) to the camera pull-in test, gentle auto-recentre behind the player after 1.5 s without mouse input while speed > 2.5 (rate 1.2/s, like the vehicle branch), and a small look-ahead (camTarget += velocity*0.12). Lower position lerp 14 -> 9 for a less rigid follow, keep target lerp 16." },
+    { "priority": "P3", "dimension": "hud_ux", "file": "src/ui/ui.css", "fix": "Phone: show a persistent ghost move-stick ring bottom-left (opacity .25, 120 px) so the control is discoverable; move .tc-btn.b4 so PUNCH (most used) is the 80 px primary under the right thumb and ENTER (context) is smaller; keep the area banner below 18% screen height." }
+  ],
+  "regressions": [
+    "Start-up acceleration slightly slower than BEFORE: time to 90% run 0.87 -> 0.93 s, sprint 1.30 -> 1.53 s (already sluggish before).",
+    "With water now a hard wall, running into the quay edge produces a 52 m/s^2 two-frame dead stop with no anticipation or reaction animation (BEFORE it fell in the water instead).",
+    "New melee lunge introduces visible foot skating (0.53 m with both feet planted) that did not exist before because punches never moved the player."
+  ],
+  "improvements": [
+    "Foot skating essentially fixed for straight-line gait: stance-foot slip 2.6-3.7 m/s (BEFORE, ~100% of body speed) -> 0.09-0.36 m/s (8-11%); sprint stance 0.16-0.6 m/s at 6.2 m/s.",
+    "Speeds now match clip cadence (walk 1.24 vs clip 1.21; BEFORE 2.88 m/s for a gentle push), and the analog curve gives walk / jog / run by stick deflection.",
+    "Water: no scenario ends swimming (BEFORE shore and sprint_stop both ended in the river).",
+    "Standing punches connect: 3/3 hits with lock-on turn, jab-cross-hook combo, hit-stop, shake and knockdown (BEFORE 0 hits).",
+    "Victims fight back (guard + counter-punches) and crimes raise wanted stars with police arriving.",
+    "HUD: minimap no longer covers the player (BEFORE it hid her in every punch frame); player framed slightly left of centre.",
+    "Capture is stable: all 10 scenarios incl. phone completed with no page errors (BEFORE the harness crashed with the browser closed)."
+  ],
+  "verdict": "FAIL (overall 5.99, four dimensions below 6). Big step from BEFORE: gait is now real mocap with planted feet, the river edge is solid and standing punches land. But it still does not feel like Rockstar: the hero takes ~1 s to reach a jog and steers freely in the air, turns snap on, every lunge and stagger is a skate, the guard reads as hands-over-ears on an idle stance, the knockdown is a rigid plank that clips into benches and the get-up levitates. Worst for the user's 'punches don't work' complaint: in normal play a ped you walk toward gets shoved away by the camera sightline code and the 2.9 m lock-on range plus 0.5 m lunge can't close the gap, so the approach scenario lands 0/3. Footsteps and landing cues are silent because of two threshold bugs, and benches have no collision. Fix the P1 list (sightline exemption, lock-on/lunge with stepping, bench colliders, footstep/landing bugs, faster acceleration) before polishing poses."
+}

@@ -1,7 +1,8 @@
 // Pedestrians: Rocketbox people strolling the Elizabeth Quay promenade, The Landing, Barrack Square and the South
 // Perth foreshore; idlers taking photos / on their phones at the water's edge; joggers on the river path.
 // They flee from danger, get knocked down by cars (fling + sprawl) and by punches, and report crimes (witnesses).
-import { MathUtils } from 'three';
+import { MathUtils, Vector3 } from 'three';
+const _hv2 = new Vector3();
 import { Character } from './character.js';
 import { FEMALE, MALE, PLAYER_AVATAR } from './avatars.js';
 import { heightAt, isLand, PROMENADE_Y, SHORE_N, SHORE_S, alongShore, nearRoad } from '../../map.js';
@@ -109,7 +110,7 @@ export function createPeds(G, { avatars, col }) {
       p.wp = p.path.indexOf(w);
     }
   };
-  S.scare = (x, z, r = 18, dur = 6) => { for (const p of list) { if (p.ch.state !== 'ok') continue; const d = Math.hypot(p.ch.position.x - x, p.ch.position.z - z); if (d < r) { p.state = 'flee'; p.fleeT = dur * (0.7 + Math.random() * 0.6); p.from = [x, z]; p.ch.stopGesture(); } } };
+  S.scare = (x, z, r = 18, dur = 6, except = null) => { for (const p of list) { if (p.ch.state !== 'ok' || p === except || p.fight || p.state === 'stagger') continue; const d = Math.hypot(p.ch.position.x - x, p.ch.position.z - z); if (d < r) { p.state = 'flee'; p.fleeT = dur * (0.7 + Math.random() * 0.6); p.from = [x, z]; p.ch.stopGesture(); } } };
   S.hitByVehicle = (car) => {
     const fx = Math.cos(car.h), fz = Math.sin(car.h), v = car.speed;
     for (const p of list) {
@@ -126,15 +127,41 @@ export function createPeds(G, { avatars, col }) {
       }
     }
   };
-  S.punchAt = (x, z, yaw) => {
-    const fx = Math.sin(yaw), fz = Math.cos(yaw); let hit = null;
+  // melee: best victim in front of the attacker (distance + angle score), and the hit reaction
+  S.findTarget = (x, z, yaw, range = 2.8, maxAng = 1.15) => {
+    let best = null, bs = 1e9;
     for (const p of list) {
-      if (p.ch.state !== 'ok') continue;
-      const dx = p.ch.position.x - x, dz = p.ch.position.z - z, a = dx * fx + dz * fz, s = Math.abs(-dx * fz + dz * fx);
-      if (a > 0.2 && a < 1.5 && s < 0.7) { hit = p; break; }
+      if (p.ch.state !== 'ok' || !p.ch.root.visible) continue;
+      const dx = p.ch.position.x - x, dz = p.ch.position.z - z, d = Math.hypot(dx, dz); if (d > range || d < 0.05) continue;
+      const ang = Math.abs(Math.atan2(Math.sin(Math.atan2(dx, dz) - yaw), Math.cos(Math.atan2(dx, dz) - yaw))); if (ang > maxAng) continue;
+      const sc = d + ang * 1.4; if (sc < bs) { bs = sc; best = p; }
     }
-    if (hit) { hit.ch.knockDown(fx * 3.5, fz * 3.5, 0.3); S.onHit?.(hit, 'punch', 4); S.scare(x, z, 20, 7); }
-    return hit;
+    return best;
+  };
+  const DMG = { jab: 26, cross: 38, hook: 55 };
+  S.punched = (p, fx, fz, kind = 'jab') => {
+    if (p.ch.state !== 'ok') return;
+    if (p.fight && kind === 'jab' && Math.random() < 0.3 && p.ch.guardW > 0.5) { p.ch.flinch(fx, fz, 0.3); S.onBlock?.(p); return 'block'; }   // guarded jab
+    p.hp = (p.hp ?? 100) - (DMG[kind] || 30) * (0.8 + Math.random() * 0.4);
+    p.ch.stopGesture(); p.ch.atk = null;
+    if (p.hp <= 0 || (kind === 'hook' && p.hp < 45)) {
+      p.ch.knockDown(fx * 3.6, fz * 3.6, 0.3); p.state = 'walk'; p.fight = null;
+    } else {
+      p.ch.flinch(fx, fz, kind === 'jab' ? 0.6 : kind === 'cross' ? 0.8 : 1); p.state = 'stagger'; p.stagT = 0.42; p.knock = [fx * 2.4, fz * 2.4];
+      if (!p.fight && !p.fled) { if (p.kind !== 'jog' && Math.random() < 0.5) p.fight = { t: 0, cd: 0.9 + Math.random() * 0.6, side: 'L' }; else p.fled = true; }
+    }
+    S.onHit?.(p, 'punch', 4);
+    S.scare(p.ch.position.x, p.ch.position.z, 16, 6, p);
+  };
+  S.onPlayerPunched = null;
+  // the player barging into a walker: a stumble (or a knock-down at a sprint), a glare, sometimes a fight
+  S.shoved = (p, fx, fz, speed) => {
+    if (p.ch.state !== 'ok' || p.state === 'stagger' || (p.shoveT || 0) > G.t) return;
+    p.shoveT = G.t + 1.2;
+    if (speed > 5.2) { p.ch.knockDown(fx * 2.6, fz * 2.6, 0.2); S.onShoved?.(p, true); return; }
+    p.ch.stopGesture(); p.ch.flinch(fx, fz); p.state = 'stagger'; p.stagT = 0.32; p.knock = [fx * 1.6, fz * 1.6];
+    if (!p.fight && p.kind !== 'jog' && Math.random() < 0.15) p.fight = { t: 0, cd: 1.2, side: 'L' };
+    S.onShoved?.(p, false);
   };
   S.update = (dt, player) => {
     const px = player.vehicle ? player.vehicle.x : player.x, pz = player.vehicle ? player.vehicle.z : player.z;
@@ -145,10 +172,34 @@ export function createPeds(G, { avatars, col }) {
       const vis = vf < VIS_R; ch.root.visible = vis;
       if (!vis) continue;
       const sh = vf < SHADOW_R; if (ch._sh !== sh) { ch._sh = sh; ch.inst.obj.traverse((o) => { if (o.isMesh) o.castShadow = sh; }); }   // only near people cast sun shadows (shadow-pass calls)
-      if (ch.state !== 'ok') { ch.update(dt, groundAt(pos.x, pos.z, pos.y).y); continue; }
+      if (ch.state !== 'ok') {
+        const ox = pos.x, oz = pos.z; ch.update(dt, groundAt(pos.x, pos.z, pos.y).y);
+        const c = col.circleVsWorld(pos.x, pos.z, 0.35); if (c.hit) { pos.x = c.x; pos.z = c.z; if (ch.fall) { ch.fall.vx *= -0.3; ch.fall.vz *= -0.3; } }
+        if (!isLand(pos.x, pos.z) && !onBridge(pos.x, pos.z) && groundAt(pos.x, pos.z, 3).water) { pos.x = ox; pos.z = oz; if (ch.fall) { ch.fall.vx = 0; ch.fall.vz = 0; } }
+        if (ch.state === 'ok') { p.hp = 60; p.fight = null; p.state = 'flee'; p.fleeT = 6; p.from = [px, pz]; p.fled = true; }   // back on their feet: they run
+        continue;
+      }
       // danger: fast vehicle heading at them, or the player sprinting at them with a car
       let target = 0;
-      if (p.state === 'flee') {
+      if (p.state === 'stagger') {   // knocked back a step by a punch
+        p.stagT -= dt; const k = Math.max(0, p.stagT / 0.42), ox = pos.x, oz = pos.z;
+        pos.x += p.knock[0] * k * dt; pos.z += p.knock[1] * k * dt; p.speed = 0;
+        { const c = col.circleVsWorld(pos.x, pos.z, 0.3); if (c.hit) { pos.x = c.x; pos.z = c.z; } if (!isLand(pos.x, pos.z) && !onBridge(pos.x, pos.z)) { pos.x = ox; pos.z = oz; } }
+        if (p.stagT <= 0) { if (p.fight) p.state = 'fight'; else { p.state = 'flee'; p.fleeT = 7; p.from = [px, pz]; } }
+        ch.speed = Math.hypot(p.knock[0], p.knock[1]) * k * 0.8; ch.reverse = true; ch.update(dt, groundAt(pos.x, pos.z, pos.y).y); ch.reverse = false; continue;
+      }
+      if (p.state === 'fight' && p.fight) {   // squares up to the player and swings back
+        const F = p.fight; F.t += dt; F.cd -= dt;
+        const dx = px - pos.x, dz = pz - pos.z, d = Math.hypot(dx, dz);
+        p.yaw = lerpAngle(p.yaw, Math.atan2(dx, dz), Math.min(1, 8 * dt)); ch.guardTarget = 1;
+        target = d > 1.15 ? Math.min(2.6, (d - 1.0) * 2.2) : 0;
+        if (d < 1.4 && F.cd <= 0 && !ch.atk && !player.vehicle && !player.dead) {
+          const hb = player.ch?.bones?.Bip01_Head; const tv = hb ? hb.getWorldPosition(_hv2).clone() : null;
+          if (ch.attack(F.side, { dur: 0.5, kind: F.side === 'R' ? 'cross' : 'jab', target: tv ? () => tv : null })) { F.side = F.side === 'L' ? 'R' : 'L'; F.cd = 1.0 + Math.random() * 0.8; F.pend = true; }
+        }
+        if (F.pend && ch.atk && ch.atk.t >= 0.4) { F.pend = false; if (d < 1.5 && !player.vehicle) S.onPlayerPunched?.(p, dx / (d || 1), dz / (d || 1)); }
+        if (d > 14 || F.t > 16 || player.vehicle || player.dead) { p.fight = null; p.state = 'walk'; ch.guardTarget = 0; }
+      } else if (p.state === 'flee') {
         p.fleeT -= dt;
         const fx = pos.x - p.from[0], fz = pos.z - p.from[1]; const l = Math.hypot(fx, fz) || 1;
         p.yaw = lerpAngle(p.yaw, Math.atan2(fx / l, fz / l), Math.min(1, 6 * dt));
@@ -165,6 +216,7 @@ export function createPeds(G, { avatars, col }) {
         target = p.cruise;
         // keep apart from the player
         if (!player.vehicle && d2p < 1.4) target *= 0.3;
+        ch.guardTarget = 0;
       }
       p.speed += (target - p.speed) * Math.min(1, 4 * dt);
       let nx = pos.x + Math.sin(p.yaw) * p.speed * dt, nz = pos.z + Math.cos(p.yaw) * p.speed * dt;
@@ -174,12 +226,13 @@ export function createPeds(G, { avatars, col }) {
       { const cp = G.camera.position, cx = nx - cp.x, cz = nz - cp.z, cd = Math.hypot(cx, cz);
         if (cd < 2.0 && cd > 1e-3) { const k = (2.0 - cd) * 0.8 * dt; nx += (cx / cd) * k * 3; nz += (cz / cd) * k * 3; p.speed *= 0.97; } }
       // keep the camera-to-player sightline clear (walkers must never bury the player in the frame)
-      if (!player.vehicle && !G.camLocked) {
+      const nearP = Math.hypot(nx - player.x, nz - player.z) < 3, ahead = !player.vehicle && Math.hypot(nx - player.x, nz - player.z) < 4 && Math.cos(Math.atan2(nx - player.x, nz - player.z) - player.yaw) > 0.5;
+      if (!player.vehicle && !G.camLocked && !p.fight && p !== player.combat?.target && !nearP && !ahead && p.state !== 'idle') {
         const cp = G.camera.position, ax = cp.x, az = cp.z, bx0 = player.x, bz0 = player.z, vx = bx0 - ax, vz = bz0 - az, vl = Math.hypot(vx, vz) || 1;
-        const bx = bx0 + vx / vl * 2, bz = bz0 + vz / vl * 2, wx = bx - ax, wz = bz - az, l2 = wx * wx + wz * wz || 1;
+        const kk = Math.max(0, (vl - 0.9) / vl), bx = ax + vx * kk, bz = az + vz * kk, wx = bx - ax, wz = bz - az, l2 = wx * wx + wz * wz || 1;
         const t = Math.max(0, Math.min(1, ((nx - ax) * wx + (nz - az) * wz) / l2)), qx = nx - (ax + wx * t), qz = nz - (az + wz * t), qd = Math.hypot(qx, qz);
         if (qd < 1.8 && qd > 1e-3) { const k = (1.8 - qd) * 2.4 * dt; nx += qx / qd * k; nz += qz / qd * k; p.speed *= 0.9; }
-        const pd = Math.hypot(nx - bx0, nz - bz0); if (pd < 2.5 && pd > 1e-3) { const k = (2.5 - pd) * 1.6 * dt; nx += (nx - bx0) / pd * k; nz += (nz - bz0) / pd * k; }
+        const pd = Math.hypot(nx - bx0, nz - bz0); if (!p.fight && pd < 0.9 && pd > 1e-3) { const k = (0.9 - pd) * 2.0 * dt; nx += (nx - bx0) / pd * k; nz += (nz - bz0) / pd * k; }
       }
       // separation from other peds
       for (const o of list) if (o !== p && o.ch.root.visible) { const ox = nx - o.ch.position.x, oz = nz - o.ch.position.z, od = Math.hypot(ox, oz); if (od < 0.7 && od > 1e-3) { nx += (ox / od) * (0.7 - od) * 0.5; nz += (oz / od) * (0.7 - od) * 0.5; } }

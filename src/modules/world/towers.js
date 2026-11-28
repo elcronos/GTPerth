@@ -205,6 +205,19 @@ const NAMED_STYLE = [
   [/140 St Georges/, { style: 'punched', frame: FR.precast, glass: GL.dark }],
   [/Bankwest/, { style: 'curtain', frame: FR.alu, glass: GL.green }],
 ];
+// Elizabeth Quay, photo/text-matched (2026): the Ritz-Carlton (28 fl, 103 m) and The Towers (28 fl, 93 m) are curved
+// "sibling" towers in pink / rose-gold mirrored glass over a Kimberley-sandstone podium; One The Esplanade (Chevron,
+// 29 fl, 133 m) is a glass curtain wall on a light GRC podium; Nine The Esplanade (19 fl) has fluted external aluminium
+// mullions; EQ West (52 + 25 fl) is still being finished. Keyed by OSM building id; tower parts carry a height.
+const SANDSTONE = [0.52, 0.29, 0.17];   // Kimberley sandstone (warm ochre-red)
+const OSM_FIX = {
+  w843411863: (b) => (b.h ? { h: 103, fh: 3.65, pw: 1.3, style: 'curtain', glass: [0.40, 0.21, 0.20], frame: [0.42, 0.28, 0.25] } : { style: 'punched', frame: SANDSTONE, glass: GL.dark, pw: 5.5, fh: 4.4 }),
+  w1122262507: (b) => (b.h ? { h: 93, fh: 3.3, pw: 1.3, style: 'curtain', glass: [0.35, 0.24, 0.16], frame: [0.40, 0.31, 0.23] } : { style: 'punched', frame: SANDSTONE, glass: GL.dark, pw: 5.5, fh: 4.2 }),
+  w1134731944: () => ({ style: 'curtain', glass: [0.10, 0.14, 0.19], frame: [0.46, 0.48, 0.50], pw: 1.5, fh: 4.4 }),
+  w1134731945: () => ({ h: 15, style: 'punched', frame: [0.58, 0.56, 0.52], glass: GL.dark, pw: 3.0, fh: 4.6 }),
+  w1566514457: () => ({ h: 82, name: 'Nine The Esplanade', style: 'fins', frame: [0.56, 0.57, 0.58], glass: [0.12, 0.17, 0.22], pw: 1.5, fh: 4.1 }),
+  w1460944447: (b) => (b.h ? { style: 'resi', frame: [0.44, 0.45, 0.46], glass: [0.11, 0.15, 0.19], pw: 1.5, fh: b.h / b.lv } : null),
+};
 const NAMED_COL = { white: [0.46, 0.46, 0.45], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
   red: [0.5, 0.16, 0.1], yellow: [0.72, 0.6, 0.3], cream: [0.6, 0.56, 0.47], black: [0.08, 0.08, 0.08], blue: [0.15, 0.25, 0.45], green: [0.2, 0.32, 0.22], orange: [0.7, 0.35, 0.15], sandstone: FR.sandstone };
 function osmColour(c) {
@@ -259,6 +272,8 @@ function osmBuildings(rng) {
     let mast = null;
     if (nm) { style = nm[1].style || style; frame = nm[1].frame || frame; glass = nm[1].glass || glass; if (nm[1].mast && h >= (tallest.get(b.g) || 0) - 0.1) mast = nm[1].mast; }
     const col = osmColour(b.col); if (col) frame = col;
+    const fx = OSM_FIX[b.g]?.(b); let name = b.n || 'osm';
+    if (fx) { if (fx.h) h = fx.h; style = fx.style || style; frame = fx.frame || frame; glass = fx.glass || glass; pw = fx.pw || pw; fh = fx.fh || fh; if (fx.name) name = fx.name; }
     let pts = ring.map((p) => [p[0] - cx, p[1] - cz]);
     // a building drawn inside another (tower on its podium, tagged as two buildings): pull its walls 0.25 m in so the
     // shared edges don't z-fight
@@ -266,7 +281,7 @@ function osmBuildings(rng) {
     if (insD) pts = pts.map(([x, z]) => { const l = Math.hypot(x, z) || 1, k = Math.max(0.2, 1 - insD / l); return [x * k, z * k]; });
     let ground = 1e9; for (const p of ring) ground = Math.min(ground, heightAt(p[0], p[1]));
     const shop = !mh && !(HOUSE.test(type) || (h < 8 && sp) || /church|cathedral|chapel|civic|public|government|courthouse|parking|garage|shed|roof|service|industrial/.test(type)) && area > 120;
-    out.push({ name: b.n || 'osm', x: cx, z: cz, base: ground - 0.3 + mh, style, pw, fh, frame, glass, seed: 200 + out.length, shop,
+    out.push({ name, x: cx, z: cz, base: ground - 0.3 + mh, style, pw, fh, frame, glass, seed: 200 + out.length, shop,
       plant: h > 40 && !mast && !b.part, mast, tiers: [{ pts, h: h - mh, parapet: h > 12 ? undefined : 0 }] });
   }
   return out;

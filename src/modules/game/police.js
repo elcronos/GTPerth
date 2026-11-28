@@ -88,6 +88,9 @@ export function createPolice(G, { avatars, M, BM, col, sea, traffic, peds, fx, g
       // avoid buildings: probe ahead, steer away from hits
       const probe = col.segment(c.x, c.z, c.x + Math.cos(c.h) * 14, c.z + Math.sin(c.h) * 14, 1e9, 2);
       if (probe < 1) want += 0.9 * (Math.sin(G.t * 0.7 + i) > 0 ? 1 : -1);
+      // never drive into the river: probe the road ahead for water and turn along the shore instead
+      { const la = 8 + Math.max(0, c.speed) * 0.8, wx = c.x + Math.cos(c.h) * la, wz = c.z + Math.sin(c.h) * la;
+        if (!isLand(wx, wz)) { c.waterT = 0.8; want = c.h + (isLand(c.x + Math.cos(c.h + 0.9) * la, c.z + Math.sin(c.h + 0.9) * la) ? 0.9 : -0.9); } }
       let dh = Math.atan2(Math.sin(want - c.h), Math.cos(want - c.h));
       const v = c.speed;
       if (!pl.vehicle && d < 14) {
@@ -101,6 +104,7 @@ export function createPolice(G, { avatars, M, BM, col, sea, traffic, peds, fx, g
         else { c.throttle = Math.abs(dh) > 1.2 ? 0.55 : 1; c.steer = Math.max(-1, Math.min(1, dh * 2.5)); }
         c.brake = 0; c.hand = Math.abs(dh) > 1.0 && v > 12 ? 1 : 0;
       }
+      if ((c.waterT = (c.waterT || 0) - dt) > 0) { c.throttle = Math.min(c.throttle, c.speed > 4 ? 0 : 0.4); c.brake = c.speed > 4 ? 1 : 0; }
       c.update(dt);
       if (Math.abs(c.speed) > 2.5) peds.hitByVehicle(c);
     }
@@ -132,7 +136,7 @@ export function createPolice(G, { avatars, M, BM, col, sea, traffic, peds, fx, g
       cop.speed += (target - cop.speed) * Math.min(1, 5 * dt);
       let nx = pos.x + Math.sin(cop.yaw) * cop.speed * dt, nz = pos.z + Math.cos(cop.yaw) * cop.speed * dt;
       const c = col.circleVsWorld(nx, nz, 0.3); if (c.hit) { nx = c.x; nz = c.z; }
-      if (!isLand(nx, nz)) { nx = pos.x; nz = pos.z; }
+      if (groundAt(nx, nz, pos.y).water) { nx = pos.x; nz = pos.z; }
       pos.x = nx; pos.z = nz; ch.speed = cop.speed; ch.root.rotation.y = cop.yaw;
       ch.update(dt, groundAt(nx, nz, pos.y).y);
     }

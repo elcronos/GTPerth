@@ -33,7 +33,7 @@ export const WORLD = { min: [-2000, -5, -1800], max: [2100, 300, 2300], groundY:
 export const PLAYER = {
   height: 1.73, radius: 0.32,
   fov: 62,
-  walk: 1.55, run: 4.2, sprint: 6.8,     // m/s (matches the clip root speeds)
+  walk: 1.45, run: 3.5, sprint: 6.2,     // m/s (Rocketbox clip root speeds: walk 1.21, jog 2.75, sprint 5.38)
   accel: 14, turn: 10,
   jump: 4.6, gravity: 18,
   camDist: 4.4, camHeight: 1.85, camVehicleDist: 8.5, camFerryDist: 22,

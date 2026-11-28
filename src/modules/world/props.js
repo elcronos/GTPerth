@@ -178,8 +178,9 @@ export function create(G, { mats, roads, footprints = [], lamps = [] }) {
   // EQ promenade: a palm every 18 m around the inlet, set back from the lamps and benches
   for (const p of alongShore(SHORE_N, -110, 150, 17, 8, (x, z) => z > -215 && z < 80 && !nearRoad(x, z) && !inFoot(x, z) && isLand(x, z) && Math.hypot(x - PLAYER_SPAWN[0], z - PLAYER_SPAWN[2]) > 9, 8.5)) eqPalms.push(p[0], p[1]);
   for (const [x, z] of [[-232, 1352], [-196, 1360], [-250, 1372], [-170, 1378], [-140, 1362], [-268, 1350]]) if (isLand(x, z)) palmPts.push(x, z);
-  for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z) && Math.hypot(x - PLACES.numbat[0], z - PLACES.numbat[1]) > 17 && Math.hypot(x - mendsW(15, 4)[0], z - mendsW(15, 4)[1]) > 26)) palmPts.push(p[0], p[1]);
+  for (const p of alongShore(SHORE_S, -640, 600, 46, 16, (x, z) => !nearRoad(x, z) && !inFoot(x, z) && Math.hypot(x - PLACES.numbat[0], z - PLACES.numbat[1]) > 17 && Math.hypot(x - PLACES.lizard[0], z - PLACES.lizard[1]) > 16 && Math.hypot(x - mendsW(15, 4)[0], z - mendsW(15, 4)[1]) > 26)) palmPts.push(p[0], p[1]);
   // the inlet palms frame the hero view: never thinned by the phone tier
+  for (const arr of [eqPalms, palmPts]) for (let i = 0; i < arr.length; i += 2) colliders.push({ circle: [arr[i], arr[i + 1], 0.3] });   // palm trunks are solid
   group.add(scatter(G, { parts: [{ geo: PALMS[0].g.trunk, material: PALMS[0].tm }, { geo: PALMS[0].g.fronds, material: fm }], points: eqPalms, heightAt, scale: [0.85, 1.15], fade: lo ? [160, 240] : [500, 700], cell: 400, seed: 7, tiered: false, sway: { amp: 0.12, freq: 0.8, height: PALMS[0].H, flutter: 0.4 } }).group);
   PALMS.forEach((V, vi) => {   // varied heights: every 3rd palm per variant
     const pts = []; for (let i = 0; i < palmPts.length; i += 2) if ((i / 2) % PALMS.length === vi) pts.push(palmPts[i], palmPts[i + 1]);
@@ -232,6 +233,8 @@ export function create(G, { mats, roads, footprints = [], lamps = [] }) {
   lampReceive(mats.timber, 1.0); lampReceive(mats.steel, 0.45); lampReceive(mats.timberDeck, 1.0); lampReceive(mats.white, 0.6);
   nr((instanced(G, benchGeo(), mats, benchM, 'benches')));
   for (const m of lampM) { _v.setFromMatrixPosition(m); colliders.push({ circle: [_v.x, _v.z, 0.25] }); }
+  // benches are solid (two circles along the seat), so nobody runs or lands through them
+  { const ax = new Vector3(); for (const m of benchM) { _v.setFromMatrixPosition(m); ax.set(1, 0, 0).transformDirection(m); for (const s of [-0.55, 0.55]) colliders.push({ circle: [_v.x + ax.x * s, _v.z + ax.z * s, 0.38] }); } }
 
   // ----- The Landing furniture: limestone planter benches, bollards, a kiosk umbrella cluster
   const k0 = new Kit();
