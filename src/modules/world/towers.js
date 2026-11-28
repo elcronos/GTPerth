@@ -216,6 +216,7 @@ const OSM_FIX = {
   w1134731944: () => ({ style: 'curtain', glass: [0.10, 0.14, 0.19], frame: [0.46, 0.48, 0.50], pw: 1.5, fh: 4.4 }),
   w1134731945: () => ({ h: 15, style: 'punched', frame: [0.58, 0.56, 0.52], glass: GL.dark, pw: 3.0, fh: 4.6 }),
   w1566514457: () => ({ h: 82, name: 'Nine The Esplanade', style: 'fins', frame: [0.56, 0.57, 0.58], glass: [0.12, 0.17, 0.22], pw: 1.5, fh: 4.1 }),
+  w1446272993: () => ({ h: 110.5, name: 'Equus', style: 'resi', frame: [0.50, 0.50, 0.49], glass: [0.12, 0.16, 0.20], pw: 1.5, fh: 3.4 }),   // 580 Hay St, 27 floors (CTBUH); untagged in OSM
   w1460944447: (b) => (b.h ? { style: 'resi', frame: [0.44, 0.45, 0.46], glass: [0.11, 0.15, 0.19], pw: 1.5, fh: b.h / b.lv } : null),
 };
 const NAMED_COL = { white: [0.46, 0.46, 0.45], grey: [0.45, 0.45, 0.45], gray: [0.45, 0.45, 0.45], silver: [0.6, 0.62, 0.64], brown: [0.32, 0.22, 0.15], beige: [0.66, 0.58, 0.45], tan: [0.62, 0.5, 0.36],
@@ -228,12 +229,12 @@ function osmColour(c) {
   return [lin((v >> 16) & 255), lin((v >> 8) & 255), lin(v & 255)];
 }
 const HOUSE = /^(house|detached|semidetached_house|terrace|bungalow|garage|garages|shed|hut|carport|roof)$/;
-function osmBuildings(rng) {
+export function osmBuildings(rng) {
   const out = [];
   const CBD = [20, -540];
   // tallest part per OSM building group gets the named crown / mast
   const tallest = new Map();
-  for (const b of OSM_BUILDINGS) { const h = b.h || (b.lv || 0) * 3.3; const t = tallest.get(b.g); if (!t || h > t) tallest.set(b.g, h); }
+  for (const b of OSM_BUILDINGS) { const h = b.h || (b.lv || 0) * 3.1; const t = tallest.get(b.g); if (!t || h > t) tallest.set(b.g, h); }
   // drop geometry that would z-fight: (1) a building outline whose area is covered by building:parts (OSM renders the
   // parts instead), (2) exact duplicate footprints
   const cen = (r) => { let x = 0, z = 0; for (const p of r) { x += p[0]; z += p[1]; } return [x / r.length, z / r.length]; };
@@ -244,7 +245,7 @@ function osmBuildings(rng) {
     const key = b.p.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).sort().join(';') + '|' + (b.mh || 0);
     if (seenRing.has(key)) return false; seenRing.add(key);
     if (/^Mister Walker$/.test(b.n || '')) return false;   // modelled by hand in landmarks.js (Mends Street Jetty)
-    if (b.part) return true;
+    if (b.part || b.keep) return true;   // keep: outlines restored because their parts cover only a sliver (tools/osm/restore_outlines.py)
     let xa = 1e9, xb = -1e9, za = 1e9, zb = -1e9; for (const q of b.p) { xa = Math.min(xa, q[0]); xb = Math.max(xb, q[0]); za = Math.min(za, q[1]); zb = Math.max(zb, q[1]); }
     return !partC.some(([x, z]) => x > xa && x < xb && z > za && z < zb && inPoly(x, z, b.p));
   });
@@ -253,7 +254,9 @@ function osmBuildings(rng) {
     let area = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]); area = Math.abs(area) / 2;
     const r = () => rng();
     const sp = cz > 450, type = b.b || 'yes';
-    let h = b.h || (b.lv ? b.lv * 3.3 + (b.lv > 3 ? 1.5 : 0.6) : 0);
+    // levels → height: offices ~3.7 m floor-to-floor (QV1 163 m / 44, Exchange Plaza 146 m / 40), apartments and hotels ~3.1 m
+    const flr = /apartments|residential|hotel|dormitory|house|terrace/.test(type) ? 3.1 : 3.6;
+    let h = b.h || (b.lv ? b.lv * flr + (b.lv > 3 ? 1.5 : 0.6) : 0);
     if (!h) {
       if (HOUSE.test(type) || (sp && area < 330)) h = type === 'garage' || type === 'shed' || type === 'carport' ? 2.6 : 4.5 + r() * 2.5;
       else if (sp) h = 7 + r() * 8;
