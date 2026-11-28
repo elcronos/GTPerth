@@ -1,7 +1,6 @@
 // Boats: Transperth ferry MV Tricia (23.7 m aluminium catamaran, 148 seats) and a WA Water Police launch.
 // Buoyancy samples the same Gerstner sea the GPU draws (sea.heightAt); thrust + rudder + bow thrusters, keel drag,
 // bow rise at speed, shore collisions against the real shoreline, and a foam wake ribbon.
-import { modelInstance } from './models.js';
 import { Group, Mesh, MeshStandardMaterial, Color, BufferGeometry, Float32BufferAttribute, DynamicDrawUsage, ShaderMaterial, CanvasTexture, SRGBColorSpace, PlaneGeometry, AdditiveBlending, Vector3 } from 'three';
 import { Kit, lathe, roundedBox, extrudeBevel, tube } from '../../cookbook/geo/kit.js';
 import { isLand } from '../../map.js';
@@ -32,49 +31,61 @@ export function boatMaterials() {
   };
 }
 
-// MV Tricia: bow +x. Twin demi-hulls, bridge deck, glazed passenger cabin, wheelhouse on the roof forward,
-// open rear deck, Transperth green/yellow waterline stripes.
+// MV Tricia (Southerly Designs / Dongara Marine, 2019): 23.9 m x 5.5 m aluminium catamaran, 148 seats, one passenger
+// deck. Bow +x. Twin demi-hulls with fine entries, a bridge deck carrying a fully glazed cabin (dark tinted wrap, white
+// mullions), a compact wheelhouse raised on the starboard side forward, solar panels on the roof, open stern deck with
+// rails, side boarding gates, Transperth green / yellow waterline stripes and lettering. The old photogrammetry mesh
+// read as a bus at 7.6 m beam; this is built to the published dimensions.
 export function buildFerry(M) {
-  const L = 23.7, B = 7.6;
-  const tm = modelInstance('ferry');
-  if (tm) { const g = new Group(); g.add(tm); return { group: g, L, B, helm: new Vector3(4.2, 4.6, 0), deckY: 1.25 }; }
-  const k = new Kit();
+  const L = 23.9, B = 5.5, HW = 1.45;   // demi-hull width
+  const k = new Kit(), cz = B / 2 - HW / 2;
   for (const s of [-1, 1]) {
-    // demi-hull: rounded vee, fine entry at the bow (+x), transom at the stern
-    const hp = [[-11.6, -0.95], [8.6, -0.95], [11.85, 0.15], [11.6, 0.95], [-11.7, 0.95], [-11.85, 0.2]];
-    const hull = extrudeBevel(hp, { depth: 1.9, bevel: 0.25, bevelSeg: 3 });
-    k.add(hull, 'hull', { at: [0, -0.05, s * (B / 2 - 0.95)] });
-    k.box(L * 0.97, 0.22, 0.06, 'green', { at: [-0.3, 0.12, s * (B / 2 + 0.01)], r: 0.01 });
-    k.box(L * 0.95, 0.1, 0.06, 'yellow', { at: [-0.4, 0.34, s * (B / 2 + 0.012)], r: 0.01 });
+    // demi-hull side profile (x along, y up), extruded across and bevelled: flat run, raked fine bow, square transom
+    const hp = [[-11.9, -0.85], [7.4, -0.85], [10.6, -0.35], [11.95, 0.55], [11.85, 1.0], [-11.95, 1.0], [-11.95, -0.55]];
+    k.add(extrudeBevel(hp, { depth: HW, bevel: 0.22, bevelSeg: 3 }), 'hull', { at: [0, -0.05, s * cz] });
+    k.box(L * 0.96, 0.2, 0.05, 'green', { at: [-0.4, 0.08, s * (B / 2 + 0.005)], r: 0.01 });
+    k.box(L * 0.94, 0.09, 0.05, 'yellow', { at: [-0.5, 0.29, s * (B / 2 + 0.008)], r: 0.01 });
+    k.box(L * 0.9, 0.16, 0.05, 'dark', { at: [-0.6, -0.62, s * (B / 2 + 0.003)], r: 0.01 });   // antifoul boot-top
+    k.box(0.5, 0.4, 0.6, 'dark', { at: [-11.7, -0.3, s * cz], r: 0.05 });                       // waterjet / prop housing
   }
-  // bridge deck (wet deck) between the hulls
-  k.add(extrudeBevel([[-11.7, 0.55], [10.6, 0.55], [11.4, 1.0], [11.2, 1.2], [-11.8, 1.2]], { depth: B, bevel: 0.12, bevelSeg: 2 }), 'hull');
-  k.box(L * 0.9, 0.05, B - 0.4, 'deck', { at: [-0.6, 1.23, 0], r: 0.02 });
-  // passenger cabin: raked front, rounded roof edge; continuous tinted glass band wrapping the sides
-  const cab = [[-7.2, 1.2], [6.6, 1.2], [8.7, 1.9], [7.4, 3.45], [-7.0, 3.55], [-7.4, 3.2]];
-  k.add(extrudeBevel(cab, { depth: B - 0.5, bevel: 0.22, bevelSeg: 3 }), 'hull');
-  const band = [[-6.9, 2.05], [7.9, 2.05], [7.55, 3.05], [-6.9, 3.12]];
-  k.add(extrudeBevel(band, { depth: B - 0.4, bevel: 0.06 }), 'glass');
-  k.add(extrudeBevel([[-7.6, 3.42], [7.6, 3.36], [7.8, 3.62], [-7.5, 3.72]], { depth: B - 0.15, bevel: 0.12, bevelSeg: 2 }), 'hull');   // roof overhang
-  for (let i = -3; i <= 3; i++) for (const s of [-1, 1]) k.box(0.1, 1.0, 0.04, 'hull', { at: [i * 2.1, 2.58, s * (B / 2 - 0.19)], r: 0.02 });
-  // wheelhouse on the roof, forward, with wrap glass
-  k.add(extrudeBevel([[2.0, 3.6], [5.6, 3.6], [6.5, 4.3], [5.9, 5.1], [2.2, 5.15]], { depth: 3.6, bevel: 0.12, bevelSeg: 2 }), 'hull');
-  k.add(extrudeBevel([[2.4, 4.35], [6.1, 4.35], [5.75, 4.95], [2.4, 4.98]], { depth: 3.7, bevel: 0.04 }), 'glass');
-  k.cyl(0.05, 0.6, 'steel', { at: [3.2, 5.45, 0] }); k.box(0.7, 0.05, 0.05, 'steel', { at: [3.2, 5.7, 0], r: 0.01 });
-  // roof rails, rear open deck with bench seats and rails
-  for (const s of [-1, 1]) k.add(tube([[-7.3, 4.6, s * (B / 2 - 0.25)], [1.8, 4.6, s * (B / 2 - 0.25)]], 0.035), 'steel', { occ: false });
-  for (let i = 0; i < 3; i++) k.box(0.5, 0.45, B - 1.8, 'seat', { at: [-8.4 + i * 1.0, 1.5, 0], r: 0.06 });
-  k.add(tube([[-11.4, 2.25, -B / 2 + 0.2], [-11.4, 2.25, B / 2 - 0.2]], 0.04), 'steel', { occ: false });
-  for (const s of [-1, 1]) k.add(tube([[-11.4, 2.25, s * (B / 2 - 0.2)], [-7.2, 2.25, s * (B / 2 - 0.2)]], 0.04), 'steel', { occ: false });
-  for (let x = -11; x < -7; x += 1.2) for (const s of [-1, 1]) k.bar([x, 1.25, s * (B / 2 - 0.2)], [x, 2.25, s * (B / 2 - 0.2)], 0.04, 0.04, 'steel');
-  // fenders + bow fender
-  for (let i = -5; i <= 4; i++) for (const s of [-1, 1]) k.box(0.7, 0.32, 0.2, 'dark', { at: [i * 2, 1.0, s * (B / 2 + 0.08)], r: 0.08 });
+  // bridge deck between the hulls and the main deck (non-slip grey)
+  k.add(extrudeBevel([[-11.9, 0.45], [9.8, 0.45], [11.0, 0.95], [10.9, 1.2], [-11.95, 1.2]], { depth: B, bevel: 0.1, bevelSeg: 2 }), 'hull');
+  k.box(L * 0.92, 0.04, B - 0.3, 'deck', { at: [-0.5, 1.22, 0], r: 0.01 });
+  // passenger cabin: raked windscreen, near-full-length glazing, rounded roof edge
+  const CX0 = -6.4, CX1 = 7.1, CY0 = 1.2, CY1 = 3.35;
+  k.add(extrudeBevel([[CX0, CY0], [CX1 - 0.6, CY0], [CX1 + 0.9, 1.75], [CX1, CY1 - 0.05], [CX0 + 0.2, CY1], [CX0, CY1 - 0.3]], { depth: B - 0.35, bevel: 0.16, bevelSeg: 3 }), 'hull');
+  k.add(extrudeBevel([[CX0 + 0.25, 1.95], [CX1 + 0.45, 1.95], [CX1 + 0.05, 3.0], [CX0 + 0.25, 3.05]], { depth: B - 0.25, bevel: 0.04 }), 'glass');
+  for (let xx = CX0 + 1.4; xx < CX1 - 0.3; xx += 1.35) for (const s of [-1, 1]) k.box(0.09, 1.1, 0.04, 'hull', { at: [xx, 2.5, s * (B / 2 - 0.12)], r: 0.015 });
+  for (const s of [-1, 1]) { k.box(1.1, 1.9, 0.05, 'dark', { at: [CX0 + 0.9, 2.15, s * (B / 2 - 0.13)], r: 0.02 }); k.box(1.1, 1.9, 0.05, 'dark', { at: [2.2, 2.15, s * (B / 2 - 0.13)], r: 0.02 }); }   // boarding doors
+  // seats seen through the glass: rows of blue bus-style seats either side of the aisle
+  for (let xx = CX0 + 1.0; xx < CX1 - 1.0; xx += 0.85) for (const s of [-1, 1]) { k.box(0.45, 0.45, 1.6, 'seat', { at: [xx, 1.48, s * 1.35], r: 0.05 }); k.box(0.08, 0.55, 1.6, 'seat', { at: [xx - 0.22, 1.95, s * 1.35], r: 0.03 }); }
+  k.add(extrudeBevel([[CX0 - 0.3, CY1 - 0.08], [CX1 + 0.1, CY1 - 0.12], [CX1 + 0.3, CY1 + 0.12], [CX0 - 0.2, CY1 + 0.16]], { depth: B - 0.1, bevel: 0.1, bevelSeg: 2 }), 'hull');   // roof
+  for (let i = 0; i < 6; i++) for (const s of [-1, 1]) k.box(1.6, 0.04, 1.0, 'solar', { at: [CX0 + 1.2 + i * 1.75, CY1 + 0.2, s * 0.65], r: 0.01, rot: [0, 0, 0.04] });
+  // compact wheelhouse raised on the starboard side, forward (all controls on the starboard side: one-person docking)
+  const WZ = B / 2 - 1.1;   // starboard = +z with the bow at +x (right = forward × up)
+  k.add(extrudeBevel([[3.0, CY1 + 0.1], [5.9, CY1 + 0.1], [6.5, CY1 + 0.75], [6.1, CY1 + 1.35], [3.2, CY1 + 1.4]], { depth: 2.0, bevel: 0.1, bevelSeg: 2 }), 'hull', { at: [0, 0, WZ] });
+  k.add(extrudeBevel([[3.4, CY1 + 0.72], [6.25, CY1 + 0.72], [5.95, CY1 + 1.22], [3.4, CY1 + 1.26]], { depth: 2.08, bevel: 0.03 }), 'glass', { at: [0, 0, WZ] });
+  k.cyl(0.05, 1.3, 'steel', { at: [3.6, CY1 + 2.05, WZ] }); k.box(0.9, 0.05, 0.05, 'steel', { at: [3.6, CY1 + 2.55, WZ], r: 0.01 });   // mast + yard
+  k.box(0.12, 0.12, 0.12, 'navWhite', { at: [3.6, CY1 + 2.75, WZ], r: 0.03 });
+  k.box(0.22, 0.12, 0.06, 'red', { at: [6.4, 2.2, -B / 2 + 0.1], r: 0.02 }); k.box(0.22, 0.12, 0.06, 'navGreen', { at: [6.4, 2.2, B / 2 - 0.1], r: 0.02 });   // port red / starboard green
+  // open stern deck: rails, benches, life rings; rails along the side decks forward of the cabin
+  for (const s of [-1, 1]) { k.add(tube([[-11.6, 2.25, s * (B / 2 - 0.15)], [CX0, 2.25, s * (B / 2 - 0.15)]], 0.035), 'steel', { occ: false }); k.add(tube([[CX1 + 0.6, 2.2, s * (B / 2 - 0.15)], [10.6, 2.0, s * 0.6]], 0.035), 'steel', { occ: false }); }
+  k.add(tube([[-11.6, 2.25, -B / 2 + 0.15], [-11.6, 2.25, B / 2 - 0.15]], 0.035), 'steel', { occ: false });
+  for (let xx = -11.4; xx < CX0; xx += 1.1) for (const s of [-1, 1]) k.bar([xx, 1.24, s * (B / 2 - 0.15)], [xx, 2.25, s * (B / 2 - 0.15)], 0.035, 0.035, 'steel');
+  for (let i = 0; i < 2; i++) k.box(0.5, 0.45, B - 1.6, 'seat', { at: [-9.6 + i * 1.3, 1.48, 0], r: 0.05 });
+  for (const s of [-1, 1]) k.cyl(0.33, 0.09, 'navOrange', { at: [CX0 - 0.15, 2.3, s * (B / 2 - 0.05)], rot: [Math.PI / 2, 0, 0], seg: 14 });
+  // rubbing strake + fenders
+  for (const s of [-1, 1]) k.box(L * 0.95, 0.16, 0.12, 'dark', { at: [-0.4, 1.05, s * (B / 2 + 0.05)], r: 0.05 });
   k.bakeAO({ radius: 0.5, samples: 6, strength: 0.5 });
-  const g = k.build(M);
+  const g = k.build({ ...M,
+    solar: new MeshStandardMaterial({ color: 0x0c1830, roughness: 0.2, metalness: 0.6, vertexColors: true }),
+    navWhite: new MeshStandardMaterial({ color: 0xffffff, emissive: new Color(1, 1, 0.95), emissiveIntensity: 1.2, vertexColors: true }),
+    navGreen: new MeshStandardMaterial({ color: 0x0a6a2a, emissive: new Color(0.1, 1, 0.3), emissiveIntensity: 0.6, vertexColors: true }),
+    navOrange: new MeshStandardMaterial({ color: 0xff6a20, roughness: 0.5, vertexColors: true }) });
   const tTex = nameTex('TRANSPERTH', 'TRICIA'), tMat = new MeshStandardMaterial({ map: tTex, transparent: true, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const s of [-1, 1]) { const p = new Mesh(new PlaneGeometry(9, 1.1), tMat); p.position.set(0.2, 1.62, s * (B / 2 - 0.24)); p.rotation.y = s > 0 ? 0 : Math.PI; g.add(p); }
+  for (const s of [-1, 1]) { const p = new Mesh(new PlaneGeometry(8.5, 1.05), tMat); p.position.set(-1.0, 0.72, s * (B / 2 + 0.03)); p.rotation.y = s > 0 ? 0 : Math.PI; g.add(p); }
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return { group: g, L, B, helm: new Vector3(4.2, 4.6, 0), deckY: 1.25 };
+  return { group: g, L, B, helm: new Vector3(4.6, CY1 + 1.0, WZ), deckY: 1.25 };
 }
 
 export function buildPoliceBoat(M) {

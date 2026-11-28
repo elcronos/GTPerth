@@ -6,6 +6,7 @@ import {
 } from 'three';
 import { patchUniforms, patch, sharedUniform } from '../../cookbook/engine/patch.js';
 import { lampReceive } from './lampmap.js';
+import { createAttractions } from './eqattractions.js';
 import { scatter, treeGeo, leafTexture, foliagePatch, poissonDisk, bushGeo } from '../../cookbook/geo/scatter.js';
 import { Kit, tube, lathe, roundedBox, mergeGeos, normalizeGeo } from '../../cookbook/geo/kit.js';
 import { rngFrom } from '../../cookbook/geo/noise.js';
@@ -101,6 +102,7 @@ export function create(G, { mats, roads, footprints = [], lamps = [] }) {
   const hiT = G.quality.tier === 'high' || G.quality.tier === 'ultra', lo = G.quality.tier === 'low';
   const NR = [], nr = (o) => { group.add(o); NR.push(o); return o; };   // groups the river mirror skips (street trees, bush, shrubs, benches, lamp pools): far from the water, costly to redraw
   const colliders = [];
+  group.add(createAttractions(G, { mats, colliders, lamps }).group);   // Venetian carousel + BHP water park (eqattractions.js)
   // ----- trees
   const leafTex = leafTexture({ size: 256, seed: 5, kind: 'broad' });
   const euTex = leafTexture({ size: 256, seed: 7, kind: 'needle', leaves: 200 });
@@ -242,21 +244,8 @@ export function create(G, { mats, roads, footprints = [], lamps = [] }) {
   for (const [x, z] of [[38, -205], [44, -205], [41, -209]]) { k0.cyl(0.05, 2.6, 'steel', { at: [x, PROMENADE_Y + 1.3, z] }); k0.add(lathe([[1.6, 0], [0.1, 0.5], [0, 0.52]], { seg: 8 }), 'canopy', { at: [x, PROMENADE_Y + 2.5, z] }); k0.cyl(0.4, 0.75, 'steel', { at: [x + 0.8, PROMENADE_Y + 0.37, z], seg: 12 }); }
   k0.bakeAO({ radius: 0.5, samples: 6, strength: 0.6, ground: PROMENADE_Y - 0.02 });
   group.add(k0.build({ ...mats, soil: new MeshStandardMaterial({ color: 0x2a3a1a, roughness: 1, vertexColors: true }) }));
-  // ----- Landing carousel (west of Spanda) + BHP water park pad + Fifteen The Esplanade hoarding
+  // ----- Fifteen The Esplanade hoarding, moored boats
   const k = new Kit();
-  {
-    const [sx, sz] = PLACES.spanda; const x = sx - 26, z = sz + 6, y = PROMENADE_Y;
-    k.cyl(7, 0.6, 'white', { at: [x, y + 0.3, z], seg: 32 });
-    k.add(lathe([[7.6, 0], [4.0, 1.6], [0.6, 2.6], [0, 2.7]], { seg: 32 }), 'canopyRed', { at: [x, y + 4.4, z] });
-    k.cyl(0.6, 4.2, 'gold', { at: [x, y + 2.4, z], seg: 16 });
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; k.cyl(0.05, 3.8, 'gold', { at: [x + Math.cos(a) * 5.2, y + 2.5, z + Math.sin(a) * 5.2], seg: 6 }); k.box(1.2, 0.8, 0.35, 'white', { at: [x + Math.cos(a) * 5.2, y + 1.6, z + Math.sin(a) * 5.2], r: 0.12 }); }
-    colliders.push({ circle: [x, z, 7.4] });
-  }
-  {
-    const [x, z] = PLACES.waterPark; k.box(30, 0.08, 20, 'wetPad', { at: [x, PROMENADE_Y + 0.04, z], r: 0.02 });
-    for (let i = 0; i < 4; i++) { k.cyl(0.08, 4.5, 'steel', { at: [x - 12 + i * 8, PROMENADE_Y + 2.3, z - 9] }); }
-    k.box(32, 0.1, 22, 'canopy', { at: [x, PROMENADE_Y + 4.6, z], r: 0.05 });
-  }
   // ----- moored boats along the inlet's east shore + a few on Perth Water
   const boatCols = [0xf2f2ee, 0x1c2c44, 0xe8e2d4, 0x7a1a14, 0xf5f5f0, 0x2a4a5a];
   for (let i = 0; i < 7; i++) { const t = i / 6; k.push(134 - 30 * t - 7, -0.45, -128 + 78 * t, 0.37 + Math.PI); boatKit(k, 8 + rng() * 5, boatCols[i % 6], i % 3 === 0 ? 'yacht' : 'motor'); k.pop(); }   // along the Ritz pier

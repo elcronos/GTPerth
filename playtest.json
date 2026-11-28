@@ -126,7 +126,8 @@
    "eval": "__G.game.debugLose()"
   },
   {
-   "wait": 2500
+   "waitFor": "__G.game.state.mode === 'dead'",
+   "timeout": 30000
   },
   {
    "assert": "__G.game.state.mode === 'dead'",

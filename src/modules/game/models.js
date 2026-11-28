@@ -14,7 +14,6 @@ const SPEC = {
   ute: { front: '+x', L: 5.33, W: 1.86, H: 1.82, tint: true },
   police: { front: '+x', L: 4.95, W: 1.86, H: 1.58 },
   bus: { front: '+z', L: 12.2, W: 2.5, H: 3.2 },
-  ferry: { front: '-z', L: 23.7, W: 7.6, H: 5.6, y0: 0.15 },
 };
 const ROT = { '+x': 0, '+z': Math.PI / 2, '-z': -Math.PI / 2, '-x': Math.PI };
 const b64 = (s) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };

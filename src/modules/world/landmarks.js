@@ -9,6 +9,7 @@ import { CatmullRomCurve3, Vector3, CanvasTexture, SRGBColorSpace, Mesh, PlaneGe
 import { Kit, lathe, tube, roundedBox, sweep, extrudeBevel } from '../../cookbook/geo/kit.js';
 import { BufferGeometry, Float32BufferAttribute, MeshStandardMaterial, Color, DataTexture, RepeatWrapping, LinearFilter, DoubleSide } from 'three';
 import { patch } from '../../cookbook/engine/patch.js';
+import { ensureWorldVaryings } from '../../cookbook/materials/weathering.js';
 import { boxSweep, sailBlade } from './shapes.js';
 import { heightAt, isLand, PLACES, ISLAND, NARROWS, PROMENADE_Y, MENDS, mendsW } from '../../map.js';
 
@@ -51,20 +52,27 @@ function bellTower(k) {
   k.pop();
 }
 
-function spanda(k) {
-  // Six egg-shaped hoops (tall, legs converging at the foot) standing in a row along a north-south axis, the
-  // largest (29 m) on the city side, each ~0.75× the previous, spacing tightening toward the smallest.
-  const [x, z] = PLACES.spanda, y = heightAt(x, z);
-  k.push(x, y, z, 0);
-  const H = [29, 21.8, 16.4, 12.3, 9.2, 6.9]; const D = [0, 2.8, 5.0, 6.7, 8.0, 9.0];
-  for (let i = 0; i < 6; i++) {
-    // egg-shaped loop, open at the foot where both legs come together (legs a hand-span apart)
-    const h = H[i], w = h * 0.74, eps = 0.13, y0 = (1 + Math.sin(-Math.PI / 2 + eps)) / 2;
-    const pts = []; for (let j = 0; j <= 48; j++) { const s = -Math.PI / 2 + eps + (Math.PI * 2 - 2 * eps) * (j / 48);
-      const yy = ((1 + Math.sin(s)) / 2 - y0) / (1 - y0); pts.push([(w / 2) * Math.cos(s) * (0.82 + 0.3 * yy), h * yy, D[i]]); }
-    const r = 0.36 * Math.pow(h / 29, 0.55);
-    k.add(tube(pts, r, { radial: 14, curve: true, samples: 96 }), 'white', { occ: false });
-    k.box(Math.abs(pts[0][0]) * 2 + r * 4, 0.1, r * 4, 'steel', { at: [0, 0.05, D[i]], r: 0.03 });
+function spanda(k, lamps, cols) {
+  // Christian de Vietri, 2016 (Wikipedia / Development WA / ArchDaily): six gloss-white carbon-fibre arches of the same
+  // shape, nested in ONE plane around a shared centre and growing exponentially; 29 m high, 16 m wide, 1 m deep. Each
+  // arch thickens toward the ground (the feet sit in ~3 m concrete-filled sleeves) and is finest at the apex; the
+  // smallest frames a person or two. Uplights at the feet wash the inner faces at night (light radiating from the centre).
+  const [x, z] = PLACES.spanda, y = heightAt(x, z), [dx, dz] = PLACES.eqJettyDir;
+  k.push(x, y, z, Math.atan2(-dx, -dz));          // the arches face down the inlet to the river
+  // Each arch is an egg-shaped loop cut off near its base: widest at ~0.44 of its height, the legs leaning back in so
+  // the feet sit at ~60 % of the widest span (all six pairs of feet bunched near the centre, as photographed).
+  const N = 6, H0 = 29, W0 = 16, r = Math.pow(H0 / 3.0, 1 / (N - 1)), TH = Math.asin(0.8);
+  for (let i = 0; i < N; i++) {
+    const sc = Math.pow(r, -i), h = H0 * sc, A = (W0 / 2) * sc, B = h / 1.8, yc = 0.8 * B, pts = [];
+    for (let j = 0; j <= 72; j++) { const th = -TH + (Math.PI + 2 * TH) * (j / 72); pts.push([A * Math.cos(th), Math.max(0, yc + B * Math.sin(th)), 0]); }
+    const w = 2 * A * 0.6;   // foot spacing
+    const r0 = 0.6 * Math.pow(sc, 0.8), r1 = 0.2 * Math.pow(sc, 0.6);
+    k.add(tube(pts, (u) => { const m = Math.abs(u - 0.5) * 2; return r1 + (r0 - r1) * Math.pow(m, 2.4); }, { radial: 18, curve: true, samples: 160 }), 'spandaWhite', { occ: false });
+    for (const sx of [-1, 1]) {   // foot sleeve flush with the paving + a recessed uplight
+      k.cyl(r0 * 1.12, 0.06, 'granite', { at: [sx * w / 2, 0.03, 0], seg: 18 });
+      { const fp = new Vector3(sx * w / 2, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), Math.atan2(-dx, -dz)); cols.push({ circle: [x + fp.x, z + fp.z, r0 + 0.1] }); }
+      const lp = new Vector3(sx * w * 0.3, 0, 0.6).applyAxisAngle(new Vector3(0, 1, 0), Math.atan2(-dx, -dz)); if (i < 4) lamps.push([x + lp.x, y, z + lp.z]);
+    }
   }
   k.pop();
 }
@@ -181,30 +189,65 @@ function kiosk(k) {
   k.pop();
 }
 
-function eqJetty(k) {
+function eqJetty(k, lamps) {
+  // Elizabeth Quay ferry terminal (ARM Architecture + TCL; canopy design & construct Fabritecture / Maffeis, 2015):
+  // a floating concrete jetty between piles, sheltered by a ~2,000 m² canopy "inspired by the ripples of water,
+  // structured from blue fins and inflatable pillows made of ETFE" printed with Penny Bovell's artwork, on steel columns
+  // standing on concrete pylons out of the water, LED-lit at night. Local frame: z along the jetty (+z south, to the
+  // river), +x the berth (the ferry ties up on that side), −x the quay wall.
   const [x, z] = PLACES.eqJetty, [dx, dz] = PLACES.eqJettyDir, ry = Math.atan2(-dx, -dz);
-  // floating pontoon (concrete) along the west shore, gangway, the sculpted wave canopy on raked posts
   k.push(x, 0, z, ry);
-  k.box(5, 1.0, 46, 'concrete', { at: [0, 0.2, 0], r: 0.08 });
-  k.box(4.6, 0.06, 45.6, 'timberDeck', { at: [0, 0.73, 0], r: 0.01 });
-  for (let i = -3; i <= 3; i++) { k.cyl(0.35, 3.0, 'concrete', { at: [2.8, -0.8, i * 7] }); k.cyl(0.12, 3.2, 'steel', { at: [-2.0, 2.3, i * 7] }); k.cyl(0.12, 3.2, 'steel', { at: [2.0, 2.3, i * 7] }); }
-  for (let i = 0; i < 12; i++) { // cambered fins, alternately tilted, rising and falling like a wave
-    const fz = -20.9 + i * 3.8, fy = 3.9 + 0.55 * Math.sin(i * 0.9), tilt = (i % 2 ? 1 : -1) * 0.16;
-    const fin = []; for (let j = 0; j <= 10; j++) { const u = j / 10 - 0.5; fin.push([u * 7.4, 0.55 * (1 - 4 * u * u) + 0.25 * u]); }
-    for (let j = 10; j >= 0; j--) { const u = j / 10 - 0.5; fin.push([u * 7.4, 0.55 * (1 - 4 * u * u) + 0.25 * u - 0.12 - 0.1 * (1 - 4 * u * u)]); }
-    k.add(extrudeBevel(fin, { depth: 4.3, bevel: 0.04, bevelSeg: 2 }), 'canopyBlue', { at: [0.3, fy, fz], rot: [tilt, 0.06 * Math.sin(i), 0] });
+  const L = 48, DY = 0.76;
+  // floating jetty: concrete pontoon units with a composite deck, kerb + yellow edge line on the berth side
+  for (let i = 0; i < 4; i++) { const zc = -L / 2 + 6 + i * 12; k.box(4.8, 1.0, 11.9, 'concrete', { at: [0, 0.22, zc], r: 0.08 }); }
+  k.box(4.6, 0.05, L - 0.4, 'concrete', { at: [0, DY - 0.02, 0], r: 0.01, color: 0xd8d4cc });   // pale grey composite decking
+  k.box(0.14, 0.05, L - 0.4, 'white', { at: [2.18, DY + 0.01, 0], color: 0xffc830 });
+  for (let i = -11; i <= 11; i++) k.box(0.32, 0.75, 0.9, 'rubber', { at: [2.55, 0.42, i * 2.05], r: 0.05 });
+  for (const zz of [-20, -6, 8, 20]) k.cyl(0.14, 0.45, 'granite', { at: [1.9, DY + 0.22, zz], seg: 10 });
+  // guide piles through the pontoon + the canopy's concrete pylons in the water on the quay side
+  for (const zz of [-17, 17]) { k.cyl(0.36, 6, 'steel', { at: [-2.75, 0.8, zz], seg: 14, color: 0x9aa0a6 }); k.cyl(0.42, 0.15, 'steel', { at: [-2.75, 3.8, zz], seg: 14 }); k.box(0.7, 0.5, 1.2, 'steel', { at: [-2.45, 0.6, zz], r: 0.03, color: 0x6a7076 }); }   // guide piles outside the deck, with the pontoon's pile collars
+  const COLS = [-21, -14, -7, 0, 7, 14, 21];
+  for (const zz of COLS) { k.cyl(0.55, 3.2, 'concrete', { at: [-3.4, -0.9, zz], seg: 16 }); k.cyl(0.6, 0.12, 'concrete', { at: [-3.4, 0.76, zz], seg: 16 }); }
+  // raked twin steel columns (blue) up to a longitudinal box beam; cantilever arms out over the berth
+  const RY = 5.1;
+  for (const zz of COLS) {
+    for (const s of [-1, 1]) k.bar([-3.4, 0.8, zz + s * 0.35], [-2.6, RY - 0.4, zz + s * 0.9], 0.24, 0.24, 'canopyBlue', { r: 0.03 });
+    k.bar([-3.0, RY - 0.35, zz], [4.9, RY + 0.1, zz], 0.18, 0.45, 'canopyBlue', { r: 0.02 });
   }
-  k.box(5.0, 1.0, 0.1, 'sign', { at: [0, 3.2, 23.1], r: 0.02 });
-  // fenders on the berth face
-  for (let i = -10; i <= 10; i++) k.box(0.3, 0.8, 0.6, 'rubber', { at: [2.6, 0.5, i * 2.1] });
+  k.bar([-2.6, RY - 0.35, -L / 2], [-2.6, RY - 0.35, L / 2], 0.5, 0.5, 'canopyBlue', { r: 0.03 });
+  k.bar([4.9, RY + 0.1, -L / 2], [4.9, RY + 0.1, L / 2], 0.2, 0.3, 'canopyBlue', { r: 0.02 });
+  // the roof: transverse blue fins at 1.2 m whose tops ripple along and across the canopy, ETFE pillows between them
+  const top = (fz, fx) => RY + 0.7 + 0.75 * Math.sin(fz * 0.3 + 0.8) * Math.cos(fx * 0.36 - fz * 0.07) + 0.22 * Math.sin(fz * 0.85 + fx * 0.6);
+  const n = Math.round(L / 1.2), X0 = -3.6, X1 = 5.6, NX = 10;
+  for (let i = 0; i <= n; i++) {
+    const fz = -L / 2 + (L * i) / n, prof = [];
+    for (let j = 0; j <= NX; j++) { const fx = X0 + ((X1 - X0) * j) / NX; prof.push([fx, top(fz, fx)]); }
+    for (let j = NX; j >= 0; j--) { const fx = X0 + ((X1 - X0) * j) / NX; prof.push([fx, RY - 0.05 - 0.15 * Math.sin((j / NX) * Math.PI)]); }
+    k.add(extrudeBevel(prof, { depth: 0.07, bevel: 0.015, bevelSeg: 1 }), 'canopyBlue', { at: [0, 0, fz], occ: false });
+  }
+  for (let i = 0; i < n; i++) {   // pillow: a low dome between two fins, its crown lifted 0.18 m
+    const z0 = -L / 2 + (L * i) / n + 0.05, z1 = -L / 2 + (L * (i + 1)) / n - 0.05, F = [];
+    for (let j = 0; j < NX; j++) {
+      const xa = X0 + ((X1 - X0) * j) / NX, xb = X0 + ((X1 - X0) * (j + 1)) / NX, zm = (z0 + z1) / 2, lift = 0.16;
+      const ya0 = top(z0, xa) - 0.12, yb0 = top(z0, xb) - 0.12, ya1 = top(z1, xa) - 0.12, yb1 = top(z1, xb) - 0.12;
+      const yam = (ya0 + ya1) / 2 + lift, ybm = (yb0 + yb1) / 2 + lift;
+      F.push([[xa, ya0, z0], [xa, yam, zm], [xb, ybm, zm], [xb, yb0, z0]], [[xa, yam, zm], [xa, ya1, z1], [xb, yb1, z1], [xb, ybm, zm]]);
+    }
+    k.add(faceGeo(F), 'etfe', { occ: false });
+  }
+  // LED strip under every 4th fin (lamp map pool on the deck at night)
+  for (let i = 2; i < n; i += 4) { const fz = -L / 2 + (L * i) / n; k.box(7.6, 0.05, 0.06, 'lantern', { at: [1.0, RY - 0.2, fz], occ: false }); }
+  for (const zz of [-18, -6, 6, 18]) { const lp = new Vector3(0.5, 0, zz).applyAxisAngle(new Vector3(0, 1, 0), ry); lamps.push([x + lp.x, DY, z + lp.z]); }
+  // passenger furniture on the jetty: glass wind screens, benches, Transperth stop sign, SmartRider validators
+  for (const zz of [-12, 4]) { k.box(0.05, 2.1, 6.0, 'glass', { at: [-2.2, DY + 1.05, zz], r: 0.01 }); k.box(0.06, 0.08, 6.0, 'steel', { at: [-2.2, DY + 2.12, zz] }); }
+  for (const zz of [-14, -10, 2, 6]) { k.box(0.5, 0.06, 1.8, 'timber', { at: [-1.75, DY + 0.46, zz] }); for (const d of [-0.7, 0.7]) k.box(0.4, 0.44, 0.06, 'steel', { at: [-1.75, DY + 0.22, zz + d], color: 0x585d62 }); }
+  k.box(0.08, 2.8, 0.08, 'steel', { at: [-1.9, DY + 1.4, -L / 2 + 2], color: 0x585d62 }); k.box(0.06, 0.9, 0.9, 'sign', { at: [-1.9, DY + 2.5, -L / 2 + 2] });
+  for (const zz of [-L / 2 + 3.5, -L / 2 + 4.5]) k.box(0.22, 1.15, 0.16, 'alu', { at: [-1.0, DY + 0.58, zz], r: 0.03 });
   k.pop();
-  // gangways to the promenade (local: −x is the shore)
+  // gangway from the quay down to the floating jetty (covered by the same canopy at its head)
   k.push(x, 0, z, ry);
-  for (const gz of [-14, 10]) k.bar([-9, PROMENADE_Y + 0.05, gz], [-2.2, 0.75, gz], 2.0, 0.12, 'alu');
-  k.pop();
-  // ticket shelter on the quay
-  k.push(x - 14, PROMENADE_Y, z - 2, ry);
-  k.box(3.2, 2.6, 6, 'glass', { at: [0, 1.3, 0], r: 0.03 }); k.box(3.8, 0.2, 7, 'canopy', { at: [0, 2.75, 0], r: 0.05 });
+  k.bar([-9.0, PROMENADE_Y + 0.05, -L / 2 + 3], [-2.4, DY + 0.05, -L / 2 + 3], 2.2, 0.14, 'alu');
+  for (const s of [-1, 1]) k.add(tube([[-9.0, PROMENADE_Y + 1.05, -L / 2 + 3 + s * 1.05], [-2.4, DY + 1.05, -L / 2 + 3 + s * 1.05]], 0.035), 'steel', { occ: false });
   k.pop();
 }
 
@@ -689,7 +732,7 @@ function bhpSign() {
 export function create(G, { mats }) {
   const k = new Kit();
   const lamps = [], colliders = [], footprints = [];
-  bellTower(k); spanda(k); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k); barrackJetty(k);
+  bellTower(k); spanda(k, lamps, colliders); const bridge = eqBridge(k); firstContact(k); kiosk(k); eqJetty(k, lamps); barrackJetty(k);
   // Mends St precinct in its own meshes: culled by frustum and by distance on phones (1.3 km from the Quay)
   const km = new Kit(); footprints.push(mendsJetty(km, lamps, colliders)); connectSouth(km, colliders, lamps);
   narrows(k); oldMill(k); warMemorial(k); brookfieldCrown(k);
@@ -701,7 +744,18 @@ export function create(G, { mats }) {
   const lantern = new MeshStandardMaterial({ color: 0x2a2620, emissive: new Color(1.0, 0.82, 0.55), emissiveIntensity: 0.4, roughness: 0.3 });
   const winWarm = new MeshStandardMaterial({ color: 0x0e1012, emissive: new Color(1.0, 0.72, 0.42), emissiveIntensity: 0, roughness: 0.08, metalness: 0.6 });
   (G.nightMats ||= []).push({ mat: lantern, day: 0.2, night: 9 }, { mat: winWarm, day: 0, night: 0.9 });
-  const group = k.build({ ...mats, lantern, winWarm });
+  // Spanda: gloss white carbon fibre; at night the uplights wash the inner faces (light radiating from the centre)
+  const spandaWhite = new MeshStandardMaterial({ color: 0xf7f7f3, roughness: 0.14, metalness: 0.0, vertexColors: true });
+  { const [sx, sz] = PLACES.spanda, sy = heightAt(sx, sz);
+    patch(spandaWhite, 'spanda-uplight', (sh) => { ensureWorldVaryings(sh); sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  { vec3 toC = normalize(vec3(${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) - vWthPos); float inner = smoothstep(0.1, 0.7, dot(normalize(vWthN), toC));
+    float fall = exp(-(vWthPos.y - ${sy.toFixed(2)}) / 22.0); totalEmissiveRadiance += vec3(0.95, 0.97, 1.0) * inner * (0.25 + 0.75 * fall) * 1.6 * uNight; }`); }); }
+  // ETFE pillows of the ferry canopy: translucent, printed with a fine blue dot screen
+  const dots = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#9dbbe6'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#1f4fa8';
+    for (let y = 0; y < 128; y += 8) for (let x = 0; x < 128; x += 8) { const r = 1.2 + 2.2 * (0.5 + 0.5 * Math.sin((x + y * 0.6) * 0.07)); g.beginPath(); g.arc(x + 4 + (y % 16 ? 4 : 0), y + 4, r, 0, Math.PI * 2); g.fill(); }
+    const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(0.8, 0.8); return t; })();
+  const etfe = new MeshStandardMaterial({ map: dots, color: 0xffffff, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.8, side: DoubleSide, depthWrite: false, vertexColors: true });
+  const group = k.build({ ...mats, lantern, winWarm, spandaWhite, etfe });
   km.bakeAO({ radius: 0.6, samples: 8, strength: 0.6, ground: 2.8 });
   // Connect South canopies: satin-painted folded plate (Dulux Weathermax), perforated plate (alpha-tested hole grid, the holes
   // also cut the shadow), black crocheted yarn; the canopies are floodlit from below at night

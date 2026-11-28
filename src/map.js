@@ -109,16 +109,17 @@ export const FREEWAY = [[-858, 606], [-884, 650], [-906, 805], [-912, 1000], [-8
 // ---------------------------------------------------------------- key places
 export const PLACES = {
   spawn: [52, PROMENADE_Y, -214],          // The Landing (north end of the inlet), facing Spanda and the water
-  spanda: [111, -190],
+  spanda: [111.5, -182.4],                 // OSM node (Spanda, The Landing)
   eqJetty: [15, -127],                      // Elizabeth Quay ferry terminal: pontoon along the inlet's west shore
   eqJettyDir: [0.26, -0.966],               // pontoon axis (south → north)
-  ferryDock: [21, -122],                    // ferry centre when berthed (bow north, along the pontoon)
+  ferryDock: [19.8, -122.3],                    // ferry centre when berthed (bow north, along the pontoon)
   bellTower: [214, -24],                    // -31.958903, 115.858243 (Barrack Square)
   barrackJetty: [190, 60],
   mendsJetty: [-210, 1338],                 // Mends Street Jetty: shore end (OSM)
   mendsHead: [-186, 1262],                  // jetty head
   firstContact: [-64, -25],                 // west landing of the EQ Bridge
-  waterPark: [9, -207],
+  waterPark: [10.4, -206.0],                // OSM node leisure=water_park
+  carousel: [82.9, -197.8],                 // OSM node attraction=carousel (The Landing)
   oldMill: [-840, 770],
   warMemorial: [-1060, 178],
   zoo: [-203, 1944],
