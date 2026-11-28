@@ -46,7 +46,7 @@ export function createTouchControls(G, { input, ctx }) {
     const key = [c.inVehicle, c.canEnter, c.isFerry, c.hijack].join();
     if (key === last) return; last = key;
     bAction.firstChild.textContent = c.inVehicle ? 'EXIT' : c.hijack ? 'HIJACK' : 'ENTER';
-    bAction.classList.toggle('dim', !c.inVehicle && !c.canEnter);
+    bAction.style.visibility = !c.inVehicle && !c.canEnter ? 'hidden' : '';   // ENTER only when there is something to enter
     bPunch.firstChild.textContent = c.inVehicle ? (c.isFerry ? 'HORN' : 'HORN') : 'PUNCH';
     bJump.firstChild.textContent = c.inVehicle ? (c.isFerry ? '—' : 'BRAKE') : 'JUMP';
     bJump.classList.toggle('dim', c.inVehicle && c.isFerry);

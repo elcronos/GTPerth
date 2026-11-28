@@ -110,7 +110,16 @@ export function createPeds(G, { avatars, col }) {
       p.wp = p.path.indexOf(w);
     }
   };
-  S.scare = (x, z, r = 18, dur = 6, except = null) => { for (const p of list) { if (p.ch.state !== 'ok' || p === except || p.fight || p.state === 'stagger') continue; const d = Math.hypot(p.ch.position.x - x, p.ch.position.z - z); if (d < r) { p.state = 'flee'; p.fleeT = dur * (0.7 + Math.random() * 0.6); p.from = [x, z]; p.ch.stopGesture(); } } };
+  // bystanders don't all do the same thing: most run, some freeze and cower, a few hang back and film it on their phones
+  S.scare = (x, z, r = 18, dur = 6, except = null) => { for (const p of list) {
+    if (p.ch.state !== 'ok' || p === except || p.fight || p.state === 'stagger' || p.state === 'call' || p.state === 'cower' || p.state === 'film') continue;
+    const d = Math.hypot(p.ch.position.x - x, p.ch.position.z - z); if (d >= r) continue;
+    if (p.state === 'flee') { p.fleeT = Math.max(p.fleeT, dur * 0.7); continue; }
+    const roll = Math.random(); p.from = [x, z];
+    if (roll < 0.55 || d < 3) { p.state = 'flee'; p.fleeT = dur * (0.7 + Math.random() * 0.6); p.ch.stopGesture(); }
+    else if (roll < 0.8) { p.state = 'cower'; p.cowerT = 3 + Math.random() * 2; p.ch.playGesture('cower'); }
+    else if (d > 6) { p.state = 'film'; p.filmT = 5 + Math.random() * 3; p.ch.playGesture(Math.random() < 0.6 ? 'phone' : 'photo'); }
+    else { p.state = 'flee'; p.fleeT = dur; p.ch.stopGesture(); } } };
   S.hitByVehicle = (car) => {
     const fx = Math.cos(car.h), fz = Math.sin(car.h), v = car.speed;
     for (const p of list) {
@@ -138,13 +147,13 @@ export function createPeds(G, { avatars, col }) {
     }
     return best;
   };
-  const DMG = { jab: 26, cross: 38, hook: 55 };
+  const DMG = { jab: [16, 28], cross: [26, 40], hook: [38, 58] };   // rolled per hit: KOs take 3-5 punches, not a fixed combo
   S.punched = (p, fx, fz, kind = 'jab') => {
     if (p.ch.state !== 'ok') return;
     if (p.fight && kind === 'jab' && Math.random() < 0.3 && p.ch.guardW > 0.5) { p.ch.flinch(fx, fz, 0.3); S.onBlock?.(p); return 'block'; }   // guarded jab
-    p.hp = (p.hp ?? 100) - (DMG[kind] || 30) * (0.8 + Math.random() * 0.4);
+    const dr = DMG[kind] || [24, 34]; p.hp = (p.hp ?? 100) - (dr[0] + Math.random() * (dr[1] - dr[0]));
     p.ch.stopGesture(); p.ch.atk = null;
-    if (p.hp <= 0 || (kind === 'hook' && p.hp < 45)) {
+    if (p.hp <= 0 || (kind === 'hook' && p.hp < 30)) {
       p.ch.knockDown(fx * 3.6, fz * 3.6, 0.3); p.state = 'walk'; p.fight = null;
     } else {
       p.ch.flinch(fx, fz, kind === 'jab' ? 0.6 : kind === 'cross' ? 0.8 : 1); p.state = 'stagger'; p.stagT = 0.42; p.knock = [fx * 2.4, fz * 2.4];
@@ -176,7 +185,8 @@ export function createPeds(G, { avatars, col }) {
         const ox = pos.x, oz = pos.z; ch.update(dt, groundAt(pos.x, pos.z, pos.y).y);
         const c = col.circleVsWorld(pos.x, pos.z, 0.35); if (c.hit) { pos.x = c.x; pos.z = c.z; if (ch.fall) { ch.fall.vx *= -0.3; ch.fall.vz *= -0.3; } }
         if (!isLand(pos.x, pos.z) && !onBridge(pos.x, pos.z) && groundAt(pos.x, pos.z, 3).water) { pos.x = ox; pos.z = oz; if (ch.fall) { ch.fall.vx = 0; ch.fall.vz = 0; } }
-        if (ch.state === 'ok') { p.hp = 60; p.fight = null; p.state = 'flee'; p.fleeT = 6; p.from = [px, pz]; p.fled = true; }   // back on their feet: they run
+        if (ch.state === 'ok') { p.hp = 60; p.fled = true;   // back on their feet: they run, or (flattened by a sprinter) come back for a go
+          if (p.comeBack && !player.vehicle) { p.comeBack = false; p.fight = { t: 0, cd: 1.0, side: 'L' }; p.state = 'fight'; } else { p.comeBack = false; p.fight = null; p.state = 'flee'; p.fleeT = 6; p.from = [px, pz]; } }
         continue;
       }
       // danger: fast vehicle heading at them, or the player sprinting at them with a car
@@ -185,7 +195,7 @@ export function createPeds(G, { avatars, col }) {
         p.stagT -= dt; const k = Math.max(0, p.stagT / 0.42), ox = pos.x, oz = pos.z;
         pos.x += p.knock[0] * k * dt; pos.z += p.knock[1] * k * dt; p.speed = 0;
         { const c = col.circleVsWorld(pos.x, pos.z, 0.3); if (c.hit) { pos.x = c.x; pos.z = c.z; } if (!isLand(pos.x, pos.z) && !onBridge(pos.x, pos.z)) { pos.x = ox; pos.z = oz; } }
-        if (p.stagT <= 0) { if (p.fight) p.state = 'fight'; else { p.state = 'flee'; p.fleeT = 7; p.from = [px, pz]; } }
+        if (p.stagT <= 0) { if (p.fight) { p.state = 'fight'; p.fight.cd = Math.min(p.fight.cd, 0.3 + Math.random() * 0.25); } else { p.state = 'flee'; p.fleeT = 7; p.from = [px, pz]; } }   // fighters answer straight back
         ch.speed = Math.hypot(p.knock[0], p.knock[1]) * k * 0.8; ch.reverse = true; ch.update(dt, groundAt(pos.x, pos.z, pos.y).y); ch.reverse = false; continue;
       }
       if (p.state === 'fight' && p.fight) {   // squares up to the player and swings back
@@ -193,18 +203,24 @@ export function createPeds(G, { avatars, col }) {
         const dx = px - pos.x, dz = pz - pos.z, d = Math.hypot(dx, dz);
         p.yaw = lerpAngle(p.yaw, Math.atan2(dx, dz), Math.min(1, 8 * dt)); ch.guardTarget = 1;
         target = d > 1.15 ? Math.min(2.6, (d - 1.0) * 2.2) : 0;
-        if (d < 1.4 && F.cd <= 0 && !ch.atk && !player.vehicle && !player.dead) {
+        if (d < 1.6 && F.cd <= 0 && !ch.atk && !player.vehicle && !player.dead) {
           const hb = player.ch?.bones?.Bip01_Head; const tv = hb ? hb.getWorldPosition(_hv2).clone() : null;
           if (ch.attack(F.side, { dur: 0.5, kind: F.side === 'R' ? 'cross' : 'jab', target: tv ? () => tv : null })) { F.side = F.side === 'L' ? 'R' : 'L'; F.cd = 1.0 + Math.random() * 0.8; F.pend = true; }
         }
         if (F.pend && ch.atk && ch.atk.t >= 0.4) { F.pend = false; if (d < 1.5 && !player.vehicle) S.onPlayerPunched?.(p, dx / (d || 1), dz / (d || 1)); }
-        if (d > 14 || F.t > 16 || player.vehicle || player.dead) { p.fight = null; p.state = 'walk'; ch.guardTarget = 0; }
+        if (d > 14 || F.t > 16 || player.vehicle || player.dead) { p.fight = null; p.state = p.kind === 'idle' ? 'idle' : 'walk'; ch.guardTarget = 0; }
       } else if (p.state === 'flee') {
         p.fleeT -= dt;
         const fx = pos.x - p.from[0], fz = pos.z - p.from[1]; const l = Math.hypot(fx, fz) || 1;
         p.yaw = lerpAngle(p.yaw, Math.atan2(fx / l, fz / l), Math.min(1, 6 * dt));
         target = 5.2;
         if (p.fleeT <= 0) { p.state = p.kind === 'idle' ? 'idle' : 'walk'; }
+      } else if (p.state === 'cower' || p.state === 'film' || p.state === 'call') {   // frozen bystanders: watch the incident
+        target = 0; const fx = (p.state === 'call' ? px : p.from[0]) - pos.x, fz = (p.state === 'call' ? pz : p.from[1]) - pos.z;
+        p.yaw = lerpAngle(p.yaw, Math.atan2(fx, fz), Math.min(1, 4 * dt));
+        if (p.state === 'call' && !ch.gesture) ch.playGesture('phone');
+        const t = p.state === 'cower' ? (p.cowerT -= dt) : p.state === 'film' ? (p.filmT -= dt) : 1;
+        if (t <= 0 || (d2p < (p.state === 'film' ? 4 : 2.5) && !player.vehicle)) { ch.stopGesture(); p.state = 'flee'; p.fleeT = 5; p.from = [px, pz]; }
       } else if (p.state === 'idle') {
         target = 0; p.yaw = lerpAngle(p.yaw, p.idleYaw, Math.min(1, 2 * dt));
         if (p.gesture && !ch.gesture) ch.playGesture(p.gesture);

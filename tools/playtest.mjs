@@ -73,13 +73,13 @@ for (const [i, st] of (S.steps || []).entries()) {
   const errs = await page.evaluate(() => (window.__errors || []).length).catch(() => 0);
   if (errs) { fails.push(`${label}: page errors appeared`); break; }
 }
-const final = await page.evaluate(() => ({ errors: (window.__errors || []).slice(0, 20), stats: window.__stats ? window.__stats() : null, pt: window.__pt }));
+const final = await page.evaluate(() => ({ errors: (window.__errors || []).slice(0, 20), stats: window.__stats ? window.__stats() : null, pt: Object.fromEntries(Object.entries(window.__pt || {}).filter(([, v]) => v === null || typeof v !== "object" || Array.isArray(v))) }));
 await page.screenshot({ path: path.join(out, 'final.png') });
 await browser.close(); await target.close();
 if (final.errors.length) fails.push(`${final.errors.length} __errors: ${final.errors[0]}`);
 const stubs = (final.stats?.modules || []).filter((m) => m.stub).map((m) => m.name);
 if (stubs.length && !S.allowStubs) fails.push('stub modules in build: ' + stubs.join(', '));
-const report = { url: A.url, query, ms: Date.now() - t0, pass: fails.length === 0, fails, results, errors: final.errors, stats: final.stats, values: final.pt, logs: logs.slice(-30) };
-writeFileSync(path.join(out, 'playtest.json'), JSON.stringify(report, null, 2));
+const report = { url: A.url, query, ms: Date.now() - t0, pass: fails.length === 0, fails, results, errors: final.errors, stats: final.stats, values: Object.fromEntries(Object.entries(final.pt || {}).filter(([, v]) => v === null || typeof v !== "object" || Array.isArray(v))), logs: logs.slice(-30) };
+{ const seen = new WeakSet(); writeFileSync(path.join(out, 'playtest.json'), JSON.stringify(report, (k, v) => { if (v && typeof v === 'object') { if (seen.has(v)) return '[circular]'; seen.add(v); } return v; }, 2)); }
 console.log(report.pass ? `PASS (${results.filter((r) => 'ok' in r).length} asserts) → ${out}` : 'FAIL:\n  ' + fails.join('\n  '));
 process.exit(report.pass ? 0 : 1);

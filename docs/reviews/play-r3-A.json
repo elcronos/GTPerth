@@ -1,0 +1,110 @@
+{
+ "critic": "play-A",
+ "round": "play-r3",
+ "focus": "feel and animation: locomotion, responsiveness, camera, combat feel, feedback",
+ "scores": {
+  "locomotion": 6.2,
+  "responsiveness": 6.3,
+  "camera": 6.5,
+  "combat": 6.0,
+  "world_boundaries": 6.0,
+  "npc_behaviour": 6.0,
+  "hud_ux": 7.0,
+  "feedback": 6.5,
+  "fun_loop": 5.8,
+  "stability": 6.5
+ },
+ "overall": 6.28,
+ "pass": false,
+ "method": "Image frame fK = telemetry frame K*every (walk/run_turns/sprint_stop/punch_walker/punch_approach every 3, knockout 6, shore 4, shove/jump 2). side_run shots run an extra update per shot, so its telemetry indices do not map to image numbers. Planted-foot slip: a foot counts as planted when (foot y - player y) < scenario floor (3rd percentile) + 0.03 m AND |foot vy| < 0.25 m/s; the value is that foot's horizontal world speed. Results (mean / p90 / fraction > 0.3 m/s): walk 0.15/0.23/7%, run_turns 0.46/1.31/48%, sprint_stop 0.11/0.40/14%, shore 0.49/0.94/59%, shove 0.47/1.04/39%, side_run 0.28/0.77/33%, punch_approach 0.37/1.36/24%, punch_walker 0.17/0.63/17%, knockout 0.06/0.15/5%, jump 0.83/3.03 (few samples, start dominated).",
+ "evidence": {
+  "locomotion": "Walking is good now: steady walk stance foot 0.02-0.13 m/s at 1.10 m/s (walk t26-t62), and walk_stop plays with a planted left foot (t66-t86, 0.03-0.11 m/s). But the walk stop is slow: 1.10 -> 0.82, held at 0.82 for 7 frames, then a crawl under 0.5 m/s for 0.7 s. It reaches 0 only at t101 (1.17 s, 0.41 m), against GTA's ~0.45 s. Every start from idle shuffles. In the first 3-7 frames the swing foot drags 2.5-4.1 m/s only 0-4 cm off its floor (run_turns t2-t7 lf 2.47/4.10/3.10/2.62; jump/phone t2-t3 rf 3.03/3.09; shove t1-t2 lf 3.06/3.54). That is the idle->walk weight cross-fade sliding the feet; side_run f001 shows a full stride two frames after the stick. Steady jog stance slip is 0.3-0.5 m/s at 3.5 m/s (run_turns t21-t23 rf 0.55/0.45/0.36, t30-t32 lf 0.76/0.50/0.44): acceptable but visible. Turn onset slips the stance foot 1.0-1.6 m/s (run_turns t39-t41 rf 0.99/1.57/1.13). Jog stop (side_run, run_turns t114-t132): 3.5 -> 3.22 -> 3.15 -> 2.87 (held 4 frames) -> 2.16 -> 1.24 (27.5 m/s^2, the metric's maxAccel) -> held 5 frames -> taper. That is about 0.7 s and 1.1 m, close to GTA. It is a staircase, and the stop entry snaps the trailing foot at 11-13 m/s (run_turns t116-t117 lf 11.3/13.0). side_run f021-f023 has a good braking plant step. Jump touchdown (jump t38) happens with both feet in the air (lf +0.25 m, rf +0.59 m above stance height) and the run cycle keeps cycling through the air (feet 4-7 m/s). Jump f012-f019 reads as a tucked hop with arms out, not a running leap. The punch lunge slides the body 7 m/s for 2 frames while the feet barely step (punch_approach t52-t53 rf 10.5 m/s, t88 lf 16.6 m/s; punch_walker t54-t56 real 7.3-7.9 m/s).",
+  "responsiveness": "Walk 0 -> 1.1 m/s in 5 frames. Jog 0 -> 3.5 m/s in 15 frames (0.5 s, 7 m/s^2; GTA is about 0.3 s). The circle-running recentre bug is gone: stick right then back settles at yaw -2.28 then -3.85 with no drift (run_turns t67-t108). The 90-degree turn reaches 90% in 0.47 s (t39 -> t53, r2 0.83 s), peaks at 4.24 rad/s and dips speed 3.5 -> 2.91: close to target. Close-range punch press-to-impact is 5-8 frames (knockout: presses at t6/t22/t40 hit at t11/t29/t49). Against a walker at 3.0-3.6 m, the press at t15 started a 0.8 s approach that ended at 1.60 m without punching, and the press at t33 (1.1 s) was dropped because the buffer can't fire while C.approach is set. The first punch came from the 3rd press (t51), with impact at t60: 1.5 s after the first press. Fix (b) checked in code: the approach adds 13*dt AFTER the normal accel step has already braked the same speed by 8.5*dt (want = 0, tgt = 0). The net ramp is about 4.5 m/s^2, so 0 -> 3.5 takes about 0.78 s, which is the whole 0.8 s approach budget. The same pattern is visible in the capture: sp 3.50 but real 3.22 every frame (punch_walker t17-t33).",
+  "camera": "Desktop framing keeps the player at about 0.44 of the width and about 30% of the frame height, smooth follow, no clipping seen in 11 scenarios. The melee 3/4 swing works: knockout f001-f002 starts with the victim hidden behind the player, and by f004-f008 both fighters are side-on and readable. The swing eases back after the KO (f010-f012). The camera stays at 4.4 m x 1.09 during fights, so the fighters fill only about 25% of the frame height (punch_walker f017-f028) and the jab arm is small. Promenade benches pass through the near field and cover the lower third (run_turns f018-f021, phone f003). FOV kick at sprint and impact shake are restrained.",
+  "combat": "Standing combo is good: jab/cross/hook land 3/3 with impact on the extension frame, hit-stop 3-4 frames (knockout t11-t14, t29-t32, t49-t53), 0.45 s slow-mo on KO (t53-t62), victim recoil 0.25-0.35 m per hit, knee-buckle fall (knockout f008-f011). punch_approach is 3/3. Problems: (1) Moving targets: 2 of 4 presses produced no punch at all and the first impact came 1.5 s after the first press (see responsiveness). (2) The lunge is a 2-frame 7 m/s slide (punch_approach t70-t71, t88-t89; punch_walker t54-t56 closes 0.46 m in 2 frames) because lungeT bottoms out at 0.06 s. It reads as a skate, not a step-in. (3) Spacing: in knockout the first jab fires at 0.59 m and lands at 0.56-0.58 m (t6-t10), point-blank with the arm folded. The 2nd and 3rd lunges pull back to 0.87-0.90 m. (4) The 4th press after the KO throws a full swing at a downed body 1.55 m away (knockout t63-t74). The punch arm reads as a straight horizontal extension with a modest torso twist (knockout f007-f008, punch_walker f019-f020). The enemy guard and counters exist in code (peds.js fight branch) but are not exercised by the capture.",
+  "world_boundaries": "Never in the water (endInWater false x11). The edge brake works from a jog (shore t81-t91: 3.5 -> 1.57 over 0.35 s), but the player still meets the lip at 1.57 m/s (t92 real 0). Then sp alternates 0.20/0.00 every frame for 0.73 s (shore t98-t119) with both feet sliding 0.3-0.96 m/s: a twitch on the spot. The cause is that the probe starts at dd 0.5, so tgt = sqrt(13*0.05) = 0.8 m/s is never 0, and line 178 only clamps above 0.3 m/s. sprint_stop reaches the quay at 2.25 m/s, slides along it with dz = 0 for 5 frames (t67-t71), then stops dead at t72 (2.05 -> 0). A downed body is a wall: after the shove the player, stick held, runs into it for 0.75 s (shove t37-t58: sp 1.0-2.9 while real 0.03-0.3; sp flicker 0.28/0.07 at t54-t58).",
+  "npc_behaviour": "Victims recoil and step back while staggering (ch.reverse in peds.js), raise their hands on the flinch, and fall with a knee buckle, a fling and a 1.5 s staged get-up (knockout f033-f036). The shoved walker goes down and stays sprawled with sensible leg angles (shove f021-f039). In punch_walker the victim keeps her walking cadence through two hits (f020-f028). The flinch is barely readable at the fight camera distance. In knockout t1-t6 the 'idle' ped carries her residual walk speed straight into the player (1.30 -> 0.56 m), with no personal space. Bystanders scatter (scare radius 16 m).",
+  "hud_ux": "The lock-on chevron and victim health bar sit above the target's head and track it (punch_walker f006-f033, knockout f001-f008). Phone layout: minimap and bars top-left, cash and clock top-right, thumb buttons bottom-right at a sensible size (phone f003). ENTER is shown dimmed rather than hidden when nothing is in range. The wanted stars sit under the clock and stay clear of the player.",
+  "feedback": "Code check: whoosh on the swing, impact_flesh scaled by punch kind, hit-stop 0.07/0.10/0.13 s, shake 0.25/0.45/0.6, KO slow-mo with a cash drop, landing thud. Footsteps now come from the gait phase (character.js update, phase crossings 0 and 0.5), which is frame-rate independent and fires while walking, fixing r2's 0 steps/s. Gaps: footsteps are suppressed during start/stop transitions (`!this.trans`), so the braking plant step is silent. No phone haptics (no navigator.vibrate anywhere). No camera or FOV response on the barge-knockdown (shove t31).",
+  "fun_loop": "The capture covers only the on-foot moment-to-moment: punch-ups pay out (wallet drop on KO) and attract a wanted star (knockout f009+ star). Missions, police and jobs are not exercised here, so this is judged from r2 and code. The core brawl is now satisfying at close range but frustrating against anyone walking.",
+  "stability": "No page errors in the metrics. One earlier capture attempt in shots/play3.log crashed with 'Target page, context or browser has been closed' (a harness problem, not the game). Glitches seen: speed flicker 0.2/0 every frame at the quay (shore t98-t119) and against a body (shove t54-t58); one-frame foot pops at 11-16 m/s (run_turns t117, punch_approach t88); a body from the previous scenario is still lying on the promenade at the start of knockout f000-f003."
+ },
+ "fixes_reviewed": {
+  "a_stop_decel_cap": "Right where it applies. In updateOnFoot's ch.trans branch (player.js line 91), Math.min(prev, Math.max(transDelta/dt, prev - 14*dt)) turns run_turns t120-t121 (2.16 -> 1.24) into 2.16 -> 1.69 -> 1.24. But the sprint_stop 2.05 -> 0 pop at t72 was NOT this path. The player was blocked at the quay (dz = 0 from t67, dx = 0 at t72), and line 177 `if (ch.trans && real < P.speed * 0.4) { ch.stopTrans(0.15); P.speed = real; ... }` sets the speed straight to 0. Expect the same pop on the next capture: see fix 3.",
+  "b_approach_ramp": "The intent is right, but it is undermined by ordering. The approach block (player.js line 205) runs after the acceleration step (line 83), which with no stick input brakes P.speed by 8.5*dt every frame, so the net ramp is about 4.5 m/s^2. The current capture shows the side effect (sp 3.50, real 3.22 throughout punch_walker t17-t33). With the 13 m/s^2 ramp the 0.8 s approach budget is nearly used up just accelerating. See fix 1."
+ },
+ "fixes": [
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Make the approach a real input to the movement model, and stop it eating presses. (1) Move the approach steering ahead of the speed code: just after `if (atk) target *= 0.25;` (line ~59), if C.approach is active compute bearing b = atan2(q.x-P.x, q.z-P.z), set P.moveYaw = b and target = Math.min(PLAYER.run, Math.max(2.2, (d - 1.0) * 3.5) + qSpeed), where qSpeed = q.speed (the ped's own speed, peds.js p.speed). Then make the dy calculation (line 62) use P.moveYaw even when want = 0, and use acc = 13 in line 81 while C.approach. Delete the P.speed/P.yaw writes in the approach block (line 205). (2) End the approach at d < 1.9 instead of 1.55, and let the existing lunge close the last 0.4-1.0 m. (3) Never drop presses: while C.approach is active, don't decrement C.next (line 199), and on approach timeout fire the punch anyway if d < 2.6 (C.next = 0.1) instead of nulling it. (4) Timeout 0.8 -> 1.0 s. Acceptance on punch_walker telemetry: the first hit (hits increments) within 0.75 s (22 frames) of the first press at t15; every press produces a swing (pT resets to 0 four times); sp - real < 0.05 on every approach frame; maxAccel <= 15 m/s^2 from t15 to t40."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Turn the lunge into a step-in, not a 2-frame skate. In the attack start (line ~223), set C.lungeT = MathUtils.clamp((dT - 0.95) / 3.2, 0.12, 0.3). In the lunge block (line ~111), cap lungeV at 4.0 (was 7.0), target 0.95 m instead of 0.9, and also push back when too close: if d < 0.8, lungeV = -(0.85 - d) / 0.1 (back-step, cap -2.5). Seed the legs the same frame: when the lunge starts, set P.animSpeed = Math.max(P.animSpeed, Math.min(lungeV, 2.6)) and set the walk/run action time to the passing pose (see fix 4) so a foot steps forward. Keep ext = clamp((dT - 1.1)/6.5, 0, 0.32) so the impact still waits for the lunge (it ends by 0.3 s <= impact time). Acceptance: punch_approach and punch_walker player real speed <= 4.1 m/s on every frame; no foot moves > 2.0 m/s while within floor + 0.03 m during t50-t95; knockout ped distance at each hits increment between 0.8 and 1.2 m (now 0.69 at t11)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "No speed pops or flicker when blocked. (1) Line 177: replace `P.speed = real` with `P.speed = Math.max(real, prev - 14 * dt)` and stop the move this frame (the position is already clamped), so a blocked stop eases out over at most 0.15 s, and also set ch.speed decay through animSpeed. (2) Line 178: drop the `P.speed > 0.3` condition; use `P.speed > 0.05`. (3) Edge probe (lines 76-79): start at dd = 0.25 and use tgt = Math.sqrt(13 * Math.max(0, dd - 0.4)), so the target reaches 0 at the lip (now the floor is 0.8 m/s at dd 0.5). (4) When ok() fails on all three tries (nx, nz both reset) and want > 0.3, set P.edgeHold = true: tgt = 0, P.speed = 0, and keep it until the stick direction changes by more than 0.6 rad. Acceptance: shore t92-t120 has sp monotonic non-increasing to 0 with no alternating frames; sprint_stop and shove maxAccel <= 15 m/s^2 after release; planted-foot slip in shore t92-t120 < 0.2 m/s."
+  },
+  {
+   "priority": "P1",
+   "dimension": "locomotion",
+   "file": "src/modules/game/character.js",
+   "fix": "Start from the passing pose so idle -> walk doesn't drag the feet. In Character.update, track this.wasIdle = v < 0.05. On the frame v first exceeds 0.05, set each LOCO action's time to ((this.ph[k] + 0.22) % 1) * duration (just after the left heel strike: left foot planted under the hips, right foot passing, close to the idle stance). Replace wIdle = clamp(1 - v/0.6) with 1 - smoothstep(v, 0.05, 0.9), so the idle weight falls over about 0.15 s at 6 m/s^2, not 0.07 s. Acceptance: run_turns, jump, shore, phone and shove frames t1-t8 have no foot within floor + 0.03 m moving faster than 0.5 m/s, and any foot moving faster than 1.5 m/s is at least 0.05 m above its floor (now 2.5-4.1 m/s at 0-4 cm)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/player.js",
+   "fix": "Shorter walk stop and a smoother jog stop. Line 95: walk_stop rate MathUtils.clamp(prev / 0.8, 1.2, 1.6) (now 0.92x for a 1.1 m/s walk). In the ch.trans branch (line 91), add `if (ch.trans && (ch.transT > 0.62 || P.speed < 0.22)) ch.stopTrans(0.2);` and let the normal 8.5 m/s^2 decel finish. For run_stop, low-pass the root speed: rv = lerp(prevRv, transDelta/dt, 0.5), so the 2.87 x4 / 1.24 x6 staircase becomes a ramp. Acceptance: walk telemetry from t66 reaches sp 0 within 16 frames (0.53 s) and <= 0.45 m (now 35 frames); run_turns t114-t132 and side_run stop have no plateau longer than 2 frames and |dsp/dt| <= 14 m/s^2; stop distance from 3.5 m/s is 0.9-1.3 m."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/character.js",
+   "fix": "Jump: freeze the gait in the air and reach for the ground on landing. In update(), when this.airW > 0.3 multiply the run/sprint/walk timeScale by (1 - this.airW), so the legs hold the take-off stride instead of cycling at 4-7 m/s in the air. In upperBody, scale the tuck by the ground clearance passed from player.js (ch.airH = P.y - g.y; P.vy < 0): tuck = airW * clamp(airH / 0.35, 0, 1) when descending, so the legs extend in the last 0.1 s. Arms: airborne UpperArm out 0.45 -> 0.2 rad, plus 0.4 rad forward swing on the arm opposite the lead leg. Acceptance: at jump t38 (the onG false -> true frame) min(lf, rf) height <= floor + 0.05 m (now +0.25/+0.59); airborne foot horizontal speed relative to the body < 1.5 m/s for t26-t36."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Bodies on the ground should be stepped over, not be walls. In the downed-ped branch (line ~142), only push out the player when P.speed < 1.0. Above that, apply the stumble once (existing code, P.stumbleT 0.4), then let the player pass with speed *= 0.7 and ch.flinch forward, and skip the positional push while P.stumbleT > 0. Acceptance: shove t32-t60 shows real >= 0.8 * sp on every frame once sp > 1, and the player ends more than 1.0 m past the body by t60."
+  },
+  {
+   "priority": "P2",
+   "dimension": "camera",
+   "file": "src/modules/game/player.js",
+   "fix": "Tighter fight framing. In updateCamera, replace `dist *= 1 + 0.09 * P.fightK` with dist = lerp(dist, 3.4, P.fightK), and ty -= 0.15 * P.fightK (aim at chest height). Keep the 0.55 rad side swing. Exclude benches and props from the near field: add props to col.segment for camera pull-in only when the hit is within 1.2 m of the lens, or fade bench meshes whose distance to the camera is < 1.5 m (material.opacity 0.35). Acceptance: in punch_walker f017-f028 and knockout f002-f008, the player's bounding box is >= 33% of the frame height (now about 25%); in run_turns f018-f021 no prop covers the player's legs."
+  },
+  {
+   "priority": "P3",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/peds.js",
+   "fix": "Personal space and hit readability. (1) In the idle branch (and when the state is switched to idle) zero p.speed (p.speed = 0 when target is 0 and the state changed this frame), so a ped told to stand doesn't walk 0.7 m into the player (knockout t1-t6). (2) In the walk branch, keep >= 1.1 m from the player: if d2p < 1.1, steer yaw away by 0.8 rad and target *= 0.3. (3) Stagger: scale ch.speed by 1.0 (not 0.8) with reverse, and add a 0.05 m body drop for 0.15 s (ch.body.position.y) so the hit reads at fight-camera distance. Acceptance: knockout ped distance never < 0.8 m before the first hit; punch_walker victim distance grows >= 0.3 m within 10 frames of each hit."
+  },
+  {
+   "priority": "P3",
+   "dimension": "feedback",
+   "file": "src/modules/game/character.js",
+   "fix": "Footsteps during start/stop transitions and haptics. In update(), when this.trans is set, fire onFootstep on the transition clip's heel contacts: track the lower foot per frame and fire when a foot's world y drops within 0.012 m of its stance floor after having been more than 0.03 m above it (latched per foot), instead of skipping on `!this.trans`. In index.js, onPunch 'hit' -> navigator.vibrate?.(kind === 'hook' || ko ? 35 : 18), onPlayerPunched -> 12 ms, and onShove with down -> 25 ms plus G.emit('fx:shake', 0.3). Acceptance: replaying side_run's stop frames gives 2 step events (plant + settle); the shove at t31 triggers a shake."
+  }
+ ],
+ "regressions": [
+  "Fix (b) puts the approach ramp after the 8.5 m/s^2 no-input brake in the same frame, so the net approach acceleration is about 4.5 m/s^2 (code-path analysis; the pre-fix capture already shows the brake: sp 3.50, real 3.22 throughout punch_walker t17-t33)."
+ ],
+ "improvements": [
+  "Circle-running from the camera recentre is gone (run_turns yaw settles at -3.85).",
+  "Turn response 90% in 0.47 s (r2 0.83 s).",
+  "Walk stance foot now planted (0.02-0.13 m/s), and walk_stop plays.",
+  "Punches land: 3/3 standing, 3/3 approach, 2/2 swings thrown against the walker; hit-stop and KO slow-mo work.",
+  "Footsteps are driven by the gait phase.",
+  "Melee 3/4 camera reveals both fighters."
+ ],
+ "verdict": "Clear progress from r2 (5.83 -> 6.28 for this critic), but not a pass. The worst feel problems left are punching a moving target (dropped presses, 1.5 s to the first hit), the 7 m/s 2-frame lunge skate, foot drag on every start, and twitching on the spot at the quay and against bodies."
+}

@@ -83,7 +83,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (G.post) { state.savedSat = G.post.params.sat; }
   }
   function respawn() {
-    hud.hideBig(); jobs.cancel();
+    hud.hideBig(); jobs.cancel(); for (const c of calls.splice(0)) if (c.q.state === "call") { c.q.ch.stopGesture(); c.q.state = c.q.kind === "idle" ? "idle" : "walk"; }
     if (player.vehicle) exitVehicle(true);
     wanted.reset();
     player.health = 100; player.stamina = 1; player.dead = false; player.swimming = false; player.control = true;
@@ -155,9 +155,9 @@ export async function create(G, { input, world, fx, quality }) {
   peds.onHit = (p, how, sp) => {
     if (how === 'punch' || how === 'shove') {   // assault: one crime per victim; caps at one star unless police see it
       const ko = p.ch.state !== 'ok';
-      if (p.assaulted && !ko) return; if (p.assaulted === 'ko') return; p.assaulted = ko ? 'ko' : true;
+      const now = G.t; if (p.assaultedT > now - 45 && !(ko && p.assaulted !== 'ko')) return; p.assaultedT = now; p.assaulted = ko ? 'ko' : true;   // one crime per victim per 45 s
       if (copsNear(p.ch.position.x, p.ch.position.z)) wanted.add(1, how);
-      else if (wanted.stars === 0 && (ko || Math.random() < 0.4)) wanted.setMin(1);
+      else if (wanted.stars === 0 && (ko || Math.random() < 0.6)) witnessCall(p);   // a bystander phones it in (stop them and nobody calls)
       return;
     }
     crimes++;
@@ -166,24 +166,49 @@ export async function create(G, { input, world, fx, quality }) {
     if (copsNear(p.ch.position.x, p.ch.position.z) || wanted.stars > 0) wanted.add(1, how);
     else if (crimes % 2 === 0 || Math.random() < 0.35) wanted.add(1, how);
   };
+  // witness calls: the nearest bystander who saw it pulls out a phone; 4 s later the police get the report (1 star),
+  // unless the caller is knocked down, punched or chased off first
+  const calls = [];
+  { const _reset = wanted.reset; wanted.reset = (...a) => { for (const c of calls.splice(0)) if (c.q.state === 'call') { c.q.ch.stopGesture(); c.q.state = 'flee'; c.q.fleeT = 3; c.q.from = [player.x, player.z]; } return _reset(...a); }; }
+  function witnessCall(victim) {
+    if (calls.length) return;
+    const vx = victim.ch.position.x, vz = victim.ch.position.z; let best = null, bd = 25;
+    for (const q of peds.list) { if (q === victim || q.ch.state !== 'ok' || q.fight || q.isMark || !q.ch.root.visible || !['walk', 'idle', 'film', 'cower'].includes(q.state) || q.kind === 'jog' || q.assaultedT > G.t - 45) continue;
+      const d = Math.hypot(q.ch.position.x - vx, q.ch.position.z - vz); if (d > 25 || Math.hypot(q.ch.position.x - player.x, q.ch.position.z - player.z) < 4) continue;
+      const sc = d - (q.state === 'film' ? 8 : q.state === 'cower' ? 4 : 0); if (sc < bd) { bd = sc; best = q; } }
+    if (!best) return;
+    best.state = 'call'; best.ch.stopGesture(); best.ch.playGesture('phone'); calls.push({ q: best, t: 4, t0: G.t });
+  }
+  function updateCalls(dt) {
+    if (state.mode !== 'playing') return;
+    for (let i = calls.length - 1; i >= 0; i--) { const c = calls[i];
+      if (c.q.state !== 'call' || c.q.ch.state !== 'ok' || c.q.assaultedT > c.t0) { if (c.q.state === 'call') { c.q.ch.stopGesture(); c.q.state = 'flee'; c.q.fleeT = 5; c.q.from = [player.x, player.z]; } calls.splice(i, 1); continue; }
+      c.t -= dt;
+      if (c.t <= 0) { calls.splice(i, 1); c.q.ch.stopGesture(); c.q.state = 'flee'; c.q.fleeT = 6; c.q.from = [player.x, player.z];
+        if (!wanted.stars) { wanted.setMin(1); hud.message('POLICE SCANNER', 'Assault reported by a member of the public. Units responding.', '📻'); } }
+    }
+  }
   traffic.honk = (c) => audio.horn();
   // melee feel: whoosh on the swing; on contact a hit-stop, a camera kick and a meaty impact
   player.findTarget = (x, z, yaw, r, ang) => peds.findTarget(x, z, yaw, r, ang);
   player.bodies = () => ({ peds: peds.list, cars: traffic.cars });
   player.onShove = (q, fx_, fz_, sp) => { peds.shoved(q, fx_, fz_, sp); };
-  peds.onShoved = (q, down) => { audio.play('impact_flesh', { pos: [q.ch.position.x, 1.2, q.ch.position.z], gain: down ? 0.6 : 0.25, rate: 1.3 }); };
+  peds.onShoved = (q, down) => { audio.play('impact_flesh', { pos: [q.ch.position.x, 1.2, q.ch.position.z], gain: down ? 0.6 : 0.25, rate: 1.3 });
+    if (down) { peds.scare(q.ch.position.x, q.ch.position.z, 10, 4, q); G.emit('fx:shake', 0.3); navigator.vibrate?.(25); peds.onHit(q, 'shove'); if (Math.random() < 0.45) q.comeBack = true; } };
   player.onPunch = (what, kind, t) => {
     if (what === 'swing') { audio.play('whoosh', { gain: kind === 'hook' ? 0.42 : 0.3, rate: kind === 'jab' ? 1.25 : 1 }); return; }
     const fx_ = Math.sin(player.yaw), fz_ = Math.cos(player.yaw);
-    peds.punched(t, fx_, fz_, kind);
+    const r = peds.punched(t, fx_, fz_, kind);
+    if (r === 'block') { state.hitstop = 0.03; G.emit('fx:shake', 0.1); audio.play('impact_concrete', { pos: [t.ch.position.x, 1.5, t.ch.position.z], gain: 0.35, rate: 1.6 }); navigator.vibrate?.(8); return; }   // blocked: a dull tick, no flesh
     const ko = t.ch.state !== 'ok';
+    navigator.vibrate?.(ko ? 45 : kind === 'hook' ? 30 : 16);
     state.hitstop = ko ? 0.13 : kind === 'hook' ? 0.1 : 0.07; G.emit('fx:shake', ko ? 0.6 : kind === 'hook' ? 0.45 : 0.25);
     if (ko) { state.slowmo = 0.45; dropCash(t.ch.position.x + fx_ * 0.6, t.ch.position.z + fz_ * 0.6); }   // knockout: slow-mo beat, wallet drop
     audio.play('impact_flesh', { pos: [t.ch.position.x, 1.5, t.ch.position.z], gain: kind === 'hook' ? 1 : 0.75, rate: kind === 'jab' ? 1.2 : 0.95 });
   };
   peds.onPlayerPunched = (p, dx, dz) => {
     if (state.mode !== 'playing') return;
-    events.onPlayerHit(7); player.ch.flinch(dx, dz); G.emit('fx:shake', 0.3); state.hitstop = 0.05;
+    events.onPlayerHit(7); player.ch.flinch(dx, dz); G.emit('fx:shake', 0.3); state.hitstop = 0.05; navigator.vibrate?.(22);
     player.combat.guardT = 2.6;
   };
   player.onSplash = () => audio.play('impact_concrete', { gain: 0.3, rate: 0.5 });
@@ -280,7 +305,7 @@ export async function create(G, { input, world, fx, quality }) {
     if (!G.game_showChase) ferry.update(dt);
     if (ferry.driver !== player) { ferry.throttle *= 0.98; }
     // ferry vs piers/peds pushes are cheap: skip; traffic, people, police, mission
-    traffic.update(dt);
+    traffic.update(dt); updateCalls(dt);
     parkedRows?.update?.(dt, G.camera.position);
     // lock-on marker over whoever a punch would hit; cash pickups bob and pay out when walked over
     { const C = player.combat; const t = !player.vehicle && (C.target || (C.guardT > 0 ? player.lockQuery(input.move.length() > 0.2 ? player.moveYaw : player.yaw) : null));

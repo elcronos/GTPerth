@@ -113,7 +113,12 @@ export class Character {
       // locomotion weights by speed
       const v = this.speed;
       const style = this.walkStyle;
-      const wIdle = MathUtils.clamp(1 - v / 0.6, 0, 1);
+      this.wIdleS = Math.max(1 - MathUtils.smoothstep(v, 0.05, 0.9), (this.wIdleS ?? 1) - dt / 0.12);   // idle never vanishes in one frame
+      const wIdle = this.wIdleS;
+      // setting off from a stand: start the cycle just after the left heel strike (left foot planted under the hips,
+      // right foot passing) so the first frames step instead of dragging both feet out of the idle stance
+      if (v > 0.05 && this.wasIdle && wIdle > 0.95) for (const k of LOCO) { const a = this.act[k]; if (a) a.time = ((this.ph[k] + 0.22) % 1) * a.getClip().duration; }
+      this.wasIdle = v <= 0.05;
       let wWalk = 0, wRun = 0, wSpr = 0;
       // gait thresholds from the clips' own measured ground speeds: each clip plays near its natural cadence
       const w1 = (this.spd.walk || 1.4) * 1.2, r0 = (this.spd.run || 3.6) * 0.8, r1 = (this.spd.run || 3.6) * 1.15, s1 = (this.spd.sprint || 6) * 0.9;
@@ -136,6 +141,7 @@ export class Character {
       if (walkA) walkA.timeScale = (v > 0.05 ? MathUtils.clamp(v / ws, 0.35, 2.2) : 1) * (this.reverse ? -1 : 1);   // reverse: stepping backwards
       if (this.act.run) this.act.run.timeScale = MathUtils.clamp(v / this.spd.run, 0.55, 1.7);
       if (this.act.sprint) this.act.sprint.timeScale = MathUtils.clamp(v / this.spd.sprint, 0.7, 1.5);
+      if (this.airW > 0.3) { const fz = Math.max(0.05, 1 - this.airW); for (const k of ['walk', 'stroll', 'run', 'sprint']) if (this.act[k]) this.act[k].timeScale *= fz; }   // airborne: hold the take-off stride
       // keep every locomotion clip in step with the dominant one (feet hit the ground together across the blend)
       let lead = null, lw = 0.02;
       for (const k of LOCO) { const a = this.act[k]; if (a && a.getEffectiveWeight() > lw) { lw = a.getEffectiveWeight(); lead = k; } }

@@ -1,0 +1,91 @@
+{
+ "critic": "play-B",
+ "round": "play-r3",
+ "scores": {
+  "locomotion": 6.0,
+  "responsiveness": 5.8,
+  "camera": 6.0,
+  "combat": 6.3,
+  "world_boundaries": 6.8,
+  "npc_behaviour": 5.7,
+  "hud_ux": 6.3,
+  "feedback": 6.2,
+  "fun_loop": 5.7,
+  "stability": 6.2
+ },
+ "overall": 6.1,
+ "evidence": {
+  "locomotion": "Walk is clean (plantedFootSpeed 0.265, walk telemetry 1.10 m/s steady). Run 1.81 and sprint 2.84 m/s planted-foot slip are still high. sprint_stop telemetry 66-72: the player hits the quay lip at 2.25 m/s, slides along it with sp 2.05 while real displacement is about 1.3 m/s, then snaps 2.05 -> 0 in one frame at frame 72 (maxAccel 61). shove 31-33: 6.2 -> 3.72 -> 1.98 is the stumble, which is acceptable. punch_walker frame 16 shows 0 -> 3.5 m/s in one frame; this was fixed after the capture and is not scored against the build.",
+  "responsiveness": "Starts ramp 0 -> 3.5 m/s in about 0.5 s (run_turns, shore 1-15), and the stick analog works (phone at 0.8 gives 2.97). Melee input is the problem. In punch_walker the first press is at frame 15, the approach runs from frame 16 to 53, and the first impact lands at frame 60, 1.5 s after the press. Four presses produced two punches, because presses made while C.approach is active are dropped: C.next expires after 0.3 s and line 207 requires !C.approach. In GTA a press near a target strikes within about 0.3 s.",
+  "camera": "Shoulder framing keeps the player left of centre. The melee framing swings hard: punch_approach f018-f024 rotate about 60 deg in 0.2 s of capture, and punch_walker f021-f024 do the same. A bench occludes the player's legs in run_turns f018, and two walkers fill the right third of the frame in run_turns f009, because the camera pull-in only tests buildings. FOV and shake are restrained.",
+  "combat": "Punches now connect. punch_approach lands 3/3 (hits at telemetry 58, 76, 96, KO at 96). knockout lands 3/3 at frames 11, 29, 49, then slow-mo, a wallet drop and 1 star. Wind-up and extension read at f026 (approach) and f008 (knockout). Against a walker moving away, the approach converges asymptotically: ws = (d-1.2)*4 gives 1.6 m/s at d = 1.6, against a 1.1-1.55 m/s walker, so d sits at 1.60-1.62 for frames 47-53 and never reaches the 1.55 trigger. The result is 1.5 s press-to-impact and 2 hits from 4 presses. Jab+cross+hook is a near-guaranteed KO in about 1.4 s: after a jab and a cross hp is about 23-49, and a hook below 45 always floors the ped. Peds never landed a counter in any capture. The player has no block or dodge, cops cannot be targeted (findTarget walks peds.list only), and downed peds can only be whiffed at (knockout frame 63 swings at a body).",
+  "world_boundaries": "The river edge is solid and brakes properly. shore telemetry 81-97 brakes 3.5 -> 0 in 0.5 s and stops 0.45 m off the lip at z -160.50. With the stick still held to frame 120, speed stays 0, so there is no running on the spot (f020-f030). Benches (two r 0.38 circles) and palms (r 0.3) are now solid (props.js 183, 237). Remaining issues: (1) The edge probe steps in 0.5 m (player.js 77), so the first blocked sample overestimates the distance by up to 0.5 m. From a sprint the player reaches the lip at 2.25 m/s (sprint_stop 66) and slides along it. (2) Body pin: a downed ped pushes the player straight back by 0.5*pen (player.js 145). In shove, frames 31-57, the player sprinting forward stays pinned at d 0.72-0.76 with speed flickering between 0.07 and 0.42, and f025 shows the player frozen over the body.",
+  "npc_behaviour": "Victims react: stagger with a reverse walk (peds.js 189), flinch, 50% fight back, 30% guarded jabs, KO, a staged get-up after about 6 s (knockout f036 shows the ped sitting up), then flee. The punch_walker victim fled after 2 hits, reaching 4.6 m/s by frame 105. Every bystander reaction is the same. S.scare (peds.js 113) makes everyone within 16 m sprint at 5.2 m/s for about 6 s: nobody cowers, films or watches, and nobody phones the police. The star appears instantly in code (index.js 160), with no witness. A sprint knockdown (shove) scares nobody, because peds.shoved never calls scare, and the crowd in shove f024-f030 keeps walking. The flee 'yaw += PI/2' snap at the quay (peds.js 224) is still unfixed. Idle-kind peds whose fight ends get state 'walk' with no path and stand frozen (peds.js 201). Personal space against the player is skipped when nearP < 3 m (peds.js 230), so a ped slides to d = 0.56 m into the player in knockout frames 0-7.",
+  "hud_ux": "Desktop: bars and minimap are compact, the lock-on chevron with HP pip sits over the target (punch_walker f027), and the units strip ('CAR x1') shows response. Phone (phone f000, f004): minimap top-left, bars below it, cash top-right, and thumb arc PUNCH 80 / JUMP 62 / SPRINT 58 / ENTER 64 px. Everything is legible and nothing covers the player. Problems found in code that the capture did not exercise: body.touch .live (ui.css 188, top 130 px, left 14) sits on body.touch .bars (ui.css 168, top 124 px, left 16), so the livestream on ferry boarding covers health and stamina. At mission start on a phone the objective (ui.css 171, top 14, centred, up to 388 px), the location toast (172, top 40, centred) and Shaz's text (187, top 10, x 186-396) all draw in the same top strip. ENTER is dimmed rather than hidden (touch.js). The lock-on marker only shows after the first press (index.js 286 requires guardT > 0).",
+  "feedback": "Hit-stop 0.07/0.10/0.13 s, camera shake scaled by hit, a KO slow-mo of 0.45 s at 0.35x, whoosh with per-kind rate, impact_flesh, footsteps driven by clip phase (character.js 152), landing thud, damage edge and a cash bump. A guarded jab returns 'block', but index.js 178-182 ignores it and plays the full hit-stop, shake and flesh impact, so blocks are indistinguishable from hits. S.onBlock is never wired. There are no hit sparks or decals and no phone haptics (no navigator.vibrate anywhere).",
+  "fun_loop": "One mission (THE ZOO RUN ferry) plus BOOST, HEAT and COLLECT. J.update returns while !missionDone (jobs.js 44), so the street jobs only unlock after the ferry mission. Police respond to a KO: 1 star and CAR x1 in knockout f036. Bugs: (1) COLLECT 'find' (jobs.js 71) sets m.fight every frame the player is within 6 m, measured from the vehicle when driving. peds.js 201 clears the fight every frame while player.vehicle is set, so driving up to the blip spams hud.message('He's seen you...') about 30-60 times a second, stacking hundreds of DOM nodes. (2) HEAT says 'rough someone up in front of the cops', but at 0 stars no cops exist (police spawn only when stars > 0). At 1 star with no unit within 60 m, assaults do not escalate (index.js 159-160), so the route to 2 stars is opaque. (3) A sprint knockdown is no crime at all: peds.onShoved only plays audio (index.js 174). (4) Cops cannot be punched. (5) J.cancel (jobs.js 77) never clears car.keep, so every cancelled BOOST leaks a car that traffic never despawns.",
+  "stability": "No page errors in the capture, and no falls through the world or water entries (endInWater false in all 11 scenarios). Stuck states: the body pin in shove 31-57. The COLLECT message spam is a DOM leak while driving near the mark. Kept BOOST cars leak after a death or restart. Frozen idle peds after a fight. In playtest.json the 'river edge' assertion tests __G.game.player.groundAt?.water, which is always undefined, so the check passes vacuously."
+ },
+ "fixes": [
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Approach convergence (lines 201-206). Fire the strike when d < 1.85, not 1.55: the direct path at line 214 already handles gaps up to 1.9 m with the lunge and ext. Use a speed law that out-runs a walking target: const qs = q.speed || 0, ws = Math.min(PLAYER.run + 0.6, Math.max(qs + 1.6, (d - 1.2) * 4)); keep the 13 m/s^2 ramp. Keep one buffered press while approaching: in line 198 set C.approach.queued = (C.approach.queued || 0) + 1 when C.approach is active, and on arrival set C.next = 0.1 and C.comboT = 0.9 if queued > 0, so presses chain into jab -> cross. Target: punch_walker first impact within 0.6 s of the press and 4 presses -> 4 swings, at least 3 hits."
+  },
+  {
+   "priority": "P1",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/peds.js",
+   "fix": "Varied bystander reactions and a witness phone call. In S.scare (line 113), give each ped within r a roll: 55% flee (as now); 25% 'cower' (state 'cower', target 0, ch.guardTarget 1, spine pitch 0.5 via ch.lean.pitch = 0.5, 3-5 s, then flee); 20% 'film' if d > 6 (state 'film', face the incident point, ch.playGesture('phone'), 6 s). In index.js peds.onHit (line 160), when no cop is near, don't setMin(1) immediately: pick the nearest film/cower/ok ped within 25 m (excluding the victim) as p.caller, set state 'call' with callT = 4 and gesture 'phone', and show a red phone icon over them (reuse hud.lockOn styling). When callT hits 0, wanted.setMin(1) and hud.message('POLICE SCANNER', 'Assault reported near ' + zone). If the caller is punched or knocked down first, cancel. With no witness in range, no star."
+  },
+  {
+   "priority": "P1",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/jobs.js",
+   "fix": "COLLECT spam and vehicle flip-flop (line 71). Require on foot and fire once: if (!A.spotted && !p.vehicle && m.ch.state === 'ok' && !m.fight && d < 6) { A.spotted = true; m.fight = {...}; m.state = 'fight'; hud.message(...); }. Re-arm the fight only (no message) when !p.vehicle and d < 6 and !m.fight. In peds.js line 201, when player.vehicle is set for the mark (p.isMark), switch to state 'flee' with fleeT 6 instead of 'walk', so the mark runs from your car. Also have J.cancel (line 77) and fail() clear A.car.keep = false and A.mark.isMark = false."
+  },
+  {
+   "priority": "P1",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Body pin (lines 142-146). Replace the straight push-back with a lateral slide. Let side = Math.sign((P.x - qp.x) * Math.cos(P.yaw) - (P.z - qp.z) * Math.sin(P.yaw)) || 1. Push only along the right vector (cos yaw, -sin yaw) * side * pen * 0.8, so the player steps round the body. If P.speed < 1.2, skip the push and let the player step over (bodies are low). Keep the stumble at > 2.5 m/s, but once per body: q.stumbledBy = G.t, skip if G.t - q.stumbledBy < 1.5. Target: in shove, the player keeps moving past the body at 2.5 m/s or more after the stumble instead of pinning at d 0.72 with speed < 0.5 for 0.8 s."
+  },
+  {
+   "priority": "P2",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/jobs.js",
+   "fix": "Unlock the loop earlier and make HEAT readable. (1) line 44: replace 'if (!missionDone) return' with 'if (!missionDone && !(G.game?.mission?.step === \"goto\" && G.game.state.t > 90)) return', so street jobs appear 90 s into a session even before the ferry. Pass mission into createJobs instead of going through G.game. (2) HEAT objective (line 32): 'Get <b>2 stars</b>: knock someone out, then do it again with the cops watching, or nick a cop car.' (3) In index.js peds.onHit (line 160), when wanted.stars >= 1 and the victim is KO'd within 120 m of any wanted.cars or wanted.cops unit, wanted.add(1), so escalation works while a pursuit is closing in."
+  },
+  {
+   "priority": "P2",
+   "dimension": "hud_ux",
+   "file": "src/ui/ui.css",
+   "fix": "Phone overlaps. Line 188: body.touch .live { top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); left: calc(14px + env(safe-area-inset-left)); } puts it above the stick ghost and off the bars. Add @media (max-height: 430px) { body.touch .live-chat { height: 64px; } }. Line 171: body.touch .objective { top: auto; bottom: calc(14px + env(safe-area-inset-bottom)); max-width: 40vw; font-size: 15px; } puts it bottom-centre between the stick and the button arc. Line 172: body.touch .loc { top: calc(124px + env(safe-area-inset-top)); } puts it under the cash on the right, clear of Shaz's card (x 186-396, y 10-70). In touch.js, use bAction.hidden = !c.inVehicle && !c.canEnter instead of the dim class."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Edge brake precision (lines 76-79). Probe in 0.15 m steps from 0.3 m to reach = 0.35 + P.speed^2 / 11, and subtract one step for safety: tgt = Math.min(tgt, Math.sqrt(11 * Math.max(0, dd - 0.15 - 0.45))). While edge-braking, use acc = 9 instead of 6.5 (line 81: const acc = edgeBrake ? 9 : ...). Also probe along P.moveYaw as well as P.yaw and take the nearer hit, because diagonal approaches cut the corner. Target: sprint_stop reaches the lip at 0.3 m/s or less, with no slide along the lip and no one-frame snap to 0."
+  },
+  {
+   "priority": "P2",
+   "dimension": "combat",
+   "file": "src/modules/game/index.js",
+   "fix": "Make cops part of melee and escalation. Line 171: player.findTarget = (x, z, yaw, r, ang) => peds.findTarget(x, z, yaw, r, ang, wanted.cops). In peds.findTarget, also iterate the extra list (cops share ch.position and ch.state). In onPunch, when t is a cop: apply ch.flinch, cop.hp -= DMG, knockDown at hp <= 0, and wanted.setMin(Math.max(2, wanted.stars + 1)). Add wanted.cops to player.bodies() peds, so officers are solid and cannot arrest from inside the player. Also make fights two-sided: a ped in p.fight answers every 2nd player punch within 0.35 s (F.cd = Math.min(F.cd, 0.35) after a stagger ends). Randomise DMG to jab 18-30, cross 28-42, hook 40-60, and KO from a hook only when hp < 35, so a KO takes 3-5 hits."
+  },
+  {
+   "priority": "P2",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/index.js",
+   "fix": "A sprint knockdown counts. Line 174: peds.onShoved = (q, down) => { audio...; if (down) { peds.scare(q.ch.position.x, q.ch.position.z, 10, 4, q); if (copsNear(q.ch.position.x, q.ch.position.z, 30)) wanted.add(1, 'shove'); else if (Math.random() < 0.5) q.fight = q.fight || { t: 0, cd: 1.0, side: 'L' }; } } so a ped who gets up after being flattened sometimes comes back for a fight. In peds.js line 179, keep p.fight when it is set instead of always switching to flee on get-up. In peds.js line 201, when the fight ends for kind 'idle', set state 'idle', not 'walk' (no path, so the ped freezes)."
+  },
+  {
+   "priority": "P3",
+   "dimension": "feedback",
+   "file": "src/modules/game/index.js",
+   "fix": "Distinct block feedback and haptics. In player.onPunch (line 175), take the return value r = peds.punched(...). If r === 'block': state.hitstop = 0.03, fx:shake 0.1, audio.play('impact_concrete', { gain: 0.35, rate: 1.6 }), no flesh sound, and a white 'BLOCKED' tick via hud.lockOn flashing grey. Otherwise call navigator.vibrate?.(ko ? 45 : kind === 'hook' ? 30 : 16). In peds.onPlayerPunched (line 184), add navigator.vibrate?.(22). Also fix the vacuous playtest assertion (playtest.json, river edge): replace '!__G.game.player.swimming && !__G.game.player.groundAt?.water' with '!__G.game.player.swimming && __G.game.player.y > 1.5 && __G.game.player.z < -160.0' (promenade y 2.2, lip at z about -160.05 for the x 112 spawn)."
+  }
+ ]
+}

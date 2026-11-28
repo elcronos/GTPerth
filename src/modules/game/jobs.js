@@ -15,7 +15,7 @@ export function createJobs(G, { hud, getPlayer, traffic, peds, wanted, events })
     hud.big('passed', 'JOB DONE', `${title}  ·  +$${amount.toLocaleString('en-AU')}`, 4); hud.addCash(amount); events.onPaid?.(amount);
     J.active = null; J.wait = 30; J.count++; hud.objective(''); hud.route = null; hud.target = null;
   };
-  const fail = (why) => { hud.message('SHAZ', why, 'S'); J.active = null; J.wait = 35; hud.objective(''); hud.route = null; hud.target = null; };
+  const fail = (why) => { hud.message('SHAZ', why, 'S'); if (J.active) release(J.active); J.active = null; J.wait = 35; hud.objective(''); hud.route = null; hud.target = null; };
   function offer() {
     const [px, pz] = pos(), kinds = ['boost', 'heat', 'collect'], kind = kinds[J.count % 3];
     if (kind === 'boost') {
@@ -29,7 +29,7 @@ export function createJobs(G, { hud, getPlayer, traffic, peds, wanted, events })
     } else if (kind === 'heat') {
       J.active = { kind, t: 0, stage: 'get', limit: 120, pay: 2500 };
       hud.message('SHAZ', 'Need the cops looking the other way for a bit. Make some noise, then <b>lose them</b>.', 'S');
-      hud.objective('Get a <b>2-star</b> wanted level &mdash; jack a car, rough someone up in front of the cops.');
+      hud.objective('Get <b>2 stars</b>: knock someone out, then do it again with the cops watching &mdash; or nick a cop car.');
     } else {
       const cand = peds.list.filter((q) => q.ch.state === 'ok' && q.kind !== 'idle' && q.ch.root.visible && Math.hypot(q.ch.position.x - px, q.ch.position.z - pz) > 25 && Math.hypot(q.ch.position.x - px, q.ch.position.z - pz) < 120);
       if (!cand.length) { J.wait = 10; return; }
@@ -68,12 +68,15 @@ export function createJobs(G, { hud, getPlayer, traffic, peds, wanted, events })
       const m = A.mark;
       if (A.stage === 'find') {
         J.blips.push({ x: m.ch.position.x, z: m.ch.position.z, kind: 'mission' }); hud.target = [m.ch.position.x, m.ch.position.z]; hud.route = [[m.ch.position.x, m.ch.position.z]];
-        if (m.ch.state === 'ok' && !m.fight && Math.hypot(m.ch.position.x - px, m.ch.position.z - pz) < 6) { m.fight = { t: 0, cd: 0.6, side: 'L' }; m.state = 'fight'; hud.message('SHAZ', 'He\'s seen you. Don\'t let him get away.', 'S'); }
+        if (m.ch.state === 'ok' && !m.fight && !p.vehicle && Math.hypot(m.ch.position.x - px, m.ch.position.z - pz) < 6) {   // on foot only; Shaz texts once
+          m.ch.stopGesture(); m.fight = { t: 0, cd: 0.6, side: 'L' }; m.state = 'fight';
+          if (!A.spotted) { A.spotted = true; hud.message('SHAZ', 'He\'s seen you. Don\'t let him get away.', 'S'); } }
         if (m.ch.state !== 'ok') { A.stage = 'grab'; A.t = 0; hud.objective('Take the <b>cash</b> off him.'); }
         if (A.t > 150) fail('He legged it. Next time.');
       } else { J.blips.push({ x: m.ch.position.x, z: m.ch.position.z, kind: 'mission' }); if (Math.hypot(m.ch.position.x - px, m.ch.position.z - pz) < 1.8 && !p.vehicle) { m.isMark = false; pay(A.pay, 'DEBT COLLECTED'); } else if (A.t > 60) fail('Someone else got to his wallet first.'); }
     }
   };
-  J.cancel = () => { if (J.active) { J.active = null; J.wait = 20; hud.objective(''); hud.route = null; hud.target = null; } };
+  const release = (A) => { if (A.car) A.car.keep = false; if (A.mark) A.mark.isMark = false; };
+  J.cancel = () => { if (J.active) { release(J.active); J.active = null; J.wait = 20; hud.objective(''); hud.route = null; hud.target = null; } };
   return J;
 }

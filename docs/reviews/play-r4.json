@@ -1,0 +1,120 @@
+{
+ "round": "play-r4",
+ "critics": [
+  "play-A",
+  "play-B"
+ ],
+ "reduce": "per-dimension minimum",
+ "scores": {
+  "locomotion": 6.1,
+  "responsiveness": 6.4,
+  "camera": 6.2,
+  "combat": 6.5,
+  "world_boundaries": 6.6,
+  "npc_behaviour": 6.3,
+  "hud_ux": 6.4,
+  "feedback": 6.6,
+  "fun_loop": 6.0,
+  "stability": 6.6
+ },
+ "overall": 6.37,
+ "pass": false,
+ "fixes": [
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/character.js",
+   "fix": "Kill the lunge foot pop and the post-lunge moonwalk. (1) In Character.update, rate-limit the idle weight so it can never fall faster than 1 per 0.12 s: this.wIdleS = Math.max(1 - smoothstep(v, 0.05, 0.9), (this.wIdleS ?? 1) - dt / 0.12); use this.wIdleS for wIdle, and apply the line-119 phase reset only when this.wIdleS > 0.95 (a genuine standing start), not on any frame where v crosses 0.05. (2) In player.js line 204, drive the lunge legs from the body's real horizontal speed: animWant = Math.max(P.speed, turnStep, lungeV ? Math.hypot(vx, vz) : 0), and use a 22/s lerp when animWant < P.animSpeed and the lunge has just ended (C.lungeT <= 0 && prevLunge), so the walk cycle stops within about 3 frames of the body stopping. (3) Ease the end of the lunge instead of 4 -> 0 in one frame: lungeV = Math.min(lungeV, (d - 0.95) / 0.06) so it decelerates over the last 2 frames. Acceptance: no foot displacement > 0.12 m in any single frame in knockout, punch_approach and punch_walker (now 0.41-0.42 m at knockout t24/t42, punch_approach t70/t88, punch_walker t70); knockout t8-t10 and t45-t49 have no foot within floor + 0.03 m moving > 1.0 m/s while real < 0.2."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "The lunge replaces carried speed instead of adding to it, and the approach brakes into range. (1) In the lunge block (lines 124-129), project out the existing velocity first: const ux = (t.x-P.x)/d, uz = (t.z-P.z)/d, along = vx*ux + vz*uz; lungeV = Math.max(0, lungeV - Math.max(0, along)), so the total closing speed is max(carried, lunge) <= 4.0. On the first lunge frame also set P.speed = Math.min(P.speed, 1.0). (2) Approach (line 68): target = Math.min(PLAYER.run + 0.6, Math.max(qs + 0.8, Math.sqrt(2 * 9 * Math.max(0, d - 1.1)))), so the player arrives at about 2.5 m/s, not 3.3. Hand over to the strike at d < 2.3 when qs > 0.5 (d < 1.9 otherwise), because the lunge (up to 0.3 s x 4 m/s) covers it. (3) Raise the approach timeout to 1.0 s. Acceptance: punch_walker real speed <= 4.2 m/s on every frame (now 6.02 at t35); first hits increment within 22 frames of the press at t15 (now 27); punch_walker and punch_approach maxAccel <= 15 m/s^2 excluding hit-stop frames."
+  },
+  {
+   "priority": "P1",
+   "dimension": "responsiveness",
+   "file": "src/modules/game/player.js",
+   "fix": "Never drop a melee press. Line 218: if ch.atk is active (or C.next is already pending), queue it as a chain, `C.chain = Math.min(2, (C.chain || 0) + 1)`, instead of starting the 0.3 s C.next timer. Line 219 then fires it when atk.t > 0.55, as for approach-queued presses. Keep C.next = 0.3 only for presses made while idle. Make the C.next decrement use the hit-stop-scaled dt (it already does) and don't let it expire while ch.atk.t < 0.62. Acceptance: punch_walker gives 4 swings from 4 presses (pT resets to 0 four times; now 3, with press 3 at t51 lost at t62); knockout still gives exactly 4 swings."
+  },
+  {
+   "priority": "P1",
+   "dimension": "locomotion",
+   "file": "src/modules/game/player.js",
+   "fix": "Use the walk_start and run_start clips that avatars.js already loads (TRANS_CLIPS line 28) for standing starts, exactly like the stops. In updateOnFoot, when prev < 0.1, want > 0.3, trOK and |dy| < 0.8, call ch.playTrans(target > PLAYER.walk + 0.3 ? 'run_start' : 'walk_start', { rate: 1.0-1.3 }) and drive P.speed from the low-passed transDelta/dt (the same code as lines 102-105, but bounded above by target instead of below by prev). Exit to the loco blend when transT > 0.7 or P.speed >= 0.9 * target, with ch.stopTrans(0.2). Cancel on |dy| > 1.2 (pivot instead). Also reset P.animSpeed = 0, P.yawRate = 0 and ch.stopTrans(0) in P.teleport, which stops the carried-over 1.8-3.6 m/s foot slide at knockout t1-t5. Acceptance: walk, sprint_stop, shove, jump, phone and punch_approach frames t1-t8 have no foot within floor + 0.03 m moving > 0.6 m/s (now 3.0-3.7 at t2-t4); time to 3.5 m/s from standing <= 0.55 s."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/player.js",
+   "fix": "Phase-match the stop entry and remove the walk_stop plateau. At line 107, read the gait phase (expose ch.gaitPhase = phase from character.js line 155). Enter walk_stop only when the planted foot matches the clip's first plant, i.e. phase within 0.0-0.15 for the left-plant start (find the mirrored window for the right foot, or start the clip at the half-cycle offset start + 0.5 x stepDur). Otherwise keep braking at 8.5 m/s^2 for up to 0.2 s until the window arrives. Drop the walk_stop start time to 0.28 so the 0.82 m/s plateau (8 frames, walk t65-t72) is skipped. While a start or stop clip plays, fire onFootstep when a foot's height drops within 0.012 m of its floor after being 0.03 m above it (latched per foot), instead of `!this.trans` at character.js line 157. Acceptance: walk t64-t75 and punch_approach t47-t51 have no foot within floor + 0.03 m moving > 0.6 m/s (now 2.8-4.9 m/s); the walk stop reaches 0 in <= 15 frames; at least one step event fires during each stop clip."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/character.js",
+   "fix": "Land on the feet. In upperBody (line 252), split the tuck: airborne tuck = airW * clamp(this.airH / 0.35, 0, 1), with player.js passing ch.airH = P.y - g.y and descending (so the legs extend in the last 0.1 s). The landing absorb must lower the pelvis rather than lift the feet: this.body.position.y -= 0.10 * Math.sin(landT * Math.PI), and the thigh/calf bend = 0.35/-0.6 * sin(landT * pi) applied with the root lowered, so the feet stay on the floor. Acceptance: jump t38 (the first onG frame) min(lf, rf) height <= floor + 0.05 m (now +0.19/+0.41); t39-t43 both feet <= floor + 0.08 m at least once per frame (now +0.13..+0.49)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Monotonic edge brake, a planted final stop, and no walking through bodies. (1) Lines 86-91: after the coarse 0.15 m probe hits, bisect between dd - 0.15 and dd three times to get the edge distance to about 2 cm, then clamp tgt <= (P.edgeTgt ?? tgt) + 0.4 * dt and store P.edgeTgt (reset when edgeBrake is false). That removes the +0.23 m/s bumps (shore t78/t84/t87, sprint_stop t54/t60/t65). (2) When edgeBrake is true and P.speed < 1.3 with the stick still held, start walk_stop once (as at line 110) so the settle plants instead of sliding (shore t93-t94, 2.5-3.95 m/s). (3) Downed bodies (lines 159-166): keep the lateral side-step active during stumbleT at half strength (pen * 0.4) and never allow d < 0.35. Alternatively, raise the swing foot over the body by setting ch.airW = Math.max(ch.airW, 0.35) for 0.2 s when 0.2 < d < 0.6, so the legs don't pass through it. Acceptance: shore sp is non-increasing from t76 to t94; shore t92-t96 planted slip < 0.3 m/s; shove minimum player-body distance >= 0.35 m (now 0.05 at t36) with real >= 0.8 x sp."
+  },
+  {
+   "priority": "P2",
+   "dimension": "camera",
+   "file": "src/modules/game/player.js",
+   "fix": "Get the fight camera to the 3/4 before the first impact, and clear the near field. In updateCamera (lines 287-290), when P.combat.approach or P.combat.lungeT > 0, aim the swing at the target's predicted position (fp + q velocity x 0.3 s). Raise the swing rate clamp from 1.5 to 3.0 rad/s while P.fightK < 1, and drop back to 1.5 after. Lower the look target by 0.15 x fightK (chest height), as asked in r3. For props: cast col.segment from the camera to the player's hip and knee heights. Fade any bench or prop mesh within 1.6 m of the lens to opacity 0.3 (cache the material clones per mesh). Acceptance: punch_walker f013-f014 (the t42 impact) shows the victim's head and torso unoccluded by the player; jump f020-f023 and sprint_stop f014 show no bench between the lens and the player's bounding box at full opacity."
+  },
+  {
+   "priority": "P1",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/index.js",
+   "fix": "Make witness calls robust. In witnessCall (line 175), only consider q where ['walk','idle','film','cower'].includes(q.state) && q.kind !== 'jog' && !q.isMark && !(q.assaultedT > state.t - 45) && Math.hypot(q.ch.position.x - player.x, q.ch.position.z - player.z) > 4. Prefer 'film' and 'cower' peds: score = d - (q.state === 'film' ? 8 : q.state === 'cower' ? 4 : 0). Replace the permanent per-victim flag in onHit (line 158) with a timed one: if (p.assaultedT > state.t - 45 && !(ko && p.assaulted !== 'ko')) return; p.assaultedT = state.t; p.assaulted = ko ? 'ko' : true. In updateCalls (line 181), cancel on c.q.assaultedT > c.t0 (set c.t0 = state.t at push) instead of c.q.assaulted. In respawn (line 86), also do for (const q of peds.list) { q.assaulted = false; q.assaultedT = -1e9; q.comeBack = false; }. Show the caller: while a call is pending, call hud.callMark(headPos, c.t / 4), a red phone glyph that reuses the .lockon element style with a draining ring."
+  },
+  {
+   "priority": "P1",
+   "dimension": "hud_ux",
+   "file": "src/ui/ui.css",
+   "fix": "Fix the two measured phone overlaps at 844x390. (1) The LIVE badge on the hull bar: line 188 changes 'top: calc(166px ...)' to 'top: calc(186px + env(safe-area-inset-top))'. In the line 189 media query, set 'body.touch .live-chat { height: 40px; }' so .live spans y 186-229, clear of the hull bar (ends at 178) and the stick ghost (starts at 230). (2) The location toast on the stars: line 192 changes 'top: calc(84px ...)' to 'top: calc(128px + env(safe-area-inset-top))', which puts it under .units (ends at 122) and above JUMP (starts at 204). In touch.js line 49, replace the dim toggle with bAction.hidden = !c.inVehicle && !c.canEnter. Add both cases to a playtest step that asserts no intersecting rects among .bar.hull, .live, .loc, .wanted and .units with body.touch and everything shown."
+  },
+  {
+   "priority": "P1",
+   "dimension": "responsiveness",
+   "file": "src/modules/game/player.js",
+   "fix": "Stop dropping presses made mid-swing. Line 218: replace 'else C.next = 0.3' with 'else C.next = atk ? Math.max(0.3, (0.62 - atk.t) * atk.dur + 0.2) : 0.3', so a press made during a 0.53 s cross lives until the cancel window opens. Clear queued chains when the target is gone: after line 243, add 'if (C.target && C.target.ch.state !== \"ok\") C.chain = 0;'. At line 226/232, if a press finds no standing target but a downed one within 1.6 m, don't throw a standing punch at air: skip the attack and set C.next = null, or play a short kick gesture. Target: punch_walker gives 4 presses -> 4 swings, and knockout throws no swing after the KO."
+  },
+  {
+   "priority": "P2",
+   "dimension": "combat",
+   "file": "src/modules/game/peds.js",
+   "fix": "Let fighters punch back, and stop the fixed 3-hit KO. In the stagger exit (line 198), when p.fight is set, add 'p.fight.cd = Math.min(p.fight.cd, 0.3 + Math.random() * 0.25);', so a fighter answers right after a hit instead of being locked out by a 0.6 s combo. In the fight branch (line 206), allow the swing from d < 1.6. Damage: DMG = { jab: [16, 28], cross: [26, 40], hook: [38, 58] }, rolled uniformly. Line 156: KO only when hp <= 0, or on a hook when hp < 30. Track p.hitsTaken and give a 15% chance per hit (after the 2nd) to drop the guard into a 0.5 s 'stunned' flinch. Target: KO in 3-5 hits, and in a scripted 6-press fight against a 'fight' ped the player takes at least one counter (health < 100)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/index.js",
+   "fix": "Make cops part of the brawl, and make escalation work. Line 189: player.findTarget = (x, z, yaw, r, ang) => peds.findTarget(x, z, yaw, r, ang, wanted.cops). In peds.findTarget, iterate list.concat(extra || []), since cops share ch.position and ch.state. In player.onPunch, if wanted.cops.includes(t), do t.hp = (t.hp ?? 120) - dmg, call t.ch.flinch(...) or t.ch.knockDown(...) at hp <= 0, then wanted.setMin(Math.max(2, wanted.stars + 1)), and return before peds.punched. Line 190: player.bodies = () => ({ peds: peds.list.concat(wanted.cops), cars: traffic.cars }). Line 159: escalate when stars >= 1 and any unit is within 120 m, so 'do it again with the cops watching' happens while a pursuit closes in: if (wanted.stars >= 1 ? copsNear(x, z, 120) : copsNear(x, z)) wanted.add(1, how)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/jobs.js",
+   "fix": "Unlock street jobs before the ferry mission (carried over from r3, not done). Pass mission into createJobs (index.js line 59). At line 44, replace 'if (!missionDone) return' with 'if (!missionDone && !(mission.step === \"goto\" && mission.t > 90)) return', so the first BOOST, HEAT or COLLECT offer arrives 90 s into a session if the player is roaming instead of heading to the jetty. Line 72: call m.ch.stopGesture() before forcing state 'fight'. Line 71: if m.state is 'call', 'film' or 'cower', drop it from any pending witness call first."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Remove the edge-brake sawtooth (+0.23 m/s every 5-6 frames in sprint_stop 53-65 and shore 77-87). At line 89, refine the first blocked sample by bisection: lo = dd - 0.15, hi = dd; repeat 4 times with mid = (lo + hi) / 2, setting walkable(mid) ? lo = mid : hi = mid; then t2 = Math.sqrt(11 * Math.max(0, lo - 0.45)). After the probe loop, if (edgeBrake) tgt = Math.min(tgt, P.speed), so the player never re-accelerates toward an edge. Bodies: in the downed-ped branch (line 163), when P.speed > 1.2 and stumbleT > 0, still apply a 0.4x lateral push, so the player passes beside the torso instead of through it (shove frame 36, d 0.05)."
+  },
+  {
+   "priority": "P3",
+   "dimension": "stability",
+   "file": "src/modules/game/index.js",
+   "fix": "Tie call lifetimes to game state. At the top of updateCalls (line 179), add 'if (state.mode !== \"playing\") return;', so no scanner text or star fires under WASTED or BUSTED. Wrap wanted.reset in setup so it also clears calls: const _reset = wanted.reset; wanted.reset = () => { for (const c of calls.splice(0)) if (c.q.state === 'call') { c.q.ch.stopGesture(); c.q.state = 'flee'; c.q.fleeT = 3; } _reset(); }. This also stops harness scenarios leaking stars into each other, as in punch_approach f024. In peds.js line 189, clear p.comeBack in the else branch as well. In peds.js line 240, replace 'p.yaw += Math.PI * 0.5' for fleeing peds with a turn along the shore: the yaw toward the next waypoint if p.path exists, otherwise toward the flee origin rotated by +-90 deg, picking the walkable side. Apply it through lerpAngle at 6*dt, not as an instant snap."
+  }
+ ]
+}

@@ -29,7 +29,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     camPos: new Vector3(), camTarget: new Vector3(), fovKick: 0, lookBehind: false, punchCD: 0,
   };
   ch.root.position.set(P.x, P.y, P.z);
-  P.teleport = (x, z, yaw) => { P.climb = null; P.x = x; P.z = z; P.y = groundAt(x, z).y; P.vy = 0; P.yaw = P.moveYaw = yaw; P.camYaw = yaw + Math.PI; ch.root.position.set(P.x, P.y, P.z); ch.setHeading(yaw); ch.state = 'ok'; ch.fall = null; ch.body.quaternion.identity(); ch.body.position.set(0, 0, 0); };
+  P.teleport = (x, z, yaw) => { P.climb = null; P.speed = 0; P.animSpeed = 0; P.yawRate = 0; ch.stopTrans?.(0); P.x = x; P.z = z; P.y = groundAt(x, z).y; P.vy = 0; P.yaw = P.moveYaw = yaw; P.camYaw = yaw + Math.PI; ch.root.position.set(P.x, P.y, P.z); ch.setHeading(yaw); ch.state = 'ok'; ch.fall = null; ch.body.quaternion.identity(); ch.body.position.set(0, 0, 0); };
   P.teleport(P.x, P.z, P.yaw);
   ch.onFootstep = () => { if (P.onGround && !P.swimming && !P.air) P.onStep?.(ch.speed, deckAt(P.x, P.z) !== null && !isLand(P.x, P.z)); };
   P.shake = 0; G.on('fx:shake', (k = 0.5) => { P.shake = Math.max(P.shake, k); });
@@ -57,9 +57,19 @@ export function createPlayer(G, { avatars, input, col, hud }) {
       target = P.swimming ? 1.3 + w * 0.7 : sprint ? PLAYER.sprint : w < 0.55 ? PLAYER.walk * (0.25 + 0.75 * w / 0.55) : PLAYER.walk + (PLAYER.run - PLAYER.walk) * Math.min(1, (w - 0.55) / 0.3);
     }
     if (atk) target *= 0.25;   // planted while punching
+    // punch approach: run in at a locked target as a real movement input (accelerates, steers and brakes like the
+    // stick), out-running a walker; presses made on the way are queued into the combo
+    let apAcc = 0;
+    if (C.approach) {
+      const q = C.approach.q, qx = q.ch.position.x - P.x, qz = q.ch.position.z - P.z, d = Math.hypot(qx, qz), bearing = Math.atan2(qx, qz);
+      C.approach.t -= dt;
+      if (q.ch.state !== 'ok' || (want > 0.3 && Math.cos(P.moveYaw - bearing) < 0)) C.approach = null;
+      else if (d < ((q.speed || 0) > 0.5 ? 2.3 : 1.9) || C.approach.t <= 0) { if (d < 2.6) { C.next = 0.1; C.chain = Math.min(2, C.approach.queued || 0); } C.approach = null; }
+      else { P.moveYaw = bearing; target = Math.min(PLAYER.run + 0.6, Math.max((q.speed || 0) + 0.8, Math.sqrt(18 * Math.max(0, d - 1.1)))); apAcc = 13; C.guardT = 2.6; }
+    }
     P.stamina = MathUtils.clamp(P.stamina + (sprint && want > 0.08 ? -0.12 : 0.16) * dt, 0, 1);
     // yaw: a critically damped angular spring (no one-frame snap to full turn rate); slower at speed and in the air
-    let dy = want > 0.08 ? MathUtils.euclideanModulo(P.moveYaw - P.yaw + Math.PI, Math.PI * 2) - Math.PI : 0;
+    let dy = want > 0.08 || apAcc ? MathUtils.euclideanModulo(P.moveYaw - P.yaw + Math.PI, Math.PI * 2) - Math.PI : 0;
     if (C.target && (atk || C.lungeT > 0)) { const t = C.target.ch.position; dy = MathUtils.euclideanModulo(Math.atan2(t.x - P.x, t.z - P.z) - P.yaw + Math.PI, Math.PI * 2) - Math.PI; }
     const turnMax = P.air ? 1.5 : P.swimming ? 2.4 : atk || C.lungeT > 0 ? 11 : MathUtils.lerp(9, 4.5, MathUtils.clamp(P.speed / PLAYER.sprint, 0, 1));
     const kS = atk || C.lungeT > 0 ? 90 : 40, kD = atk || C.lungeT > 0 ? 17 : 10.7;   // omega ~6.3, zeta ~0.85
@@ -72,13 +82,17 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     const pivot = Math.abs(dy) > 1.4 ? MathUtils.clamp(1 - (Math.abs(dy) - 1.4) / 1.2, 0.2, 1) : 1;
     let tgt = target * pivot * (1 - Math.min(0.25, Math.abs(omega) * 0.04));
     // brake into the river edge instead of hitting it like a wall: probe ahead along the facing
-    if (!P.swimming && tgt > 0.3) {
-      const reach = 0.35 + P.speed * P.speed / 13;   // stopping distance at 6.5 m/s²
-      for (let dd = 0.5; dd <= reach + 0.01; dd += 0.5) {
-        if (!walkable(P.x + Math.sin(P.yaw) * dd, P.z + Math.cos(P.yaw) * dd, P.y)) { tgt = Math.min(tgt, Math.sqrt(13 * Math.max(0, dd - 0.45))); break; }
+    let edgeBrake = false;
+    if (!P.swimming && tgt > 0.05) {
+      const reach = 0.4 + P.speed * P.speed / 11;   // stopping distance at ~5.5 m/s² plus margin
+      for (const yy of want > 0.08 && Math.abs(dy) > 0.05 ? [P.yaw, P.moveYaw] : [P.yaw]) for (let dd = 0.25; dd <= reach + 0.01; dd += 0.15) {
+        if (!walkable(P.x + Math.sin(yy) * dd, P.z + Math.cos(yy) * dd, P.y)) {
+          let lo = Math.max(0, dd - 0.15), hi = dd; for (let k = 0; k < 4; k++) { const mid = (lo + hi) / 2; if (walkable(P.x + Math.sin(yy) * mid, P.z + Math.cos(yy) * mid, P.y)) lo = mid; else hi = mid; }
+          const t2 = Math.sqrt(11 * Math.max(0, lo - 0.45)); if (t2 < tgt) { tgt = t2; edgeBrake = true; } break; }
       }
+      if (edgeBrake) tgt = Math.min(tgt, P.speed);   // never speed back up toward the edge
     }
-    const acc = P.air ? 1.5 : tgt > P.speed ? (P.speed < PLAYER.walk ? 6.0 : 7.0) : (tgt < 0.1 ? 8.5 : 6.5);
+    const acc = P.air ? 1.5 : apAcc && tgt > P.speed ? apAcc : edgeBrake && tgt < P.speed ? 9 : tgt > P.speed ? (P.speed < PLAYER.walk ? 6.0 : 7.0) : (tgt < 0.1 ? 8.5 : 6.5);
     const prev = P.speed;
     P.speed += MathUtils.clamp(tgt - P.speed, -acc * dt, acc * dt);
     // start / stop transitions (root motion): from standing into a walk or jog, and planting to a halt
@@ -88,11 +102,15 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     const trOK = P.onGround && !P.air && !P.swimming && !P.climb && !atk && C.lungeT <= 0 && !P.blockedT;
     if (ch.trans) {
       if (!trOK || want > 0.3) ch.stopTrans(0.15);
-      else P.speed = Math.min(prev, ch.transDelta / Math.max(dt, 1e-4));
+      else {   // root speed, low-passed (the clip's root path steps), braking hard on the plant but never in one frame
+        P.transRv = (P.transRv ?? prev) + (ch.transDelta / Math.max(dt, 1e-4) - (P.transRv ?? prev)) * 0.5;
+        P.speed = Math.min(prev, Math.max(P.transRv, prev - 14 * dt));
+        if (P.speed < 0.22) ch.stopTrans(0.2);
+      }
     } else if (trOK && want <= 0.08 && prev > 0.6 && (P.hadInput || P.stopPending) && prev <= 4.0) {
-      P.stopPending = false;
+      P.stopPending = false; P.transRv = prev;
       if (prev > 2.3) ch.playTrans('run_stop', { start: 0.75, rate: MathUtils.clamp(prev / 2.3, 1, 1.9) });
-      else ch.playTrans('walk_stop', { start: 0.2, rate: MathUtils.clamp(prev / 1.2, 0.8, 1.4) });
+      else ch.playTrans('walk_stop', { start: 0.2, rate: MathUtils.clamp(prev / 0.8, 1.2, 1.6) });
     }
     if (P.hadInput && want <= 0.08 && prev > 4.0) P.stopPending = true;   // from a sprint: brake normally to a jog first
     if (want > 0.08) P.stopPending = false;
@@ -108,7 +126,10 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     // lunge toward the target during the wind-up: scaled to the gap so punches connect, and the legs step it
     if (C.lungeT > 0 && C.target) {
       C.lungeT -= dt; const t = C.target.ch.position, d = Math.hypot(t.x - P.x, t.z - P.z);
-      if (d > 0.95) { lungeV = Math.min(7.0, (d - 0.9) / Math.max(dt, C.lungeT + dt)); vx += (t.x - P.x) / d * lungeV; vz += (t.z - P.z) / d * lungeV; }
+      if (d > 1.0) lungeV = Math.min(4.0, (d - 0.95) / Math.max(dt, C.lungeT + dt));
+      else if (d < 0.8) lungeV = -Math.min(2.5, (0.85 - d) / 0.1);   // too close: half a step back to throw it
+      if (lungeV > 0) { const along = (vx * (t.x - P.x) + vz * (t.z - P.z)) / d; lungeV = Math.max(0, lungeV - Math.max(0, along)); }   // closing speed = max(carried, lunge)
+      if (lungeV) { vx += (t.x - P.x) / d * lungeV; vz += (t.z - P.z) / d * lungeV; }
     }
     const ox = P.x, oz = P.z;
     if (P.climb) { // pulling out of the river onto the quay / jetty, or up a ledge
@@ -141,8 +162,11 @@ export function createPlayer(G, { avatars, input, col, hud }) {
           if (!q.ch.root.visible) continue;
           if (q.ch.state !== 'ok') {   // a body on the ground: step round it, or stumble over it at speed
             const qp = q.ch.position, dx = P.x - qp.x, dz = P.z - qp.z, d = Math.hypot(dx, dz);
-            if (d < 0.45 + PLAYER.radius && d > 1e-4) { if (P.speed > 2.5 && !(P.stumbleT > 0)) { P.speed *= 0.5; ch.flinch(-Math.sin(P.yaw), -Math.cos(P.yaw)); P.stumbleT = 0.4; }
-              const pen = 0.45 + PLAYER.radius - d; P.x += dx / d * pen * 0.5; P.z += dz / d * pen * 0.5; }
+            if (d < 0.45 + PLAYER.radius && d > 1e-4) {
+              if (P.speed > 2.5 && !(G.t - (q.stumbledBy ?? -9) < 1.5)) { q.stumbledBy = G.t; P.speed *= 0.7; ch.flinch(-Math.sin(P.yaw), -Math.cos(P.yaw), 0.6); P.stumbleT = 0.4; }
+              if (P.speed > 1.2) {   // slide sideways round the body instead of pinning on it (half strength mid-stumble)
+                const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw), side = Math.sign(dx * rx + dz * rz) || 1, pen = 0.45 + PLAYER.radius - d, k = P.stumbleT > 0 ? 0.4 : 0.8;
+                P.x += rx * side * pen * k; P.z += rz * side * pen * k; } } 
             continue;
           }
           const qp = q.ch.position, dx = P.x - qp.x, dz = P.z - qp.z, d = Math.hypot(dx, dz), m = PLAYER.radius + 0.3;
@@ -174,15 +198,15 @@ export function createPlayer(G, { avatars, input, col, hud }) {
       else { P.y = g.y; P.onGround = true; }   // stepping down a kerb: stick to the ground
       // speed follows what actually happened (walls, edges, crowds): no running on the spot
       const real = Math.hypot(P.x - ox, P.z - oz) / Math.max(dt, 1e-4);
-      if (ch.trans && real < P.speed * 0.4) { ch.stopTrans(0.15); P.speed = real; P.blockedT = 0.3; }
-      else if (!P.climb && real < P.speed * 0.5 && P.speed > 0.3 && !lungeV) P.speed = Math.max(real, P.speed - 14 * dt);
+      if (ch.trans && real < P.speed * 0.4) { ch.stopTrans(0.15); P.speed = Math.max(real, P.speed - 14 * dt); P.blockedT = 0.3; }
+      else if (!P.climb && real < P.speed * 0.5 && P.speed > 0.05 && !lungeV) P.speed = Math.max(real, P.speed - 14 * dt);
     }
     ch.airW += ((P.air && !P.swimming ? 1 : 0) - ch.airW) * Math.min(1, 10 * dt);
     ch.swimW += ((P.swimming && !P.climb ? 1 : 0) - ch.swimW) * Math.min(1, 4 * dt);
     // turning on the spot steps the feet (a slow walk cycle) instead of skating round on the idle pose
     const turnStep = P.speed < 0.6 && !P.swimming ? MathUtils.clamp(Math.abs(omega) * 0.35, 0, 0.9) : 0;
-    const animWant = P.swimming ? 0.9 : Math.max(P.speed, turnStep, Math.min(lungeV * 0.8, 2.6));
-    P.animSpeed = (P.animSpeed ?? 0) + (animWant - (P.animSpeed ?? 0)) * Math.min(1, 14 * dt);
+    const animWant = P.swimming ? 0.9 : Math.max(P.speed, turnStep, lungeV ? Math.min(Math.hypot(vx, vz), 3.0) : 0);
+    P.animSpeed = (P.animSpeed ?? 0) + (animWant - (P.animSpeed ?? 0)) * Math.min(1, (animWant < (P.animSpeed ?? 0) && P.lungeWas && !lungeV ? 22 : 14) * dt); P.lungeWas = !!lungeV;
     ch.speed = P.animSpeed;
     ch.walkStyle = 'walk';
     ch.setHeading(P.yaw);
@@ -195,21 +219,16 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     // ---- melee: lock-on toward the stick, lunge, jab → cross → hook combo, impact on the extension frame
     P.punchCD -= dt; C.comboT -= dt; C.guardT -= dt;
     ch.guardTarget = C.guardT > 0 ? 1 : 0;
-    if (input.pressed('fire') && P.control && !P.swimming && !P.climb) C.next = 0.3;   // buffered press
+    if (input.pressed('fire') && P.control && !P.swimming && !P.climb) { if (C.approach) C.approach.queued = (C.approach.queued || 0) + 1; else if (ch.atk || C.next != null) C.chain = Math.min(2, (C.chain || 0) + 1); else C.next = 0.3; }   // buffered press; mid-swing presses chain
+    if (C.chain > 0 && C.next == null && !C.approach && (!ch.atk || ch.atk.t > 0.55)) { C.next = 0.25; C.chain--; }
+    if (C.chain > 0 && C.focus && C.focus.ch.state !== 'ok' && !ch.atk) C.chain = 0;   // target down: no punches at air
     if (C.next != null) { C.next -= dt; if (C.next < 0) C.next = null; }
-    // far target: run in first (up to 0.6 s), throw the punch at 1.5 m — no whiffing from a lunge that can't arrive
-    if (C.approach) {
-      const q = C.approach.q, d = Math.hypot(q.ch.position.x - P.x, q.ch.position.z - P.z); C.approach.t -= dt;
-      if (q.ch.state !== 'ok' || C.approach.t <= 0 || want > 0.3 && Math.cos(P.moveYaw - Math.atan2(q.ch.position.x - P.x, q.ch.position.z - P.z)) < 0) C.approach = null;
-      else if (d < 1.55) { C.approach = null; C.next = 0.1; }
-      else { const yy = Math.atan2(q.ch.position.x - P.x, q.ch.position.z - P.z); P.yaw += (MathUtils.euclideanModulo(yy - P.yaw + Math.PI, Math.PI * 2) - Math.PI) * Math.min(1, 12 * dt); P.speed = Math.max(P.speed, Math.min(PLAYER.run, (d - 1.2) * 4)); C.guardT = 2.6; }
-    }
     if (C.next != null && !C.approach && (!atk || atk.t > 0.62)) {
       if (C.comboT <= 0) C.combo = 0;
       const kind = ['jab', 'cross', 'hook'][C.combo % 3], side = kind === 'cross' ? 'R' : 'L';
       const aimYaw = want > 0.2 ? P.moveYaw : P.yaw;
       const tp = P.lockQuery(aimYaw);
-      if (tp && Math.hypot(tp.ch.position.x - P.x, tp.ch.position.z - P.z) > 1.9 && !C.approach && C.comboT <= 0) { C.approach = { q: tp, t: 0.6 }; C.focus = tp; C.next = null; }
+      if (tp && Math.hypot(tp.ch.position.x - P.x, tp.ch.position.z - P.z) > 1.9 && !C.approach && C.comboT <= 0) { C.approach = { q: tp, t: 0.8 }; C.focus = tp; C.next = null; }
     }
     if (C.next != null && !C.approach && (!atk || atk.t > 0.62)) {
       if (C.comboT <= 0) C.combo = 0;
@@ -220,7 +239,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
       const dT = tp ? Math.hypot(tp.ch.position.x - P.x, tp.ch.position.z - P.z) : 0, ext = MathUtils.clamp((dT - 1.1) / 6.5, 0, 0.32);   // impact waits for the lunge
       if (ch.attack(side, { dur: (kind === 'jab' ? 0.4 : kind === 'cross' ? 0.48 : 0.56) + ext * 2.2, kind, target: tp ? headOf(tp) : null })) {
         if (tp) C.focus = tp;
-        C.next = null; C.target = tp; C.hit = false; C.kind = kind; C.lungeT = tp ? MathUtils.clamp((dT - 1.1) / 6.5, 0.06, 0.32) : 0; C.combo++; C.comboT = 0.9; C.guardT = 2.6;
+        C.next = null; C.target = tp; C.hit = false; C.kind = kind; C.lungeT = tp ? MathUtils.clamp((dT - 0.95) / 3.2, 0.12, 0.3) : 0; C.combo++; C.comboT = 0.9; C.guardT = 2.6;
         P.onPunch?.('swing', kind);
       }
     }
@@ -274,7 +293,7 @@ export function createPlayer(G, { avatars, input, col, hud }) {
     P.fightK = MathUtils.clamp((P.fightK || 0) + (F ? dt / 0.35 : -dt / 0.8), 0, 1);
     if (F) { const fp = F.ch.position, fy = Math.atan2(fp.x - P.x, fp.z - P.z) + Math.PI + 0.55, d = MathUtils.euclideanModulo(fy - P.camYaw + Math.PI, Math.PI * 2) - Math.PI;
       if (Math.abs(input.lookX) < 0.0005) P.camYaw += MathUtils.clamp(d * 2.5, -1.5, 1.5) * dt; tx += (fp.x - tx) * 0.4 * P.fightK; tz += (fp.z - tz) * 0.4 * P.fightK; }
-    if (mode === 'foot') dist *= 1 + 0.09 * P.fightK;   // pull back a touch so both fighters fit
+    if (mode === 'foot') dist = MathUtils.lerp(dist, Math.max(3.4, dist * 0.85), P.fightK);   // fight framing: in close
     const cyaw = P.camYaw, cp = P.camPitch;
     // shoulder offset to the right on foot
     const right = mode === 'foot' ? 0.45 + 0.35 * P.fightK : 0;

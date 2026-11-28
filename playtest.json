@@ -65,7 +65,7 @@
    "ms": 3500
   },
   {
-   "assert": "!__G.game.player.swimming && !__G.game.player.groundAt?.water",
+   "assert": "!__G.game.player.swimming && __G.game.player.y > 1.5 && __G.game.player.z < -159.9",
    "msg": "walking at the river edge does not drop the player into the water"
   },
   {

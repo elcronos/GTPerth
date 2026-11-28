@@ -1,0 +1,144 @@
+{
+ "round": "play-r3",
+ "critics": [
+  "play-A",
+  "play-B"
+ ],
+ "reduce": "per-dimension minimum",
+ "scores": {
+  "locomotion": 6.0,
+  "responsiveness": 5.8,
+  "camera": 6.0,
+  "combat": 6.0,
+  "world_boundaries": 6.0,
+  "npc_behaviour": 5.7,
+  "hud_ux": 6.3,
+  "feedback": 6.2,
+  "fun_loop": 5.7,
+  "stability": 6.2
+ },
+ "overall": 5.99,
+ "pass": false,
+ "fixes": [
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Make the approach a real input to the movement model, and stop it eating presses. (1) Move the approach steering ahead of the speed code: just after `if (atk) target *= 0.25;` (line ~59), if C.approach is active compute bearing b = atan2(q.x-P.x, q.z-P.z), set P.moveYaw = b and target = Math.min(PLAYER.run, Math.max(2.2, (d - 1.0) * 3.5) + qSpeed), where qSpeed = q.speed (the ped's own speed, peds.js p.speed). Then make the dy calculation (line 62) use P.moveYaw even when want = 0, and use acc = 13 in line 81 while C.approach. Delete the P.speed/P.yaw writes in the approach block (line 205). (2) End the approach at d < 1.9 instead of 1.55, and let the existing lunge close the last 0.4-1.0 m. (3) Never drop presses: while C.approach is active, don't decrement C.next (line 199), and on approach timeout fire the punch anyway if d < 2.6 (C.next = 0.1) instead of nulling it. (4) Timeout 0.8 -> 1.0 s. Acceptance on punch_walker telemetry: the first hit (hits increments) within 0.75 s (22 frames) of the first press at t15; every press produces a swing (pT resets to 0 four times); sp - real < 0.05 on every approach frame; maxAccel <= 15 m/s^2 from t15 to t40."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Turn the lunge into a step-in, not a 2-frame skate. In the attack start (line ~223), set C.lungeT = MathUtils.clamp((dT - 0.95) / 3.2, 0.12, 0.3). In the lunge block (line ~111), cap lungeV at 4.0 (was 7.0), target 0.95 m instead of 0.9, and also push back when too close: if d < 0.8, lungeV = -(0.85 - d) / 0.1 (back-step, cap -2.5). Seed the legs the same frame: when the lunge starts, set P.animSpeed = Math.max(P.animSpeed, Math.min(lungeV, 2.6)) and set the walk/run action time to the passing pose (see fix 4) so a foot steps forward. Keep ext = clamp((dT - 1.1)/6.5, 0, 0.32) so the impact still waits for the lunge (it ends by 0.3 s <= impact time). Acceptance: punch_approach and punch_walker player real speed <= 4.1 m/s on every frame; no foot moves > 2.0 m/s while within floor + 0.03 m during t50-t95; knockout ped distance at each hits increment between 0.8 and 1.2 m (now 0.69 at t11)."
+  },
+  {
+   "priority": "P1",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "No speed pops or flicker when blocked. (1) Line 177: replace `P.speed = real` with `P.speed = Math.max(real, prev - 14 * dt)` and stop the move this frame (the position is already clamped), so a blocked stop eases out over at most 0.15 s, and also set ch.speed decay through animSpeed. (2) Line 178: drop the `P.speed > 0.3` condition; use `P.speed > 0.05`. (3) Edge probe (lines 76-79): start at dd = 0.25 and use tgt = Math.sqrt(13 * Math.max(0, dd - 0.4)), so the target reaches 0 at the lip (now the floor is 0.8 m/s at dd 0.5). (4) When ok() fails on all three tries (nx, nz both reset) and want > 0.3, set P.edgeHold = true: tgt = 0, P.speed = 0, and keep it until the stick direction changes by more than 0.6 rad. Acceptance: shore t92-t120 has sp monotonic non-increasing to 0 with no alternating frames; sprint_stop and shove maxAccel <= 15 m/s^2 after release; planted-foot slip in shore t92-t120 < 0.2 m/s."
+  },
+  {
+   "priority": "P1",
+   "dimension": "locomotion",
+   "file": "src/modules/game/character.js",
+   "fix": "Start from the passing pose so idle -> walk doesn't drag the feet. In Character.update, track this.wasIdle = v < 0.05. On the frame v first exceeds 0.05, set each LOCO action's time to ((this.ph[k] + 0.22) % 1) * duration (just after the left heel strike: left foot planted under the hips, right foot passing, close to the idle stance). Replace wIdle = clamp(1 - v/0.6) with 1 - smoothstep(v, 0.05, 0.9), so the idle weight falls over about 0.15 s at 6 m/s^2, not 0.07 s. Acceptance: run_turns, jump, shore, phone and shove frames t1-t8 have no foot within floor + 0.03 m moving faster than 0.5 m/s, and any foot moving faster than 1.5 m/s is at least 0.05 m above its floor (now 2.5-4.1 m/s at 0-4 cm)."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/player.js",
+   "fix": "Shorter walk stop and a smoother jog stop. Line 95: walk_stop rate MathUtils.clamp(prev / 0.8, 1.2, 1.6) (now 0.92x for a 1.1 m/s walk). In the ch.trans branch (line 91), add `if (ch.trans && (ch.transT > 0.62 || P.speed < 0.22)) ch.stopTrans(0.2);` and let the normal 8.5 m/s^2 decel finish. For run_stop, low-pass the root speed: rv = lerp(prevRv, transDelta/dt, 0.5), so the 2.87 x4 / 1.24 x6 staircase becomes a ramp. Acceptance: walk telemetry from t66 reaches sp 0 within 16 frames (0.53 s) and <= 0.45 m (now 35 frames); run_turns t114-t132 and side_run stop have no plateau longer than 2 frames and |dsp/dt| <= 14 m/s^2; stop distance from 3.5 m/s is 0.9-1.3 m."
+  },
+  {
+   "priority": "P2",
+   "dimension": "locomotion",
+   "file": "src/modules/game/character.js",
+   "fix": "Jump: freeze the gait in the air and reach for the ground on landing. In update(), when this.airW > 0.3 multiply the run/sprint/walk timeScale by (1 - this.airW), so the legs hold the take-off stride instead of cycling at 4-7 m/s in the air. In upperBody, scale the tuck by the ground clearance passed from player.js (ch.airH = P.y - g.y; P.vy < 0): tuck = airW * clamp(airH / 0.35, 0, 1) when descending, so the legs extend in the last 0.1 s. Arms: airborne UpperArm out 0.45 -> 0.2 rad, plus 0.4 rad forward swing on the arm opposite the lead leg. Acceptance: at jump t38 (the onG false -> true frame) min(lf, rf) height <= floor + 0.05 m (now +0.25/+0.59); airborne foot horizontal speed relative to the body < 1.5 m/s for t26-t36."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Bodies on the ground should be stepped over, not be walls. In the downed-ped branch (line ~142), only push out the player when P.speed < 1.0. Above that, apply the stumble once (existing code, P.stumbleT 0.4), then let the player pass with speed *= 0.7 and ch.flinch forward, and skip the positional push while P.stumbleT > 0. Acceptance: shove t32-t60 shows real >= 0.8 * sp on every frame once sp > 1, and the player ends more than 1.0 m past the body by t60."
+  },
+  {
+   "priority": "P2",
+   "dimension": "camera",
+   "file": "src/modules/game/player.js",
+   "fix": "Tighter fight framing. In updateCamera, replace `dist *= 1 + 0.09 * P.fightK` with dist = lerp(dist, 3.4, P.fightK), and ty -= 0.15 * P.fightK (aim at chest height). Keep the 0.55 rad side swing. Exclude benches and props from the near field: add props to col.segment for camera pull-in only when the hit is within 1.2 m of the lens, or fade bench meshes whose distance to the camera is < 1.5 m (material.opacity 0.35). Acceptance: in punch_walker f017-f028 and knockout f002-f008, the player's bounding box is >= 33% of the frame height (now about 25%); in run_turns f018-f021 no prop covers the player's legs."
+  },
+  {
+   "priority": "P3",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/peds.js",
+   "fix": "Personal space and hit readability. (1) In the idle branch (and when the state is switched to idle) zero p.speed (p.speed = 0 when target is 0 and the state changed this frame), so a ped told to stand doesn't walk 0.7 m into the player (knockout t1-t6). (2) In the walk branch, keep >= 1.1 m from the player: if d2p < 1.1, steer yaw away by 0.8 rad and target *= 0.3. (3) Stagger: scale ch.speed by 1.0 (not 0.8) with reverse, and add a 0.05 m body drop for 0.15 s (ch.body.position.y) so the hit reads at fight-camera distance. Acceptance: knockout ped distance never < 0.8 m before the first hit; punch_walker victim distance grows >= 0.3 m within 10 frames of each hit."
+  },
+  {
+   "priority": "P3",
+   "dimension": "feedback",
+   "file": "src/modules/game/character.js",
+   "fix": "Footsteps during start/stop transitions and haptics. In update(), when this.trans is set, fire onFootstep on the transition clip's heel contacts: track the lower foot per frame and fire when a foot's world y drops within 0.012 m of its stance floor after having been more than 0.03 m above it (latched per foot), instead of skipping on `!this.trans`. In index.js, onPunch 'hit' -> navigator.vibrate?.(kind === 'hook' || ko ? 35 : 18), onPlayerPunched -> 12 ms, and onShove with down -> 25 ms plus G.emit('fx:shake', 0.3). Acceptance: replaying side_run's stop frames gives 2 step events (plant + settle); the shove at t31 triggers a shake."
+  },
+  {
+   "priority": "P1",
+   "dimension": "combat",
+   "file": "src/modules/game/player.js",
+   "fix": "Approach convergence (lines 201-206). Fire the strike when d < 1.85, not 1.55: the direct path at line 214 already handles gaps up to 1.9 m with the lunge and ext. Use a speed law that out-runs a walking target: const qs = q.speed || 0, ws = Math.min(PLAYER.run + 0.6, Math.max(qs + 1.6, (d - 1.2) * 4)); keep the 13 m/s^2 ramp. Keep one buffered press while approaching: in line 198 set C.approach.queued = (C.approach.queued || 0) + 1 when C.approach is active, and on arrival set C.next = 0.1 and C.comboT = 0.9 if queued > 0, so presses chain into jab -> cross. Target: punch_walker first impact within 0.6 s of the press and 4 presses -> 4 swings, at least 3 hits."
+  },
+  {
+   "priority": "P1",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/peds.js",
+   "fix": "Varied bystander reactions and a witness phone call. In S.scare (line 113), give each ped within r a roll: 55% flee (as now); 25% 'cower' (state 'cower', target 0, ch.guardTarget 1, spine pitch 0.5 via ch.lean.pitch = 0.5, 3-5 s, then flee); 20% 'film' if d > 6 (state 'film', face the incident point, ch.playGesture('phone'), 6 s). In index.js peds.onHit (line 160), when no cop is near, don't setMin(1) immediately: pick the nearest film/cower/ok ped within 25 m (excluding the victim) as p.caller, set state 'call' with callT = 4 and gesture 'phone', and show a red phone icon over them (reuse hud.lockOn styling). When callT hits 0, wanted.setMin(1) and hud.message('POLICE SCANNER', 'Assault reported near ' + zone). If the caller is punched or knocked down first, cancel. With no witness in range, no star."
+  },
+  {
+   "priority": "P1",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/jobs.js",
+   "fix": "COLLECT spam and vehicle flip-flop (line 71). Require on foot and fire once: if (!A.spotted && !p.vehicle && m.ch.state === 'ok' && !m.fight && d < 6) { A.spotted = true; m.fight = {...}; m.state = 'fight'; hud.message(...); }. Re-arm the fight only (no message) when !p.vehicle and d < 6 and !m.fight. In peds.js line 201, when player.vehicle is set for the mark (p.isMark), switch to state 'flee' with fleeT 6 instead of 'walk', so the mark runs from your car. Also have J.cancel (line 77) and fail() clear A.car.keep = false and A.mark.isMark = false."
+  },
+  {
+   "priority": "P1",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Body pin (lines 142-146). Replace the straight push-back with a lateral slide. Let side = Math.sign((P.x - qp.x) * Math.cos(P.yaw) - (P.z - qp.z) * Math.sin(P.yaw)) || 1. Push only along the right vector (cos yaw, -sin yaw) * side * pen * 0.8, so the player steps round the body. If P.speed < 1.2, skip the push and let the player step over (bodies are low). Keep the stumble at > 2.5 m/s, but once per body: q.stumbledBy = G.t, skip if G.t - q.stumbledBy < 1.5. Target: in shove, the player keeps moving past the body at 2.5 m/s or more after the stumble instead of pinning at d 0.72 with speed < 0.5 for 0.8 s."
+  },
+  {
+   "priority": "P2",
+   "dimension": "fun_loop",
+   "file": "src/modules/game/jobs.js",
+   "fix": "Unlock the loop earlier and make HEAT readable. (1) line 44: replace 'if (!missionDone) return' with 'if (!missionDone && !(G.game?.mission?.step === \"goto\" && G.game.state.t > 90)) return', so street jobs appear 90 s into a session even before the ferry. Pass mission into createJobs instead of going through G.game. (2) HEAT objective (line 32): 'Get <b>2 stars</b>: knock someone out, then do it again with the cops watching, or nick a cop car.' (3) In index.js peds.onHit (line 160), when wanted.stars >= 1 and the victim is KO'd within 120 m of any wanted.cars or wanted.cops unit, wanted.add(1), so escalation works while a pursuit is closing in."
+  },
+  {
+   "priority": "P2",
+   "dimension": "hud_ux",
+   "file": "src/ui/ui.css",
+   "fix": "Phone overlaps. Line 188: body.touch .live { top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); left: calc(14px + env(safe-area-inset-left)); } puts it above the stick ghost and off the bars. Add @media (max-height: 430px) { body.touch .live-chat { height: 64px; } }. Line 171: body.touch .objective { top: auto; bottom: calc(14px + env(safe-area-inset-bottom)); max-width: 40vw; font-size: 15px; } puts it bottom-centre between the stick and the button arc. Line 172: body.touch .loc { top: calc(124px + env(safe-area-inset-top)); } puts it under the cash on the right, clear of Shaz's card (x 186-396, y 10-70). In touch.js, use bAction.hidden = !c.inVehicle && !c.canEnter instead of the dim class."
+  },
+  {
+   "priority": "P2",
+   "dimension": "world_boundaries",
+   "file": "src/modules/game/player.js",
+   "fix": "Edge brake precision (lines 76-79). Probe in 0.15 m steps from 0.3 m to reach = 0.35 + P.speed^2 / 11, and subtract one step for safety: tgt = Math.min(tgt, Math.sqrt(11 * Math.max(0, dd - 0.15 - 0.45))). While edge-braking, use acc = 9 instead of 6.5 (line 81: const acc = edgeBrake ? 9 : ...). Also probe along P.moveYaw as well as P.yaw and take the nearer hit, because diagonal approaches cut the corner. Target: sprint_stop reaches the lip at 0.3 m/s or less, with no slide along the lip and no one-frame snap to 0."
+  },
+  {
+   "priority": "P2",
+   "dimension": "combat",
+   "file": "src/modules/game/index.js",
+   "fix": "Make cops part of melee and escalation. Line 171: player.findTarget = (x, z, yaw, r, ang) => peds.findTarget(x, z, yaw, r, ang, wanted.cops). In peds.findTarget, also iterate the extra list (cops share ch.position and ch.state). In onPunch, when t is a cop: apply ch.flinch, cop.hp -= DMG, knockDown at hp <= 0, and wanted.setMin(Math.max(2, wanted.stars + 1)). Add wanted.cops to player.bodies() peds, so officers are solid and cannot arrest from inside the player. Also make fights two-sided: a ped in p.fight answers every 2nd player punch within 0.35 s (F.cd = Math.min(F.cd, 0.35) after a stagger ends). Randomise DMG to jab 18-30, cross 28-42, hook 40-60, and KO from a hook only when hp < 35, so a KO takes 3-5 hits."
+  },
+  {
+   "priority": "P2",
+   "dimension": "npc_behaviour",
+   "file": "src/modules/game/index.js",
+   "fix": "A sprint knockdown counts. Line 174: peds.onShoved = (q, down) => { audio...; if (down) { peds.scare(q.ch.position.x, q.ch.position.z, 10, 4, q); if (copsNear(q.ch.position.x, q.ch.position.z, 30)) wanted.add(1, 'shove'); else if (Math.random() < 0.5) q.fight = q.fight || { t: 0, cd: 1.0, side: 'L' }; } } so a ped who gets up after being flattened sometimes comes back for a fight. In peds.js line 179, keep p.fight when it is set instead of always switching to flee on get-up. In peds.js line 201, when the fight ends for kind 'idle', set state 'idle', not 'walk' (no path, so the ped freezes)."
+  },
+  {
+   "priority": "P3",
+   "dimension": "feedback",
+   "file": "src/modules/game/index.js",
+   "fix": "Distinct block feedback and haptics. In player.onPunch (line 175), take the return value r = peds.punched(...). If r === 'block': state.hitstop = 0.03, fx:shake 0.1, audio.play('impact_concrete', { gain: 0.35, rate: 1.6 }), no flesh sound, and a white 'BLOCKED' tick via hud.lockOn flashing grey. Otherwise call navigator.vibrate?.(ko ? 45 : kind === 'hook' ? 30 : 16). In peds.onPlayerPunched (line 184), add navigator.vibrate?.(22). Also fix the vacuous playtest assertion (playtest.json, river edge): replace '!__G.game.player.swimming && !__G.game.player.groundAt?.water' with '!__G.game.player.swimming && __G.game.player.y > 1.5 && __G.game.player.z < -160.0' (promenade y 2.2, lip at z about -160.05 for the x 112 spawn)."
+  }
+ ]
+}
