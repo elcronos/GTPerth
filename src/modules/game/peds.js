@@ -76,11 +76,13 @@ export function createPeds(G, { avatars, col }) {
     }
   };
   // top-up for the opening shot: make sure a handful of walkers are in view (8-55 m ahead), off the sightline
+  const PATH_CANDS = []; for (const path of [LOOPS.eq, LOOPS.landing]) for (let i = 0; i < path.length; i++) { const a = path[i], b = path[(i + 1) % path.length];
+    for (const t of [0, 0.33, 0.66]) PATH_CANDS.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, path, (i + 1) % path.length]); }
   S.topUp = (camPos, pl, want) => {
     const fx = pl.x - camPos.x, fz = pl.z - camPos.z, fl = Math.hypot(fx, fz) || 1, ux = fx / fl, uz = fz / fl;
     const inView = (x, z) => { const dx = x - camPos.x, dz = z - camPos.z, dep = dx * ux + dz * uz, lat = Math.abs(-dx * uz + dz * ux); return dep > 8 && dep < 55 && lat < 0.5 * dep && lat > 2.5; };
     const depthOf = (x, z) => (x - camPos.x) * ux + (z - camPos.z) * uz;
-    const BANDS = [[8, 20, 2], [20, 35, 2], [35, 55, 3]];   // spread the crowd in depth instead of one knot
+    const BANDS = [[8, 20, 3], [20, 35, 3], [35, 55, 3]];   // spread the crowd in depth instead of one knot
     const count = (b) => list.filter((p) => { const q = p.ch.root.position, d = depthOf(q.x, q.z); return p.kind !== 'idle' && inView(q.x, q.z) && d >= b[0] && d < b[1]; }).length;
     const free = (x, z) => Math.hypot(x - pl.x, z - pl.z) > 4 && !list.some((q) => Math.hypot(q.ch.root.position.x - x, q.ch.root.position.z - z) < 3.5);
     let n = list.filter((p) => p.kind !== 'idle' && inView(p.ch.root.position.x, p.ch.root.position.z)).length;
@@ -89,10 +91,11 @@ export function createPeds(G, { avatars, col }) {
       for (const p of list) {
         if (n >= want || have >= b[2]) break;
         if (!p.path || p.kind === 'idle' || p.zone === 'sgt' || inView(p.ch.root.position.x, p.ch.root.position.z)) continue;
-        const cand = (LOOPS.eq.concat(LOOPS.landing)).filter(([x, z]) => inView(x, z) && depthOf(x, z) >= b[0] && depthOf(x, z) < b[1] && free(x, z)); if (!cand.length) break;
-        const w = cand[Math.floor(Math.random() * cand.length)];
-        p.path = LOOPS.eq.includes(w) ? LOOPS.eq : LOOPS.landing; p.zone = p.path === LOOPS.eq ? 'eq' : 'landing'; p.wp = p.path.indexOf(w); p.dir = Math.random() < 0.5 ? 1 : -1;
-        p.ch.root.position.set(w[0], groundAt(w[0], w[1]).y, w[1]); n++; have++;
+        // candidates along the loop lines (thirds between waypoints), not just the waypoints: the spacing rule needs room
+        const cand = PATH_CANDS.filter(([x, z]) => inView(x, z) && depthOf(x, z) >= b[0] && depthOf(x, z) < b[1] && free(x, z)); if (!cand.length) break;
+        const [cx, cz, path, wi] = cand[Math.floor(Math.random() * cand.length)];
+        p.path = path; p.zone = path === LOOPS.eq ? 'eq' : 'landing'; p.wp = wi; p.dir = Math.random() < 0.5 ? 1 : -1;
+        p.ch.root.position.set(cx, groundAt(cx, cz).y, cz); n++; have++;
       }
     }
   };

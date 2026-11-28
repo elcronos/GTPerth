@@ -230,6 +230,7 @@ function osmBuildings(rng) {
   const LIST = OSM_BUILDINGS.filter((b) => {
     const key = b.p.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).sort().join(';') + '|' + (b.mh || 0);
     if (seenRing.has(key)) return false; seenRing.add(key);
+    if (/^Mister Walker$/.test(b.n || '')) return false;   // modelled by hand in landmarks.js (Mends Street Jetty)
     if (b.part) return true;
     let xa = 1e9, xb = -1e9, za = 1e9, zb = -1e9; for (const q of b.p) { xa = Math.min(xa, q[0]); xb = Math.max(xb, q[0]); za = Math.min(za, q[1]); zb = Math.max(zb, q[1]); }
     return !partC.some(([x, z]) => x > xa && x < xb && z > za && z < zb && inPoly(x, z, b.p));

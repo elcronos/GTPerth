@@ -2,7 +2,7 @@
 // entry/exit; crime → wanted; harness/debug hooks (__G.game) and ?show=chase for the action pose.
 import { CatmullRomCurve3, Vector3 } from 'three';
 import { PATH, PLAYER } from '../../contracts.js';
-import { PLACES, isLand, ROADS } from '../../map.js';
+import { PLACES, isLand, ROADS, mendsBerth } from '../../map.js';
 import { loadAvatars, MALE } from './avatars.js';
 import { loadModels } from './models.js';
 import { createCollision } from './collide.js';
@@ -173,7 +173,7 @@ export async function create(G, { input, world, fx, quality }) {
     setMode('playing'); mission.start(); hud.letterbox(false);
     player.camPos.set(0, 0, 0);
     // opening shot: nobody in the camera-to-player sightline, a few walkers in view
-    { const c = G.camera.position.clone().set(player.x - Math.sin(player.yaw) * 4.4, 0, player.z - Math.cos(player.yaw) * 4.4); peds.clearView?.(c, player); peds.topUp?.(c, player, G.quality.tier === 'low' ? 3 : 6); }
+    { const c = G.camera.position.clone().set(player.x - Math.sin(player.yaw) * 4.4, 0, player.z - Math.cos(player.yaw) * 4.4); peds.clearView?.(c, player); peds.topUp?.(c, player, G.quality.tier === 'low' ? 3 : 8); }
     if (matchMedia('(pointer: coarse)').matches) { try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {}); screen.orientation?.lock?.('landscape')?.catch?.(() => {}); } catch (e) { /* ignore */ } }
     else { try { G.canvas.requestPointerLock?.(); } catch (e) { /* ignore */ } }
     audio.mixer.unlock?.();
@@ -244,6 +244,8 @@ export async function create(G, { input, world, fx, quality }) {
     if (ferry.driver !== player) { ferry.throttle *= 0.98; }
     // ferry vs piers/peds pushes are cheap: skip; traffic, people, police, mission
     traffic.update(dt);
+    parkedRows?.update?.(dt, G.camera.position);
+    if (world.landmarks?.mends) { const [mx, mz] = PLACES.mendsJetty, c = G.camera.position; world.landmarks.mends.visible = Math.hypot(c.x - mx, c.z - mz) < (G.quality.tier === 'low' ? 650 : 2600); }
     peds.update(dt, player);
     if (!G.game_showChase) wanted.update(dt);
     mission.update(dt);
@@ -290,8 +292,8 @@ export async function create(G, { input, world, fx, quality }) {
   // tap anywhere on the title card to start (phones have no Enter key)
   title.addEventListener('click', (e) => { if (!e.target.closest('[data-act]')) startGame(); });
   G.game = {
-    player, ferry, traffic, peds, wanted, mission, hud, state,
-    debugWin: () => { if (player.vehicle !== ferry) { if (player.vehicle) exitVehicle(); enterVehicle(ferry); } ferry.place(PLACES.mendsHead[0] + 6, PLACES.mendsHead[1] - 18, 1.88); },
+    player, ferry, traffic, peds, wanted, mission, hud, state, parked: parkedRows,
+    debugWin: () => { if (player.vehicle !== ferry) { if (player.vehicle) exitVehicle(); enterVehicle(ferry); } { const [bx, bz] = mendsBerth(); ferry.place(bx, bz, -1.265); } },
     debugLose: () => { player.health = 0; },
     debugBusted: () => fail('busted'),
     boardFerry: () => { player.teleport(14, -126, Math.PI / 2); enterVehicle(ferry); },

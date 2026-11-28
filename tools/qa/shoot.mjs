@@ -1,5 +1,5 @@
 // Look-dev shot matrix for Grand Theft Perth (SwiftShader). One page load, many views.
-// usage: node tools/qa/shoot.mjs <outdir> [viewIds,comma] [--q=high] [--w=1280 --h=720]
+// usage: node tools/qa/shoot.mjs <outdir> [viewIds,comma] [--q=high] [--w=1280 --h=720] [--html=dist/index.html]
 // views.json entries: {id, hour, cam:[ex,ey,ez,tx,ty,tz]} or {id, hour, player:[x,z], look:[x,z], dist, h, fov}
 //   hud:true keeps the HUD; phone:true shoots 844x390 touch landscape.
 import { chromium } from 'playwright';
@@ -10,7 +10,7 @@ const out = args[0]; mkdirSync(out, { recursive: true });
 const pick = args[1] && !args[1].startsWith('--') ? args[1].split(',') : null;
 const opt = Object.fromEntries(args.filter((a) => a.startsWith('--')).map((a) => a.slice(2).split('=')));
 const views = JSON.parse(readFileSync(new URL('./views.json', import.meta.url))).filter((v) => !pick || pick.includes(v.id));
-const s = await startServer('/home/claude/perth/dist/index.html');
+const s = await startServer('/home/claude/perth/' + (opt.html || 'dist/index.html'));
 const b = await chromium.launch({ channel: 'chrome', headless: false, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-watchdog', '--ignore-gpu-blocklist'] });
 const rows = [];
 async function session(phone) {
@@ -40,11 +40,12 @@ for (const [gi, list] of groups.entries()) {
         // the real game camera rig frames the shot (shoulder offset, pitch, collision), not a harness pose
         G.camLocked = false; P.camYaw = yaw + Math.PI; P.camPitch = v.pitch ?? 0.10; P.camPos.set(0, 0, 0); P.camTarget.set(0, 0, 0);
         for (let i = 0; i < 40; i++) P.updateCamera(1 / 30, 'foot');
-        G.game.peds?.clearView?.(G.camera.position, P); G.game.peds?.topUp?.(G.camera.position, P, G.quality.tier === 'low' ? 3 : 6);
+        G.game.peds?.clearView?.(G.camera.position, P); G.game.peds?.topUp?.(G.camera.position, P, G.quality.tier === 'low' ? 3 : 8);
       } else if (v.cam) { const c = v.cam.slice(); G.camLocked = true; if (v.rel) { const gy = G.game.groundY?.(c[0], c[2]) ?? 0; c[1] += gy; c[4] += gy; } window.__setCam(c.slice(0, 3), c.slice(3, 6));
         const f = G.camera.getWorldDirection(G.camera.position.clone()); const fx = c[0] + f.x * 45, fz = c[2] + f.z * 45;
         G.focus = { x: fx, y: 0, z: fz }; G.game.traffic?.prime?.({ x: fx, z: fz }); G.game.peds?.prime?.({ x: fx, z: fz }, G.camera.position, f); }
       if (v.fov) { G.camera.fov = v.fov; G.camera.updateProjectionMatrix(); }
+      G.game.parked?.update?.(1, G.camera.position, true);   // near parked cars swap to the scanned LOD
       G.post?.resetAdaptation?.();
     }, v);
     await S.p.waitForTimeout(v.wait || 8000);

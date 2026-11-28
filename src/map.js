@@ -122,6 +122,7 @@ export const PLACES = {
   oldMill: [-840, 770],
   warMemorial: [-1060, 178],
   zoo: [-203, 1944],
+  numbat: [-236, 1347],                     // Connect South numbat canopy on the Mends St foreshore piazza
 };
 
 
@@ -180,19 +181,31 @@ export function alongShore(P, x0, x1, step, inset, filter, phase = 0) {
   return out;
 }
 ROADS.push({ name: 'Kwinana Freeway', cls: 't', w: 26, lanes: 4, pts: FREEWAY, traffic: false });
+// Mends Street Jetty frame: s = metres out along the jetty line from the shore end, o = metres east of it
+export function mendsW(s, o) {
+  const [x0, z0] = PLACES.mendsJetty, [x1, z1] = PLACES.mendsHead, L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L;
+  return [x0 + ux * s - uz * o, z0 + uz * s + ux * o];
+}
+export const MENDS = { deck: 2.84, pontoon: 0.76 };
+// [s0, s1, o, halfWidth, y0, y1?]: pinch walkway past Mister Walker, terrace, trunk, head, ramp, floating platform
+const MENDS_DECKS = [[-3, 24, -2.65, 1.35, 2.84], [18.5, 35.4, 5.0, 6.3, 2.84], [18, 72, -0.2, 2.5, 2.84], [70, 82, 0, 5, 2.84],
+  [82, 96, 0, 1.25, 2.84, 0.76], [96, 116, 0, 2.6, 0.76]];
+export const mendsBerth = () => mendsW(106, -7.2);   // ferry alongside the floating platform's west face
 // walkable decks over the water (jetties / pontoons): [ax, az, bx, bz, halfWidth, deckY]
 export const DECKS = (() => {
   const [cx, cz] = PLACES.eqJetty, [dx, dz] = PLACES.eqJettyDir;
   const D = [[cx - dx * 23, cz - dz * 23, cx + dx * 23, cz + dz * 23, 2.6, 0.76]];
-  const [mx0, mz0] = PLACES.mendsJetty, [mx1, mz1] = PLACES.mendsHead; D.push([mx0, mz0, mx1, mz1, 2.4, 1.78]);
+  // Mends Street Jetty (see landmarks.js mendsJetty): level timber jetty at foreshore height, the 2023 ramp down to the
+  // floating boarding platform. Segments in jetty coordinates (s out from the shore end, o east of the jetty line).
+  for (const [s0, s1, o, hw, y0, y1] of MENDS_DECKS) { const [ax, az] = mendsW(s0, o), [bx, bz] = mendsW(s1, o); D.push([ax, az, bx, bz, hw, y0, y1]); }
   for (const [a, b] of [[[121.8, 53.2], [101.6, 109.8]], [[162.3, 59.3], [140.1, 126.9]], [[197.8, 81.5], [176.5, 138.0]], [[239.3, 85.5], [217.1, 144.1]], [[273.8, 85.5], [259.6, 140.1]]]) D.push([a[0], a[1], b[0], b[1], 2.8, 1.82]);
   return D;
 })();
 export function deckAt(x, z) {
-  for (const [ax, az, bx, bz, hw, y] of DECKS) {
+  for (const [ax, az, bx, bz, hw, y, y1] of DECKS) {
     const vx = bx - ax, vz = bz - az, l2 = vx * vx + vz * vz, t = ((x - ax) * vx + (z - az) * vz) / l2;
     if (t < -0.02 || t > 1.02) continue;
-    const ex = ax + vx * t - x, ez = az + vz * t - z; if (ex * ex + ez * ez < hw * hw) return y;
+    const ex = ax + vx * t - x, ez = az + vz * t - z; if (ex * ex + ez * ez < hw * hw) return y1 === undefined ? y : y + (y1 - y) * Math.min(1, Math.max(0, t));
   }
   return null;
 }

@@ -15,6 +15,14 @@ materials only), SwiftShader renders only (no GPU perf numbers in this workspace
 | look-r5 | shots/r4 | 5.50 | time_of_day/materials/real_game 5 |
 | look-r6 | shots/r5 | 5.65 | materials/artefacts 5 |
 | look-r7 | shots/r6 | 5.54 | vegetation/characters/composition/artefacts 5 (peds buried the player: regression) |
+| look-r8 | shots/r7 | see look-r8.json | |
+| look-r9 | shots/r8 | see look-r9.json | |
+| look-r10 | shots/r9 | 5.65 | characters/artefacts 5 |
+| look-r11 | shots/r10 | 5.73 | materials 5 (critic A flags a plateau: structural asset work needed) |
+
+Mends Street Jetty rebuilt from references (OSM jetty line + Mister Walker footprint; DBCA 2020/2581 referral;
+PTA 2023 upgrade: ramp, floating boarding platform, passenger gates, weather cover; Connect South numbat canopy).
+Views: mends_aerial / mends_side / mends_shore / mends_numbat / mends_head / mends_night.
 
 Pass rule: overall >= 7.5 and no dimension < 6. Reviews: docs/reviews/look-rN-{A,B}.json, reduced look-rN.json.
 

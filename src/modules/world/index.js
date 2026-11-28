@@ -81,7 +81,8 @@ export function create(G, { mats }) {
   for (const o of towers.meshes) root.add(o);
   const lm = Landmarks.create(G, { mats });
   root.add(lm.group);
-  const props = Props.create(G, { mats, roads, footprints: towers.footprints });
+  towers.footprints.push(...lm.footprints);   // landmark buildings (Mister Walker): collision, minimap, prop keep-out
+  const props = Props.create(G, { mats, roads, footprints: towers.footprints, lamps: lm.lamps });
   root.add(props.group);
   G.scene.add(root);
 
@@ -116,7 +117,7 @@ export function create(G, { mats }) {
     const fm = new MeshStandardMaterial({ color: 0x4a4c3c, roughness: 1, metalness: 0, side: DoubleSide }); fm.name = 'suburbs-far';
     const fl = new Mesh(g, fm); fl.name = 'suburbs-far'; fl.frustumCulled = false; root.add(fl);
   }
-  const colliders = [...towers.footprints, ...(props.colliders || [])];
+  const colliders = [...towers.footprints, ...(props.colliders || []), ...lm.colliders];
   const bounds = new Box3(new Vector3(-1400, -5, -1000), new Vector3(1400, 300, 1800));
   return { root, ground: ground.ground[0], groundMeshes: ground.ground, sea, far, roads, towers, landmarks: lm, props, colliders, bounds, facade,
     heightAt, isLand, update() {} };
